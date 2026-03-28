@@ -1,0 +1,12 @@
+export const TURN_TIME = 60;
+export const BOARD_SIZE = 8;
+export const ELO_START = 1000;
+export const ELO_K_NEW = 32;       // K-factor for < 30 games
+export const ELO_K_EXPERIENCED = 16;
+export const ELO_NEW_THRESHOLD = 30;
+export const COINS_RANKED_WIN = 10;
+export const COINS_BOT_WIN = 5;
+export const COINS_LOSS = 2;
+export const MATCHMAKING_BASE_WINDOW = 100;
+export const MATCHMAKING_WINDOW_GROWTH = 50; // per 10 seconds
+export const MATCHMAKING_MAX_WINDOW = 500;

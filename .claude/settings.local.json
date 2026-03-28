@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/kdriv/checkers-p2p -type f -exec ls -lh {})",
+      "Read(//c/Users/kdriv/checkers-p2p/**)"
+    ]
+  }
+}

@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique @db.VarChar(16)
+  email         String    @unique
+  passwordHash  String
+  elo           Int       @default(1000)
+  coins         Int       @default(0)
+  gamesPlayed   Int       @default(0)
+  wins          Int       @default(0)
+  losses        Int       @default(0)
+  friendCode    String    @unique @db.VarChar(8)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  gamesAsRed       Game[]            @relation("RedPlayer")
+  gamesAsBlack     Game[]            @relation("BlackPlayer")
+  inventory        Inventory[]
+  sentRequests     Friendship[]      @relation("FriendRequester")
+  receivedRequests Friendship[]      @relation("FriendReceiver")
+  sentTips         CoinTransaction[] @relation("TipSender")
+  receivedTips     CoinTransaction[] @relation("TipReceiver")
+  chatMessages     ChatMessage[]
+}
+
+model Game {
+  id               Int        @id @default(autoincrement())
+  redPlayerId      Int
+  blackPlayerId    Int
+  winnerId         Int?
+  result           GameResult
+  redEloChange     Int        @default(0)
+  blackEloChange   Int        @default(0)
+  redCoinsEarned   Int        @default(0)
+  blackCoinsEarned Int        @default(0)
+  moveHistory      Json
+  mode             GameMode   @default(RANKED)
+  startedAt        DateTime   @default(now())
+  endedAt          DateTime?
+
+  redPlayer   User @relation("RedPlayer", fields: [redPlayerId], references: [id])
+  blackPlayer User @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
+}
+
+enum GameResult {
+  RED_WIN
+  BLACK_WIN
+  DRAW
+  ABORTED
+}
+
+enum GameMode {
+  RANKED
+  FRIENDLY
+  BOT
+}
+
+model ShopItem {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  name      String
+  type      ItemType
+  price     Int
+  data      Json
+  preview   String?
+  createdAt DateTime @default(now())
+
+  inventory Inventory[]
+}
+
+enum ItemType {
+  THEME
+  SKIN
+}
+
+model Inventory {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  itemId      Int
+  equipped    Boolean  @default(false)
+  purchasedAt DateTime @default(now())
+
+  user User     @relation(fields: [userId], references: [id])
+  item ShopItem @relation(fields: [itemId], references: [id])
+
+  @@unique([userId, itemId])
+}
+
+model Friendship {
+  id          Int          @id @default(autoincrement())
+  requesterId Int
+  receiverId  Int
+  status      FriendStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+
+  requester User @relation("FriendRequester", fields: [requesterId], references: [id])
+  receiver  User @relation("FriendReceiver", fields: [receiverId], references: [id])
+
+  @@unique([requesterId, receiverId])
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+model CoinTransaction {
+  id         Int        @id @default(autoincrement())
+  senderId   Int?
+  receiverId Int
+  amount     Int
+  reason     CoinReason
+  createdAt  DateTime   @default(now())
+
+  sender   User? @relation("TipSender", fields: [senderId], references: [id])
+  receiver User  @relation("TipReceiver", fields: [receiverId], references: [id])
+}
+
+enum CoinReason {
+  WIN_REWARD
+  TIP_SENT
+  TIP_RECEIVED
+  PURCHASE
+  BOT_WIN
+}
+
+model ChatMessage {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  gameId     Int?
+  receiverId Int?
+  content    String   @db.VarChar(500)
+  createdAt  DateTime @default(now())
+
+  sender User @relation(fields: [senderId], references: [id])
+}

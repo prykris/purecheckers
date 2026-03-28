@@ -1,28 +1,29 @@
 // ============================================================
 // CheckersGame — pure game logic, no DOM/network dependencies
 // 8x8 board, flying queens, forced captures, multi-jumps
+// Isomorphic: runs on both client and server
 // ============================================================
 
-class CheckersGame {
+import { TURN_TIME } from './constants.js';
+
+export class CheckersGame {
   constructor() {
-    this.board = [];        // 8x8: null | { color:'red'|'black', queen:bool }
+    this.board = [];
     this.currentPlayer = 'red';
-    this.chainPiece = null; // {row,col} if mid-multijump
+    this.chainPiece = null;
     this.gameOver = false;
-    this.winner = null;     // 'red' | 'black' | 'draw'
-    this.redTime = 60;    // seconds (60 min)
-    this.blackTime = 60;
+    this.winner = null;
+    this.redTime = TURN_TIME;
+    this.blackTime = TURN_TIME;
     this.moveHistory = [];
     this.reset();
   }
 
   reset() {
     this.board = Array.from({ length: 8 }, () => Array(8).fill(null));
-    // Black pieces on rows 0-2
     for (let r = 0; r < 3; r++)
       for (let c = 0; c < 8; c++)
         if ((r + c) % 2 === 1) this.board[r][c] = { color: 'black', queen: false };
-    // Red pieces on rows 5-7
     for (let r = 5; r < 8; r++)
       for (let c = 0; c < 8; c++)
         if ((r + c) % 2 === 1) this.board[r][c] = { color: 'red', queen: false };
@@ -31,8 +32,8 @@ class CheckersGame {
     this.chainPiece = null;
     this.gameOver = false;
     this.winner = null;
-    this.redTime = 60;
-    this.blackTime = 60;
+    this.redTime = TURN_TIME;
+    this.blackTime = TURN_TIME;
     this.moveHistory = [];
   }
 
@@ -52,8 +53,6 @@ class CheckersGame {
     if (r < 0 || r > 7 || c < 0 || c > 7) return undefined;
     return this.board[r][c];
   }
-
-  // ---- move generation ----
 
   _directions() { return [[-1,-1],[-1,1],[1,-1],[1,1]]; }
 
@@ -81,12 +80,9 @@ class CheckersGame {
     const moves = [];
     for (const [dr, dc] of this._directions()) {
       let dist = 1;
-      // Slide until we hit something
       while (this.at(r + dist * dr, c + dist * dc) === null) dist++;
       const mr = r + dist * dr, mc = c + dist * dc;
-      // Must be an enemy piece
       if (this.at(mr, mc)?.color !== enemy) continue;
-      // Landing squares: all empty squares beyond the captured piece
       let ldist = dist + 1;
       while (this.at(r + ldist * dr, c + ldist * dc) === null) {
         moves.push({
@@ -130,7 +126,6 @@ class CheckersGame {
     return moves;
   }
 
-  // All captures for the current player
   getAllCaptures(color) {
     color = color || this.currentPlayer;
     const all = [];
@@ -143,22 +138,18 @@ class CheckersGame {
     return all;
   }
 
-  // Get all valid moves for a specific piece at (r,c)
   getValidMovesFor(r, c) {
     const piece = this.at(r, c);
     if (!piece || piece.color !== this.currentPlayer) return [];
-    // If mid-chain, only this piece can move
     if (this.chainPiece && (this.chainPiece.row !== r || this.chainPiece.col !== c)) return [];
-    // Forced capture check
     const allCaptures = this.getAllCaptures();
     if (allCaptures.length > 0) {
       return this.getCaptures(r, c).map(m => ({ fromRow: r, fromCol: c, ...m }));
     }
-    if (this.chainPiece) return []; // chain but no captures = chain ends (shouldn't happen)
+    if (this.chainPiece) return [];
     return this.getSimpleMoves(r, c).map(m => ({ fromRow: r, fromCol: c, ...m }));
   }
 
-  // All valid moves for current player
   getAllValidMoves(color) {
     color = color || this.currentPlayer;
     if (this.chainPiece) {
@@ -175,8 +166,6 @@ class CheckersGame {
     return moves;
   }
 
-  // ---- execute move ----
-
   makeMove(fromRow, fromCol, toRow, toCol) {
     const valid = this.getValidMovesFor(fromRow, fromCol);
     const move = valid.find(m => m.toRow === toRow && m.toCol === toCol);
@@ -186,12 +175,10 @@ class CheckersGame {
     this.board[toRow][toCol] = piece;
     this.board[fromRow][fromCol] = null;
 
-    // Remove captured pieces
     for (const cap of move.captured) {
       this.board[cap.row][cap.col] = null;
     }
 
-    // Promotion
     let promoted = false;
     if (!piece.queen) {
       if ((piece.color === 'red' && toRow === 0) || (piece.color === 'black' && toRow === 7)) {
@@ -200,7 +187,6 @@ class CheckersGame {
       }
     }
 
-    // Chain jump?
     let chainContinues = false;
     if (move.captured.length > 0 && !promoted) {
       const moreCaps = this.getCaptures(toRow, toCol);
@@ -213,9 +199,8 @@ class CheckersGame {
     if (!chainContinues) {
       this.chainPiece = null;
       this.currentPlayer = this.currentPlayer === 'red' ? 'black' : 'red';
-      // Reset turn timer for the new player
-      if (this.currentPlayer === 'red') this.redTime = 60;
-      else this.blackTime = 60;
+      if (this.currentPlayer === 'red') this.redTime = TURN_TIME;
+      else this.blackTime = TURN_TIME;
       this._checkGameOver();
     }
 
@@ -246,8 +231,6 @@ class CheckersGame {
     }
   }
 
-  // ---- evaluation for AI ----
-
   evaluate(color) {
     let score = 0;
     for (let r = 0; r < 8; r++)
@@ -256,7 +239,7 @@ class CheckersGame {
         if (!p) continue;
         const val = p.queen ? 5 : 1;
         const posBonus = p.queen ? 0 :
-          (p.color === 'red' ? (7 - r) * 0.1 : r * 0.1); // advance bonus
+          (p.color === 'red' ? (7 - r) * 0.1 : r * 0.1);
         const centerBonus = (c >= 2 && c <= 5) ? 0.05 : 0;
         if (p.color === color) score += val + posBonus + centerBonus;
         else score -= val + posBonus + centerBonus;
@@ -278,7 +261,7 @@ class CheckersGame {
 // Minimax with alpha-beta pruning
 // ============================================================
 
-class ColonelBot {
+export class ColonelBot {
   constructor() {
     this.name = 'The Colonel';
     this.depth = 6;
@@ -295,7 +278,6 @@ class ColonelBot {
     for (const move of moves) {
       const sim = game.clone();
       sim.makeMove(move.fromRow, move.fromCol, move.toRow, move.toCol);
-      // If chain continues, play out the chain greedily
       this._finishChain(sim);
       const score = this._minimax(sim, this.depth - 1, -Infinity, Infinity, false, game.currentPlayer);
       if (score > bestScore) {
@@ -312,19 +294,14 @@ class ColonelBot {
     while (game.chainPiece) {
       const moves = game.getAllValidMoves();
       if (moves.length === 0) break;
-      const m = moves[0]; // just pick first for chain
-      game.makeMove(m.fromRow, m.fromCol, m.toRow, m.toCol);
+      game.makeMove(moves[0].fromRow, moves[0].fromCol, moves[0].toRow, moves[0].toCol);
     }
   }
 
   _minimax(game, depth, alpha, beta, maximizing, botColor) {
-    if (depth === 0 || game.gameOver) {
-      return game.evaluate(botColor);
-    }
+    if (depth === 0 || game.gameOver) return game.evaluate(botColor);
     const moves = game.getAllValidMoves();
-    if (moves.length === 0) {
-      return game.evaluate(botColor);
-    }
+    if (moves.length === 0) return game.evaluate(botColor);
 
     if (maximizing) {
       let maxEval = -Infinity;
