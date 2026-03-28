@@ -28,9 +28,6 @@
   let moveLog = [];
   let moveNumber = 0;
 
-  let chatMessages = [];
-  let chatInput = '';
-  let showChat = false;
 
   let ownedEmotes = [];
   let activeEmote = null;
@@ -57,7 +54,6 @@
       socket.on('game:moved', onServerMove);
       socket.on('game:tick', onTick);
       socket.on('game:over', onGameOver);
-      socket.on('chat:game-message', onChatMessage);
       socket.on('emote:show', onEmoteShow);
 
       api.get('/shop/inventory').then(({ inventory }) => {
@@ -81,7 +77,6 @@
       socket.off('game:moved', onServerMove);
       socket.off('game:tick', onTick);
       socket.off('game:over', onGameOver);
-      socket.off('chat:game-message', onChatMessage);
       socket.off('emote:show', onEmoteShow);
     }
   });
@@ -204,8 +199,6 @@
   function resign() { showResignConfirm=false; game.gameOver=true; game.winner=myColor==='red'?'black':'red'; if(mode==='online')socket.emit('game:resign',{gameId:$gameState.gameId}); handleGameOver(); }
   function goToLobby() { gameOverData=null; $gameState=null; $screen='lobby'; }
 
-  function onChatMessage(msg) { chatMessages=[...chatMessages,msg]; }
-  function sendChat() { if(!chatInput.trim())return; socket?.emit('chat:game-message',{gameId:$gameState?.gameId,content:chatInput.trim()}); chatInput=''; }
   function onEmoteShow(data) { activeEmote={emoji:data.emote.emoji,label:data.emote.label,username:data.username}; clearTimeout(emoteTimeout); emoteTimeout=setTimeout(()=>{activeEmote=null;},2500); }
   function sendEmote(emote) { socket?.emit('emote:send',{gameId:$gameState?.gameId,emote:{emoji:emote.data.emoji,label:emote.data.label}}); showEmoteBar=false; }
 
@@ -265,7 +258,6 @@
   <div class="actions">
     <button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=true}>Resign</button>
     {#if mode==='online'}
-      <button class="btn btn-dark btn-small" on:click={()=>showChat=!showChat}>Chat</button>
       {#if ownedEmotes.length>0}
         <button class="btn btn-dark btn-small" on:click={()=>showEmoteBar=!showEmoteBar}>Emote</button>
       {/if}
@@ -295,12 +287,6 @@
     </div>
   {/if}
 
-  {#if showChat}
-    <div class="chat-panel">
-      <div class="chat-msgs">{#each chatMessages as msg}<div class="chat-msg"><strong>{msg.username}:</strong> {msg.content}</div>{/each}</div>
-      <div class="chat-row"><input class="input" type="text" bind:value={chatInput} placeholder="Message..." maxlength="200" on:keydown={(e)=>e.key==='Enter'&&sendChat()} /><button class="btn btn-primary btn-small" on:click={sendChat}>Send</button></div>
-    </div>
-  {/if}
 </div>
 
 <style>
@@ -368,11 +354,6 @@
   .emote-btn { width: 40px; height: 40px; border-radius: var(--radius-sm); background: var(--surface2); border: none; cursor: pointer; font-size: 1.4rem; transition: transform 0.1s; }
   .emote-btn:hover { transform: scale(1.15); }
 
-  .chat-panel { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 2px solid var(--surface2); max-height: 200px; display: flex; flex-direction: column; z-index: 15; }
-  .chat-msgs { flex: 1; overflow-y: auto; padding: var(--sp-sm) var(--sp-md); font-size: var(--fs-caption); }
-  .chat-msg { margin-bottom: var(--sp-xs); }
-  .chat-msg strong { color: var(--accent); }
-  .chat-row { display: flex; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md); border-top: 1px solid var(--surface2); }
 
   /* ---- Desktop 3-column ---- */
   @media (min-width: 1100px) {
@@ -390,6 +371,5 @@
     .status { grid-column: 2; grid-row: 4; text-align: center; }
     .actions { grid-column: 3; grid-row: 3; justify-self: center; }
     .moves { grid-column: 3; grid-row: 2; flex-direction: column; overflow-y: auto; overflow-x: hidden; max-height: 300px; max-width: none; scrollbar-width: thin; }
-    .chat-panel { position: static; grid-column: 3; grid-row: 1; border-top: none; border-radius: var(--radius-lg); max-height: 250px; }
   }
 </style>

@@ -179,13 +179,13 @@
     .lobby {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: var(--sp-lg);
+      gap: var(--sp-xl) var(--sp-xl);
       align-items: start;
-      max-width: var(--content-max);
+      max-width: 960px;
     }
-    .title { grid-column: 1 / -1; }
+    .title { grid-column: 1 / -1; text-align: center; }
     .user-bar { grid-column: 1 / -1; }
     .play-section { grid-column: 1; align-self: start; }
-    .leaderboard { grid-column: 2; }
+    .leaderboard { grid-column: 2; grid-row: 3; }
   }
 </style>
