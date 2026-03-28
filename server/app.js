@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth.js';
 import leaderboardRoutes from './routes/leaderboard.js';
+import shopRoutes from './routes/shop.js';
 
 const app = express();
 
@@ -14,5 +15,6 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/shop', shopRoutes);
 
 export default app;

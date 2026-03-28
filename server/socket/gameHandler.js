@@ -4,6 +4,8 @@ import { rankedQueue } from '../services/matchmaking.js';
 import { connectedUsers } from './index.js';
 import { setUserStatus } from './presenceHandler.js';
 import { calculateElo } from '../services/elo.js';
+import { awardCoins } from '../services/coins.js';
+import { COINS_RANKED_WIN, COINS_LOSS } from '../../shared/constants.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -64,6 +66,7 @@ class GameRoom {
     const winnerId = winner === 'red' ? this.redUserId : winner === 'black' ? this.blackUserId : null;
 
     let eloChanges = { red: 0, black: 0 };
+    let coinRewards = { red: 0, black: 0 };
 
     // Compute ELO for ranked games
     if (this.mode === 'RANKED' && winnerId) {
@@ -121,6 +124,20 @@ class GameRoom {
               }
             })
           ]);
+
+          // Award coins
+          const winnerCoinAmount = COINS_RANKED_WIN;
+          const loserCoinAmount = COINS_LOSS;
+          const winnerUserId = winner === 'red' ? this.redUserId : this.blackUserId;
+          const loserUserId = winner === 'red' ? this.blackUserId : this.redUserId;
+
+          await awardCoins(winnerUserId, winnerCoinAmount, 'WIN_REWARD');
+          await awardCoins(loserUserId, loserCoinAmount, 'WIN_REWARD');
+
+          coinRewards = {
+            red: winner === 'red' ? winnerCoinAmount : loserCoinAmount,
+            black: winner === 'black' ? winnerCoinAmount : loserCoinAmount
+          };
         }
       } catch (err) {
         console.error('Failed to persist game result:', err);
@@ -134,7 +151,7 @@ class GameRoom {
       gameId: this.id,
       moveHistory: this.game.moveHistory,
       eloChanges,
-      coinRewards: { red: 0, black: 0 } // Added in Phase 5
+      coinRewards
     });
 
     // Update presence
