@@ -4,7 +4,7 @@
   import { api } from '../lib/api.js';
   import { connectSocket } from '../lib/socket.js';
 
-  let mode = 'login'; // 'login' | 'register'
+  let mode = 'login';
   let username = '';
   let email = '';
   let password = '';
@@ -38,119 +38,65 @@
   }
 </script>
 
-<div class="auth-screen">
-  <h1 class="title">Checkers <span>Online</span></h1>
-  <div class="auth-box">
-    <h2>{mode === 'login' ? 'Welcome back' : 'Create account'}</h2>
+<div class="page-center">
+  <div class="auth-wrapper">
+    <h1 class="title">Checkers <span>Online</span></h1>
+    <div class="card auth-card">
+      <h2>{mode === 'login' ? 'Welcome back' : 'Create account'}</h2>
 
-    <form on:submit|preventDefault={submit}>
-      {#if mode === 'register'}
-        <input
-          type="text"
-          bind:value={username}
-          placeholder="Username"
-          maxlength="16"
-          required
-          autocomplete="username"
-        />
-      {/if}
+      <form on:submit|preventDefault={submit}>
+        {#if mode === 'register'}
+          <input class="input" type="text" bind:value={username}
+            placeholder="Username" maxlength="16" required autocomplete="username" />
+        {/if}
+        <input class="input" type="email" bind:value={email}
+          placeholder="Email" required autocomplete="email" />
+        <input class="input" type="password" bind:value={password}
+          placeholder="Password" minlength="6" required
+          autocomplete={mode === 'register' ? 'new-password' : 'current-password'} />
+        {#if error}
+          <p class="error">{error}</p>
+        {/if}
+        <button type="submit" class="btn btn-primary full-w" disabled={loading}>
+          {loading ? '...' : mode === 'login' ? 'Log in' : 'Sign up'}
+        </button>
+      </form>
 
-      <input
-        type="email"
-        bind:value={email}
-        placeholder="Email"
-        required
-        autocomplete="email"
-      />
-
-      <input
-        type="password"
-        bind:value={password}
-        placeholder="Password"
-        minlength="6"
-        required
-        autocomplete={mode === 'register' ? 'new-password' : 'current-password'}
-      />
-
-      {#if error}
-        <p class="error">{error}</p>
-      {/if}
-
-      <button type="submit" class="btn btn-primary" disabled={loading}>
-        {loading ? '...' : mode === 'login' ? 'Log in' : 'Sign up'}
-      </button>
-    </form>
-
-    <p class="toggle">
-      {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
-      <button class="link" on:click={toggle}>
-        {mode === 'login' ? 'Sign up' : 'Log in'}
-      </button>
-    </p>
+      <p class="toggle">
+        {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+        <button class="link" on:click={toggle}>
+          {mode === 'login' ? 'Sign up' : 'Log in'}
+        </button>
+      </p>
+    </div>
   </div>
 </div>
 
 <style>
-  .auth-screen {
+  .auth-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 28px;
-    padding: 20px;
+    gap: var(--sp-lg);
+    width: 100%;
+    max-width: 380px;
   }
-  .title {
-    font-size: 2.2rem;
-    letter-spacing: 2px;
-    color: var(--accent);
-  }
+  .title { font-size: var(--fs-title); letter-spacing: 2px; color: var(--accent); }
   .title span { color: var(--text); font-weight: 300; }
-  .auth-box {
-    background: var(--surface);
-    border-radius: 12px;
-    padding: 28px 24px;
+  .auth-card {
     width: 100%;
-    max-width: 340px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--sp-md);
+    padding: var(--sp-lg) var(--sp-md);
   }
-  .auth-box h2 {
-    text-align: center;
-    font-size: 1.2rem;
-    color: var(--text);
-  }
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  input {
-    padding: 12px 16px;
-    border-radius: 8px;
-    border: 2px solid var(--surface2);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 0.95rem;
-    outline: none;
-    width: 100%;
-  }
-  input:focus { border-color: var(--accent); }
-  .error {
-    color: var(--accent);
-    font-size: 0.85rem;
-    text-align: center;
-  }
-  .toggle {
-    text-align: center;
-    font-size: 0.85rem;
-    color: var(--text-dim);
-  }
+  h2 { text-align: center; font-size: var(--fs-heading); }
+  form { display: flex; flex-direction: column; gap: var(--sp-sm); }
+  .full-w { width: 100%; }
+  .error { color: var(--accent); font-size: var(--fs-caption); text-align: center; }
+  .toggle { text-align: center; font-size: var(--fs-caption); color: var(--text-dim); }
   .link {
-    background: none;
-    border: none;
-    color: var(--accent);
-    cursor: pointer;
-    font-size: 0.85rem;
-    text-decoration: underline;
+    background: none; border: none; color: var(--accent);
+    cursor: pointer; font-size: var(--fs-caption); text-decoration: underline;
   }
 </style>

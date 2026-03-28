@@ -100,6 +100,17 @@ const skins = [
   }
 ];
 
+const emotes = [
+  { slug: 'emote-gg', name: 'GG', type: 'EMOTE', price: 10, data: { emoji: '🤝', label: 'GG' } },
+  { slug: 'emote-think', name: 'Thinking', type: 'EMOTE', price: 10, data: { emoji: '🤔', label: 'Hmm...' } },
+  { slug: 'emote-fire', name: 'Fire', type: 'EMOTE', price: 15, data: { emoji: '🔥', label: 'On fire!' } },
+  { slug: 'emote-clap', name: 'Clap', type: 'EMOTE', price: 10, data: { emoji: '👏', label: 'Nice!' } },
+  { slug: 'emote-laugh', name: 'Laugh', type: 'EMOTE', price: 15, data: { emoji: '😂', label: 'Haha' } },
+  { slug: 'emote-crown', name: 'Crown', type: 'EMOTE', price: 25, data: { emoji: '👑', label: 'King move' } },
+  { slug: 'emote-oops', name: 'Oops', type: 'EMOTE', price: 10, data: { emoji: '😬', label: 'Oops' } },
+  { slug: 'emote-wave', name: 'Wave', type: 'EMOTE', price: 5, data: { emoji: '👋', label: 'Hi!' } }
+];
+
 async function seed() {
   console.log('Seeding shop items...');
 
@@ -116,6 +127,14 @@ async function seed() {
       where: { slug: skin.slug },
       update: { ...skin },
       create: { ...skin }
+    });
+  }
+
+  for (const emote of emotes) {
+    await prisma.shopItem.upsert({
+      where: { slug: emote.slug },
+      update: { ...emote },
+      create: { ...emote }
     });
   }
 

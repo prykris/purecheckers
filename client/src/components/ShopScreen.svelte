@@ -20,13 +20,8 @@
     } catch (e) { error = e.message; }
   });
 
-  function isOwned(itemId) {
-    return inventory.some(i => i.itemId === itemId);
-  }
-
-  function isEquipped(itemId) {
-    return inventory.some(i => i.itemId === itemId && i.equipped);
-  }
+  function isOwned(id) { return inventory.some(i => i.itemId === id); }
+  function isEquipped(id) { return inventory.some(i => i.itemId === id && i.equipped); }
 
   async function buy(item) {
     buying = item.id;
@@ -49,98 +44,90 @@
   }
 
   $: skins = items.filter(i => i.type === 'SKIN');
+  $: emotes = items.filter(i => i.type === 'EMOTE');
 </script>
 
-<div class="shop">
-  <button class="btn btn-dark btn-small btn-back" on:click={() => $screen = 'lobby'}>Back</button>
+<div class="page-scroll">
+  <div class="page-content shop">
+    <h2>Shop</h2>
+    <p class="coins">Your coins: <strong>{$user?.coins || 0}</strong></p>
+    {#if error}<p class="error">{error}</p>{/if}
 
-  <h2>Shop</h2>
-  <p class="coins">Your coins: <strong>{$user?.coins || 0}</strong></p>
-
-  {#if error}
-    <p class="error">{error}</p>
-  {/if}
-
-  <h3>Piece Skins</h3>
-  <div class="items-grid">
-    {#each skins as item}
-      <div class="item-card" class:owned={isOwned(item.id)} class:equipped={isEquipped(item.id)}>
-        <div class="item-preview" style="background: linear-gradient(135deg, {item.data?.red?.base || '#e94560'}, {item.data?.black?.base || '#2d2d2d'})"></div>
-        <div class="item-info">
-          <span class="item-name">{item.name}</span>
-          <span class="item-price">{item.price} coins</span>
-        </div>
-        {#if isEquipped(item.id)}
-          <span class="badge">Equipped</span>
-        {:else if isOwned(item.id)}
-          <button class="btn btn-secondary btn-small" on:click={() => equip(item)}>Equip</button>
-        {:else}
-          <button class="btn btn-primary btn-small" on:click={() => buy(item)} disabled={buying === item.id || ($user?.coins || 0) < item.price}>
-            {buying === item.id ? '...' : 'Buy'}
-          </button>
-        {/if}
+    {#if skins.length > 0}
+      <h3 class="section-title">Piece Skins</h3>
+      <div class="items-grid">
+        {#each skins as item}
+          <div class="card item-card" class:equipped={isEquipped(item.id)}>
+            <div class="preview" style="background:linear-gradient(135deg,{item.data?.red?.base||'#e94560'},{item.data?.black?.base||'#2d2d2d'})"></div>
+            <div class="info">
+              <span class="name">{item.name}</span>
+              <span class="price">{item.price} coins</span>
+            </div>
+            {#if isEquipped(item.id)}
+              <span class="badge equipped">Equipped</span>
+            {:else if isOwned(item.id)}
+              <button class="btn btn-secondary btn-small" on:click={() => equip(item)}>Equip</button>
+            {:else}
+              <button class="btn btn-primary btn-small" on:click={() => buy(item)}
+                disabled={buying === item.id || ($user?.coins || 0) < item.price}>
+                {buying === item.id ? '...' : 'Buy'}
+              </button>
+            {/if}
+          </div>
+        {/each}
       </div>
-    {/each}
-  </div>
+    {/if}
 
-  {#if skins.length === 0}
-    <p class="empty">No items available yet. Check back later!</p>
-  {/if}
+    {#if emotes.length > 0}
+      <h3 class="section-title">Emotes</h3>
+      <div class="items-grid">
+        {#each emotes as item}
+          <div class="card item-card">
+            <div class="emote-icon">{item.data?.emoji || '?'}</div>
+            <div class="info">
+              <span class="name">{item.name}</span>
+              <span class="price">{item.price} coins</span>
+            </div>
+            {#if isOwned(item.id)}
+              <span class="badge owned">Owned</span>
+            {:else}
+              <button class="btn btn-primary btn-small" on:click={() => buy(item)}
+                disabled={buying === item.id || ($user?.coins || 0) < item.price}>
+                {buying === item.id ? '...' : 'Buy'}
+              </button>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
-  .shop {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
-    width: 100%;
-    max-width: 480px;
-    position: relative;
-  }
-  .btn-back { position: absolute; top: 16px; left: 16px; }
-  h2 { font-size: 1.5rem; color: var(--text); }
-  h3 { font-size: 1rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; }
-  .coins { color: var(--text-dim); font-size: 0.9rem; }
-  .coins strong { color: #ffd700; }
-  .error { color: var(--accent); font-size: 0.85rem; }
-  .empty { color: var(--text-dim); font-size: 0.85rem; }
+  .shop { align-items: center; }
+  h2 { font-size: var(--fs-heading); text-align: center; }
+  .coins { text-align: center; color: var(--text-dim); }
+  .coins strong { color: var(--gold); }
+  .error { color: var(--accent); font-size: var(--fs-caption); text-align: center; }
 
-  .items-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    width: 100%;
-  }
+  .items-grid { display: flex; flex-direction: column; gap: var(--sp-sm); width: 100%; }
   .item-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--surface);
-    border-radius: 10px;
-    padding: 12px;
+    display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md);
   }
   .item-card.equipped { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .item-preview {
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    flex-shrink: 0;
+  .preview { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; }
+  .emote-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0; }
+  .info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .name { font-weight: 600; font-size: var(--fs-body); }
+  .price { font-size: var(--fs-caption); color: var(--text-dim); }
+  .badge { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .equipped { color: var(--accent); }
+  .owned { color: var(--success); }
+
+  @media (min-width: 600px) {
+    .items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-md); }
   }
-  .item-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-  }
-  .item-name { font-weight: 600; font-size: 0.9rem; }
-  .item-price { font-size: 0.75rem; color: var(--text-dim); }
-  .badge {
-    font-size: 0.7rem;
-    color: var(--accent);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+  @media (min-width: 900px) {
+    .items-grid { grid-template-columns: repeat(3, 1fr); }
   }
 </style>

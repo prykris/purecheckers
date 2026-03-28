@@ -12,6 +12,10 @@
   import GameScreen from './components/GameScreen.svelte';
   import ShopScreen from './components/ShopScreen.svelte';
   import FriendsScreen from './components/FriendsScreen.svelte';
+  import BottomNav from './components/BottomNav.svelte';
+
+  const tabScreens = ['lobby', 'shop', 'friends', 'profile'];
+  $: showTabs = tabScreens.includes($screen);
 
   onMount(async () => {
     if ($token) {
@@ -29,30 +33,22 @@
   });
 </script>
 
-<div class="app-root">
-  {#if $screen === 'auth'}
-    <AuthScreen />
-  {:else if $screen === 'lobby'}
-    <Lobby />
-  {:else if $screen === 'search'}
-    <SearchScreen />
-  {:else if $screen === 'wheel'}
-    <WheelScreen />
-  {:else if $screen === 'game'}
-    <GameScreen />
-  {:else if $screen === 'shop'}
-    <ShopScreen />
-  {:else if $screen === 'friends'}
-    <FriendsScreen />
-  {/if}
-</div>
+{#if $screen === 'auth'}
+  <AuthScreen />
+{:else if $screen === 'lobby'}
+  <Lobby />
+{:else if $screen === 'search'}
+  <SearchScreen />
+{:else if $screen === 'wheel'}
+  <WheelScreen />
+{:else if $screen === 'game'}
+  <GameScreen />
+{:else if $screen === 'shop'}
+  <ShopScreen />
+{:else if $screen === 'friends'}
+  <FriendsScreen />
+{/if}
 
-<style>
-  .app-root {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-</style>
+{#if showTabs}
+  <BottomNav />
+{/if}

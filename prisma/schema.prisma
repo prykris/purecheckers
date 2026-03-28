@@ -79,6 +79,7 @@ model ShopItem {
 enum ItemType {
   THEME
   SKIN
+  EMOTE
 }
 
 model Inventory {

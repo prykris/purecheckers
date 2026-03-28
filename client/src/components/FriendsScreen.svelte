@@ -36,19 +36,8 @@
     } catch (e) { error = e.message; }
   }
 
-  async function accept(id) {
-    try {
-      await api.post('/friends/accept', { friendshipId: id });
-      await refresh();
-    } catch (e) { error = e.message; }
-  }
-
-  async function remove(id) {
-    try {
-      await api.del(`/friends/${id}`);
-      await refresh();
-    } catch (e) { error = e.message; }
-  }
+  async function accept(id) { try { await api.post('/friends/accept', { friendshipId: id }); await refresh(); } catch (e) { error = e.message; } }
+  async function remove(id) { try { await api.del(`/friends/${id}`); await refresh(); } catch (e) { error = e.message; } }
 
   async function tip(friendId) {
     const amount = parseInt(tipAmounts[friendId]);
@@ -63,111 +52,85 @@
   }
 </script>
 
-<div class="friends-screen">
-  <button class="btn btn-dark btn-small btn-back" on:click={() => $screen = 'lobby'}>Back</button>
+<div class="page-scroll">
+  <div class="page-content friends">
+    <h2>Friends</h2>
 
-  <h2>Friends</h2>
+    <div class="card add-row">
+      <input class="input code-input" type="text" bind:value={friendCode}
+        placeholder="Enter friend code" maxlength="8"
+        on:keydown={(e) => e.key === 'Enter' && sendRequest()} />
+      <button class="btn btn-primary btn-small" on:click={sendRequest}>Add</button>
+    </div>
 
-  <div class="add-friend">
-    <input
-      type="text"
-      bind:value={friendCode}
-      placeholder="Enter friend code"
-      maxlength="8"
-      on:keydown={(e) => e.key === 'Enter' && sendRequest()}
-    />
-    <button class="btn btn-primary btn-small" on:click={sendRequest}>Add</button>
+    {#if error}<p class="msg error">{error}</p>{/if}
+    {#if success}<p class="msg success">{success}</p>{/if}
+
+    <div class="lists">
+      {#if pending.length > 0}
+        <section class="pending">
+          <h3 class="section-title">Pending Requests</h3>
+          {#each pending as req}
+            <div class="card friend-row">
+              <span class="fname">{req.requester.username}</span>
+              <span class="felo">ELO {req.requester.elo}</span>
+              <button class="btn btn-primary btn-small" on:click={() => accept(req.id)}>Accept</button>
+            </div>
+          {/each}
+        </section>
+      {/if}
+
+      <section class="friend-list">
+        <h3 class="section-title">Friends ({friends.length})</h3>
+        {#if friends.length === 0}
+          <p class="empty">No friends yet. Share your code: <strong>{$user?.friendCode}</strong></p>
+        {:else}
+          {#each friends as f}
+            <div class="card friend-row">
+              <span class="status-dot" class:online={f.status === 'online'} class:in-game={f.status === 'in-game'}></span>
+              <span class="fname">{f.username}</span>
+              <span class="felo">ELO {f.elo}</span>
+              <span class="fstatus">{f.status}</span>
+              <div class="tip-row">
+                <input class="input tip-input" type="number" min="1" placeholder="Tip" bind:value={tipAmounts[f.id]} />
+                <button class="btn btn-dark btn-small" on:click={() => tip(f.id)}>Tip</button>
+              </div>
+              <button class="remove-btn" on:click={() => remove(f.friendshipId)}>x</button>
+            </div>
+          {/each}
+        {/if}
+      </section>
+    </div>
   </div>
-
-  {#if error}<p class="error">{error}</p>{/if}
-  {#if success}<p class="success">{success}</p>{/if}
-
-  {#if pending.length > 0}
-    <h3>Pending Requests</h3>
-    {#each pending as req}
-      <div class="friend-row">
-        <span class="fname">{req.requester.username}</span>
-        <span class="felo">ELO {req.requester.elo}</span>
-        <button class="btn btn-primary btn-small" on:click={() => accept(req.id)}>Accept</button>
-      </div>
-    {/each}
-  {/if}
-
-  <h3>Friends ({friends.length})</h3>
-  {#if friends.length === 0}
-    <p class="empty">No friends yet. Share your code: <strong>{$user?.friendCode}</strong></p>
-  {:else}
-    {#each friends as f}
-      <div class="friend-row">
-        <span class="status-dot" class:online={f.status === 'online'} class:in-game={f.status === 'in-game'}></span>
-        <span class="fname">{f.username}</span>
-        <span class="felo">ELO {f.elo}</span>
-        <span class="fstatus">{f.status}</span>
-        <div class="tip-row">
-          <input type="number" min="1" placeholder="Tip" bind:value={tipAmounts[f.id]} />
-          <button class="btn btn-dark btn-small" on:click={() => tip(f.id)}>Tip</button>
-        </div>
-        <button class="btn-remove" on:click={() => remove(f.friendshipId)}>x</button>
-      </div>
-    {/each}
-  {/if}
 </div>
 
 <style>
-  .friends-screen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 16px;
-    width: 100%;
-    max-width: 420px;
-    position: relative;
-  }
-  .btn-back { position: absolute; top: 16px; left: 16px; }
-  h2 { font-size: 1.4rem; }
-  h3 { font-size: 0.85rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; width: 100%; }
+  .friends { align-items: center; }
+  h2 { font-size: var(--fs-heading); text-align: center; }
+  .add-row { display: flex; gap: var(--sp-sm); align-items: center; width: 100%; }
+  .code-input { text-transform: uppercase; letter-spacing: 2px; }
+  .msg { font-size: var(--fs-caption); text-align: center; }
+  .error { color: var(--accent); }
+  .success { color: var(--success); }
+  .empty { color: var(--text-dim); font-size: var(--fs-body); text-align: center; }
+  .empty strong { color: var(--accent); letter-spacing: 2px; font-family: var(--font-mono); }
 
-  .add-friend {
-    display: flex; gap: 8px; width: 100%;
-  }
-  .add-friend input {
-    flex: 1; padding: 10px 14px; border-radius: 8px;
-    border: 2px solid var(--surface2); background: var(--bg);
-    color: var(--text); font-size: 0.9rem; outline: none;
-    text-transform: uppercase; letter-spacing: 2px;
-  }
-  .add-friend input:focus { border-color: var(--accent); }
+  .lists { display: flex; flex-direction: column; gap: var(--sp-md); width: 100%; }
+  .pending, .friend-list { display: flex; flex-direction: column; gap: var(--sp-sm); }
 
-  .error { color: var(--accent); font-size: 0.8rem; }
-  .success { color: #4caf50; font-size: 0.8rem; }
-  .empty { color: var(--text-dim); font-size: 0.85rem; text-align: center; }
-  .empty strong { color: var(--accent); letter-spacing: 2px; font-family: monospace; }
+  .friend-row { display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md); flex-wrap: wrap; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; flex-shrink: 0; }
+  .status-dot.online { background: var(--success); }
+  .status-dot.in-game { background: var(--warning); }
+  .fname { font-weight: 600; font-size: var(--fs-body); }
+  .felo { font-size: var(--fs-caption); color: var(--text-dim); }
+  .fstatus { font-size: var(--fs-caption); color: var(--text-dim); margin-left: auto; }
+  .tip-row { display: flex; gap: var(--sp-xs); align-items: center; }
+  .tip-input { width: 50px; padding: var(--sp-xs) var(--sp-sm); text-align: center; font-size: var(--fs-caption); }
+  .remove-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0 var(--sp-xs); }
+  .remove-btn:hover { color: var(--accent); }
 
-  .friend-row {
-    display: flex; align-items: center; gap: 8px; width: 100%;
-    background: var(--surface); border-radius: 8px; padding: 10px 12px;
-    flex-wrap: wrap;
+  @media (min-width: 900px) {
+    .lists { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-lg); align-items: start; }
   }
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%; background: #555; flex-shrink: 0;
-  }
-  .status-dot.online { background: #4caf50; }
-  .status-dot.in-game { background: #ff9800; }
-  .fname { font-weight: 600; font-size: 0.9rem; }
-  .felo { font-size: 0.75rem; color: var(--text-dim); }
-  .fstatus { font-size: 0.7rem; color: var(--text-dim); margin-left: auto; }
-
-  .tip-row { display: flex; gap: 4px; align-items: center; }
-  .tip-row input {
-    width: 50px; padding: 4px 6px; border-radius: 6px;
-    border: 1px solid var(--surface2); background: var(--bg);
-    color: var(--text); font-size: 0.8rem; text-align: center;
-  }
-
-  .btn-remove {
-    background: none; border: none; color: var(--text-dim);
-    cursor: pointer; font-size: 1rem; padding: 0 4px;
-  }
-  .btn-remove:hover { color: var(--accent); }
 </style>

@@ -204,6 +204,24 @@ export function setupGameHandler(io, socket) {
     socket.emit('matchmaking:left');
   });
 
+  // --- Emotes ---
+  socket.on('emote:send', ({ gameId, emote }) => {
+    const room = activeGames.get(gameId);
+    if (!room) return;
+    if (!room.getPlayerColor(socket.userId)) return;
+    // Rate limit: 1 emote per 2 seconds per user
+    const now = Date.now();
+    if (!room.lastEmote) room.lastEmote = {};
+    if (room.lastEmote[socket.userId] && now - room.lastEmote[socket.userId] < 2000) return;
+    room.lastEmote[socket.userId] = now;
+
+    io.to(`game:${gameId}`).emit('emote:show', {
+      userId: socket.userId,
+      username: socket.username,
+      emote
+    });
+  });
+
   // --- Game moves ---
   socket.on('game:move', ({ gameId, fromRow, fromCol, toRow, toCol }) => {
     const room = activeGames.get(gameId);

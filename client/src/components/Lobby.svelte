@@ -7,30 +7,48 @@
 
   let leaderboard = [];
   let socket = null;
+  let showThemes = false;
+
+  const themes = [
+    { name: 'Default', vars: {} },
+    { name: 'Ocean', vars: { '--bg':'#0a1628','--surface':'#0d2137','--surface2':'#0a3d62','--accent':'#00b4d8','--accent2':'#0077b6','--board-light':'#a8c4d4','--board-dark':'#2a6f97' } },
+    { name: 'Forest', vars: { '--bg':'#1a2e1a','--surface':'#1e3a1e','--surface2':'#2d5a27','--accent':'#7bc950','--accent2':'#3a7d2c','--board-light':'#c5d5a3','--board-dark':'#4a7c3f' } },
+    { name: 'Sunset', vars: { '--bg':'#2d1b2e','--surface':'#3d2040','--surface2':'#5c2d5e','--accent':'#ff6b6b','--accent2':'#c44569','--board-light':'#e8c49a','--board-dark':'#b5564a' } },
+    { name: 'Midnight', vars: { '--bg':'#0d0d1a','--surface':'#12122a','--surface2':'#1a1a3e','--accent':'#7c5cbf','--accent2':'#4a3580','--board-light':'#9a96a8','--board-dark':'#3d3a54' } }
+  ];
+
+  let activeTheme = localStorage.getItem('checkers_theme') || 'Default';
+
+  function applyTheme(theme) {
+    activeTheme = theme.name;
+    localStorage.setItem('checkers_theme', theme.name);
+    const defaults = { '--bg':'#1a1a2e','--surface':'#16213e','--surface2':'#0f3460','--accent':'#e94560','--accent2':'#533483','--board-light':'#c8b078','--board-dark':'#6b8e4e' };
+    const vars = Object.keys(theme.vars).length > 0 ? theme.vars : defaults;
+    Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+  }
 
   onMount(async () => {
+    const saved = themes.find(t => t.name === activeTheme);
+    if (saved) applyTheme(saved);
+
     try {
       const data = await api.get('/leaderboard');
       leaderboard = data.players;
     } catch {}
 
-    socket = getSocket() || connectSocket();
-    if (socket) {
-      socket.on('matchmaking:found', onMatchFound);
-    }
+    // Refresh user data
+    try {
+      const data = await api.get('/auth/me');
+      $user = data.user;
+    } catch {}
 
-    return () => {
-      if (socket) socket.off('matchmaking:found', onMatchFound);
-    };
+    socket = getSocket() || connectSocket();
+    if (socket) socket.on('matchmaking:found', onMatchFound);
+    return () => { if (socket) socket.off('matchmaking:found', onMatchFound); };
   });
 
   function onMatchFound(data) {
-    $gameState = {
-      gameId: data.gameId,
-      myColor: data.yourColor,
-      opponentName: data.opponent.username,
-      opponentId: data.opponent.id
-    };
+    $gameState = { gameId: data.gameId, myColor: data.yourColor, opponentName: data.opponent.username, opponentId: data.opponent.id };
     $screen = 'wheel';
   }
 
@@ -52,139 +70,122 @@
   }
 </script>
 
-<div class="lobby">
-  <h1 class="title">Checkers <span>Online</span></h1>
+<div class="page-scroll">
+  <div class="page-content lobby">
+    <h1 class="title">Checkers <span>Online</span></h1>
 
-  <div class="user-bar">
-    <div class="user-info">
-      <strong>{$user?.username}</strong>
-      <span class="stat">ELO {$user?.elo || 1000}</span>
-      <span class="stat coins">{$user?.coins || 0} coins</span>
-    </div>
-    <div class="user-actions">
+    <div class="card user-bar">
+      <div class="user-info">
+        <strong>{$user?.username}</strong>
+        <span class="stat">ELO {$user?.elo || 1000}</span>
+        <span class="stat gold">{$user?.coins || 0} coins</span>
+      </div>
       <button class="btn btn-dark btn-small" on:click={logout}>Logout</button>
     </div>
-  </div>
 
-  <div class="play-buttons">
-    <button class="btn btn-primary" on:click={findOpponent}>Find Opponent</button>
-    <button class="btn btn-secondary" on:click={playBot}>Play vs The Colonel</button>
-  </div>
+    <div class="play-section">
+      <div class="play-buttons">
+        <button class="btn btn-primary" on:click={findOpponent}>Find Opponent</button>
+        <button class="btn btn-secondary" on:click={playBot}>Play vs The Colonel</button>
+      </div>
 
-  <div class="nav-buttons">
-    <button class="btn btn-dark btn-small" on:click={() => $screen = 'shop'}>Shop</button>
-    <button class="btn btn-dark btn-small" on:click={() => $screen = 'friends'}>Friends</button>
-  </div>
+      <button class="btn btn-dark btn-small" on:click={() => showThemes = !showThemes}>
+        {showThemes ? 'Hide themes' : 'Change theme'}
+      </button>
 
-  {#if $user?.friendCode}
-    <p class="friend-code">Your friend code: <strong>{$user.friendCode}</strong></p>
-  {/if}
-
-  <div class="leaderboard">
-    <h3>Leaderboard</h3>
-    <table>
-      <thead>
-        <tr><th class="rank">#</th><th>Player</th><th>ELO</th><th class="wins">W</th><th class="losses">L</th></tr>
-      </thead>
-      <tbody>
-        {#if leaderboard.length === 0}
-          <tr><td colspan="5" class="empty-msg">No games played yet</td></tr>
-        {:else}
-          {#each leaderboard.slice(0, 10) as p, i}
-            <tr class:highlight={p.id === $user?.id}>
-              <td class="rank">{i + 1}</td>
-              <td>{p.username}</td>
-              <td>{p.elo}</td>
-              <td class="wins">{p.wins}</td>
-              <td class="losses">{p.losses}</td>
-            </tr>
+      {#if showThemes}
+        <div class="theme-picker">
+          {#each themes as theme}
+            <button class="theme-chip" class:active={activeTheme === theme.name}
+              on:click={() => applyTheme(theme)}
+              style="background:{theme.vars['--bg']||'#1a1a2e'};border-color:{theme.vars['--accent']||'#e94560'}">
+              <span class="theme-dot" style="background:{theme.vars['--accent']||'#e94560'}"></span>
+              {theme.name}
+            </button>
           {/each}
-        {/if}
-      </tbody>
-    </table>
+        </div>
+      {/if}
+
+      {#if $user?.friendCode}
+        <p class="friend-code">Friend code: <strong>{$user.friendCode}</strong></p>
+      {/if}
+    </div>
+
+    <div class="card leaderboard">
+      <h3 class="section-title">Leaderboard</h3>
+      <table>
+        <thead>
+          <tr><th class="rank">#</th><th>Player</th><th>ELO</th><th class="w">W</th><th class="l">L</th></tr>
+        </thead>
+        <tbody>
+          {#if leaderboard.length === 0}
+            <tr><td colspan="5" class="empty">No games yet</td></tr>
+          {:else}
+            {#each leaderboard.slice(0, 10) as p, i}
+              <tr class:me={p.id === $user?.id}>
+                <td class="rank">{i + 1}</td>
+                <td>{p.username}</td>
+                <td>{p.elo}</td>
+                <td class="w">{p.wins}</td>
+                <td class="l">{p.losses}</td>
+              </tr>
+            {/each}
+          {/if}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
 <style>
-  .lobby {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
-    width: 100%;
-    max-width: 480px;
-  }
-  .title { font-size: 2rem; letter-spacing: 2px; color: var(--accent); }
+  .lobby { align-items: center; }
+  .title { font-size: var(--fs-title); letter-spacing: 2px; color: var(--accent); text-align: center; }
   .title span { color: var(--text); font-weight: 300; }
 
-  .user-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: var(--surface);
-    border-radius: 10px;
-    padding: 12px 16px;
-    gap: 12px;
-  }
-  .user-info { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .user-info strong { font-size: 1rem; }
-  .stat {
-    font-size: 0.8rem;
-    color: var(--text-dim);
-    background: var(--surface2);
-    padding: 2px 8px;
-    border-radius: 6px;
-  }
-  .coins { color: #ffd700; }
-  .user-actions { flex-shrink: 0; }
+  .user-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-sm); width: 100%; }
+  .user-info { display: flex; flex-wrap: wrap; gap: var(--sp-sm); align-items: center; }
+  .user-info strong { font-size: var(--fs-body); }
+  .stat { font-size: var(--fs-caption); color: var(--text-dim); background: var(--surface2); padding: 2px var(--sp-sm); border-radius: var(--radius-sm); }
+  .gold { color: var(--gold); }
 
-  .play-buttons, .nav-buttons {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
+  .play-section { display: flex; flex-direction: column; align-items: center; gap: var(--sp-sm); width: 100%; }
+  .play-buttons { display: flex; gap: var(--sp-sm); flex-wrap: wrap; justify-content: center; }
 
-  .friend-code {
-    font-size: 0.8rem;
-    color: var(--text-dim);
+  .theme-picker { display: flex; gap: var(--sp-sm); flex-wrap: wrap; justify-content: center; }
+  .theme-chip {
+    display: flex; align-items: center; gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--sp-md); border-radius: var(--radius-pill);
+    border: 2px solid; cursor: pointer; color: #eee; font-size: var(--fs-caption); font-weight: 600;
+    transition: transform 0.1s;
   }
-  .friend-code strong {
-    color: var(--accent);
-    letter-spacing: 2px;
-    font-family: 'Courier New', monospace;
-  }
+  .theme-chip:hover { transform: scale(1.05); }
+  .theme-chip.active { outline: 2px solid #fff; outline-offset: 2px; }
+  .theme-dot { width: 10px; height: 10px; border-radius: 50%; }
 
-  .leaderboard {
-    background: var(--surface);
-    border-radius: 10px;
-    padding: 14px 16px;
-    width: 100%;
-  }
-  .leaderboard h3 {
-    font-size: 0.85rem;
-    color: var(--text-dim);
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 8px;
-  }
+  .friend-code { font-size: var(--fs-caption); color: var(--text-dim); }
+  .friend-code strong { color: var(--accent); letter-spacing: 2px; font-family: var(--font-mono); }
+
+  .leaderboard { width: 100%; }
   table { width: 100%; border-collapse: collapse; }
-  th {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    padding: 3px 6px;
-    text-align: left;
-    border-bottom: 1px solid var(--surface2);
-  }
-  td { padding: 5px 6px; font-size: 0.85rem; }
+  th { font-size: var(--fs-caption); color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; padding: 3px var(--sp-sm); text-align: left; border-bottom: 1px solid var(--surface2); }
+  td { padding: 5px var(--sp-sm); font-size: var(--fs-body); }
   .rank { color: var(--text-dim); width: 28px; }
-  .wins { color: #4caf50; }
-  .losses { color: var(--accent); }
-  .empty-msg { text-align: center; color: var(--text-dim); padding: 10px; font-size: 0.85rem; }
-  .highlight { background: rgba(233, 69, 96, 0.1); }
+  .w { color: var(--success); }
+  .l { color: var(--accent); }
+  .empty { text-align: center; color: var(--text-dim); padding: var(--sp-md); }
+  .me { background: rgba(233, 69, 96, 0.1); }
+
+  @media (min-width: 900px) {
+    .lobby {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-lg);
+      align-items: start;
+      max-width: var(--content-max);
+    }
+    .title { grid-column: 1 / -1; }
+    .user-bar { grid-column: 1 / -1; }
+    .play-section { grid-column: 1; align-self: start; }
+    .leaderboard { grid-column: 2; }
+  }
 </style>
