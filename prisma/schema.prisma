@@ -3,13 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model User {
   id            Int       @id @default(autoincrement())
-  username      String    @unique @db.VarChar(16)
+  username      String    @unique
   email         String    @unique
   passwordHash  String
   elo           Int       @default(1000)
@@ -17,7 +17,7 @@ model User {
   gamesPlayed   Int       @default(0)
   wins          Int       @default(0)
   losses        Int       @default(0)
-  friendCode    String    @unique @db.VarChar(8)
+  friendCode    String    @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -138,7 +138,7 @@ model ChatMessage {
   senderId   Int
   gameId     Int?
   receiverId Int?
-  content    String   @db.VarChar(500)
+  content    String
   createdAt  DateTime @default(now())
 
   sender User @relation(fields: [senderId], references: [id])
