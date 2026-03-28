@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config.js';
 import { setupPresence } from './presenceHandler.js';
 import { setupGameHandler } from './gameHandler.js';
+import { setupChatHandler } from './chatHandler.js';
 
 // Connected users: userId -> { socketId, socket, username }
 export const connectedUsers = new Map();
@@ -31,6 +32,7 @@ export function setupSocket(io) {
 
     setupPresence(io, socket);
     setupGameHandler(io, socket);
+    setupChatHandler(io, socket);
 
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.username}`);
