@@ -3,6 +3,10 @@ import { TURN_TIME } from '../../shared/constants.js';
 import { rankedQueue } from '../services/matchmaking.js';
 import { connectedUsers } from './index.js';
 import { setUserStatus } from './presenceHandler.js';
+import { calculateElo } from '../services/elo.js';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 // Active games: gameId -> GameRoom
 export const activeGames = new Map();
@@ -54,10 +58,74 @@ class GameRoom {
     }
   }
 
-  endGame(io, winner) {
+  async endGame(io, winner) {
     this.stopTimer();
     const result = winner === 'red' ? 'RED_WIN' : winner === 'black' ? 'BLACK_WIN' : 'DRAW';
     const winnerId = winner === 'red' ? this.redUserId : winner === 'black' ? this.blackUserId : null;
+
+    let eloChanges = { red: 0, black: 0 };
+
+    // Compute ELO for ranked games
+    if (this.mode === 'RANKED' && winnerId) {
+      try {
+        const [redUser, blackUser] = await Promise.all([
+          prisma.user.findUnique({ where: { id: this.redUserId } }),
+          prisma.user.findUnique({ where: { id: this.blackUserId } })
+        ]);
+
+        if (redUser && blackUser) {
+          const winnerUser = winner === 'red' ? redUser : blackUser;
+          const loserUser = winner === 'red' ? blackUser : redUser;
+
+          const { winnerDelta, loserDelta } = calculateElo(
+            winnerUser.elo, loserUser.elo,
+            winnerUser.gamesPlayed, loserUser.gamesPlayed
+          );
+
+          eloChanges = {
+            red: winner === 'red' ? winnerDelta : loserDelta,
+            black: winner === 'black' ? winnerDelta : loserDelta
+          };
+
+          // Update users and create game record atomically
+          await prisma.$transaction([
+            prisma.user.update({
+              where: { id: this.redUserId },
+              data: {
+                elo: { increment: eloChanges.red },
+                gamesPlayed: { increment: 1 },
+                wins: winner === 'red' ? { increment: 1 } : undefined,
+                losses: winner === 'black' ? { increment: 1 } : undefined
+              }
+            }),
+            prisma.user.update({
+              where: { id: this.blackUserId },
+              data: {
+                elo: { increment: eloChanges.black },
+                gamesPlayed: { increment: 1 },
+                wins: winner === 'black' ? { increment: 1 } : undefined,
+                losses: winner === 'red' ? { increment: 1 } : undefined
+              }
+            }),
+            prisma.game.create({
+              data: {
+                redPlayerId: this.redUserId,
+                blackPlayerId: this.blackUserId,
+                winnerId,
+                result,
+                redEloChange: eloChanges.red,
+                blackEloChange: eloChanges.black,
+                moveHistory: this.game.moveHistory,
+                mode: this.mode,
+                endedAt: new Date()
+              }
+            })
+          ]);
+        }
+      } catch (err) {
+        console.error('Failed to persist game result:', err);
+      }
+    }
 
     io.to(`game:${this.id}`).emit('game:over', {
       winner,
@@ -65,9 +133,8 @@ class GameRoom {
       winnerId,
       gameId: this.id,
       moveHistory: this.game.moveHistory,
-      // ELO and coins added in Phase 4+5
-      eloChanges: { red: 0, black: 0 },
-      coinRewards: { red: 0, black: 0 }
+      eloChanges,
+      coinRewards: { red: 0, black: 0 } // Added in Phase 5
     });
 
     // Update presence
