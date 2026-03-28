@@ -1,4 +1,3 @@
-import { describe, it, expect } from 'vitest';
 import { CheckersGame, ColonelBot } from '../shared/game.js';
 import { TURN_TIME } from '../shared/constants.js';
 

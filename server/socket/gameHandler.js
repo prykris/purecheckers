@@ -1,0 +1,301 @@
+import { CheckersGame } from '../../shared/game.js';
+import { TURN_TIME } from '../../shared/constants.js';
+import { rankedQueue } from '../services/matchmaking.js';
+import { connectedUsers } from './index.js';
+import { setUserStatus } from './presenceHandler.js';
+
+// Active games: gameId -> GameRoom
+export const activeGames = new Map();
+let nextGameId = 1;
+
+class GameRoom {
+  constructor(id, redUserId, blackUserId, mode = 'RANKED') {
+    this.id = id;
+    this.game = new CheckersGame();
+    this.redUserId = redUserId;
+    this.blackUserId = blackUserId;
+    this.mode = mode;
+    this.timerInterval = null;
+    this.disconnectTimers = new Map(); // userId -> timeout
+    this.startedAt = new Date();
+  }
+
+  getPlayerColor(userId) {
+    if (userId === this.redUserId) return 'red';
+    if (userId === this.blackUserId) return 'black';
+    return null;
+  }
+
+  getOpponentId(userId) {
+    return userId === this.redUserId ? this.blackUserId : this.redUserId;
+  }
+
+  startTimer(io) {
+    this.timerInterval = setInterval(() => {
+      if (this.game.gameOver) {
+        this.stopTimer();
+        return;
+      }
+      this.game.tickTime(1);
+      io.to(`game:${this.id}`).emit('game:tick', {
+        redTime: this.game.redTime,
+        blackTime: this.game.blackTime
+      });
+      if (this.game.gameOver) {
+        this.endGame(io, this.game.winner);
+      }
+    }, 1000);
+  }
+
+  stopTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+  }
+
+  endGame(io, winner) {
+    this.stopTimer();
+    const result = winner === 'red' ? 'RED_WIN' : winner === 'black' ? 'BLACK_WIN' : 'DRAW';
+    const winnerId = winner === 'red' ? this.redUserId : winner === 'black' ? this.blackUserId : null;
+
+    io.to(`game:${this.id}`).emit('game:over', {
+      winner,
+      result,
+      winnerId,
+      gameId: this.id,
+      moveHistory: this.game.moveHistory,
+      // ELO and coins added in Phase 4+5
+      eloChanges: { red: 0, black: 0 },
+      coinRewards: { red: 0, black: 0 }
+    });
+
+    // Update presence
+    setUserStatus(this.redUserId, 'online');
+    setUserStatus(this.blackUserId, 'online');
+
+    // Clean up after a delay (allow rematch requests)
+    setTimeout(() => {
+      activeGames.delete(this.id);
+    }, 60000);
+  }
+
+  getState() {
+    return {
+      gameId: this.id,
+      board: this.game.board,
+      currentPlayer: this.game.currentPlayer,
+      redTime: this.game.redTime,
+      blackTime: this.game.blackTime,
+      chainPiece: this.game.chainPiece,
+      gameOver: this.game.gameOver,
+      winner: this.game.winner,
+      moveHistory: this.game.moveHistory
+    };
+  }
+}
+
+let matchmakingInterval = null;
+
+export function setupGameHandler(io, socket) {
+  // Start matchmaking loop once
+  if (!matchmakingInterval) {
+    matchmakingInterval = setInterval(() => {
+      const pairs = rankedQueue.tryMatch();
+      for (const [a, b] of pairs) {
+        createGame(io, a, b);
+      }
+    }, 2000);
+  }
+
+  // --- Matchmaking ---
+  socket.on('matchmaking:join', (data) => {
+    const elo = data?.elo || 1000;
+    rankedQueue.add(socket.userId, elo, socket.id);
+    socket.emit('matchmaking:joined');
+  });
+
+  socket.on('matchmaking:leave', () => {
+    rankedQueue.remove(socket.userId);
+    socket.emit('matchmaking:left');
+  });
+
+  // --- Game moves ---
+  socket.on('game:move', ({ gameId, fromRow, fromCol, toRow, toCol }) => {
+    const room = activeGames.get(gameId);
+    if (!room) return socket.emit('game:move-rejected', { reason: 'Game not found' });
+
+    const color = room.getPlayerColor(socket.userId);
+    if (!color) return socket.emit('game:move-rejected', { reason: 'Not in this game' });
+    if (room.game.currentPlayer !== color) {
+      return socket.emit('game:move-rejected', { reason: 'Not your turn' });
+    }
+
+    const result = room.game.makeMove(fromRow, fromCol, toRow, toCol);
+    if (!result) {
+      return socket.emit('game:move-rejected', { reason: 'Invalid move' });
+    }
+
+    io.to(`game:${gameId}`).emit('game:moved', {
+      fromRow, fromCol, toRow, toCol,
+      captured: result.captured,
+      promoted: result.promoted,
+      chainContinues: result.chainContinues,
+      redTime: room.game.redTime,
+      blackTime: room.game.blackTime,
+      currentPlayer: room.game.currentPlayer
+    });
+
+    if (room.game.gameOver) {
+      room.endGame(io, room.game.winner);
+    }
+  });
+
+  // --- Resign ---
+  socket.on('game:resign', ({ gameId }) => {
+    const room = activeGames.get(gameId);
+    if (!room) return;
+
+    const color = room.getPlayerColor(socket.userId);
+    if (!color) return;
+
+    const winner = color === 'red' ? 'black' : 'red';
+    room.game.gameOver = true;
+    room.game.winner = winner;
+    room.endGame(io, winner);
+  });
+
+  // --- Sync (reconnect) ---
+  socket.on('game:sync', ({ gameId }) => {
+    const room = activeGames.get(gameId);
+    if (!room) return;
+
+    const color = room.getPlayerColor(socket.userId);
+    if (!color) return;
+
+    // Rejoin the socket room
+    socket.join(`game:${gameId}`);
+    socket.emit('game:sync', room.getState());
+
+    // Clear disconnect timer
+    if (room.disconnectTimers.has(socket.userId)) {
+      clearTimeout(room.disconnectTimers.get(socket.userId));
+      room.disconnectTimers.delete(socket.userId);
+    }
+  });
+
+  // --- Rematch ---
+  socket.on('game:rematch-request', ({ gameId }) => {
+    const room = activeGames.get(gameId);
+    if (!room || !room.game.gameOver) return;
+
+    if (!room.rematchRequests) room.rematchRequests = new Set();
+    room.rematchRequests.add(socket.userId);
+
+    const opponentId = room.getOpponentId(socket.userId);
+    const opponentConn = connectedUsers.get(opponentId);
+    if (opponentConn) {
+      opponentConn.socket.emit('game:rematch-requested', { gameId });
+    }
+
+    // Both requested — create new game with swapped colors
+    if (room.rematchRequests.size === 2) {
+      const newRoom = createGameDirect(
+        io,
+        room.blackUserId, // swap: old black is new red
+        room.redUserId,
+        room.mode
+      );
+      io.to(`game:${room.id}`).emit('game:rematch-accepted', {
+        newGameId: newRoom.id
+      });
+      activeGames.delete(room.id);
+    }
+  });
+
+  // --- Handle disconnect during game ---
+  socket.on('disconnect', () => {
+    rankedQueue.removeBySocket(socket.id);
+
+    // Find any active game for this user
+    for (const [gameId, room] of activeGames) {
+      if (room.game.gameOver) continue;
+      const color = room.getPlayerColor(socket.userId);
+      if (!color) continue;
+
+      // Give 30 seconds to reconnect
+      const timer = setTimeout(() => {
+        if (room.game.gameOver) return;
+        const winner = color === 'red' ? 'black' : 'red';
+        room.game.gameOver = true;
+        room.game.winner = winner;
+        room.endGame(io, winner);
+      }, 30000);
+
+      room.disconnectTimers.set(socket.userId, timer);
+
+      // Notify opponent
+      const opponentId = room.getOpponentId(socket.userId);
+      const opponentConn = connectedUsers.get(opponentId);
+      if (opponentConn) {
+        opponentConn.socket.emit('game:opponent-disconnected', { gameId });
+      }
+    }
+  });
+}
+
+function createGame(io, playerA, playerB) {
+  // Randomly assign colors
+  const isARed = Math.random() < 0.5;
+  const redUserId = isARed ? playerA.userId : playerB.userId;
+  const blackUserId = isARed ? playerB.userId : playerA.userId;
+
+  return createGameDirect(io, redUserId, blackUserId, 'RANKED');
+}
+
+function createGameDirect(io, redUserId, blackUserId, mode) {
+  const gameId = nextGameId++;
+  const room = new GameRoom(gameId, redUserId, blackUserId, mode);
+  activeGames.set(gameId, room);
+
+  // Join socket rooms
+  const redConn = connectedUsers.get(redUserId);
+  const blackConn = connectedUsers.get(blackUserId);
+
+  if (redConn) {
+    redConn.socket.join(`game:${gameId}`);
+    redConn.socket.emit('matchmaking:found', {
+      gameId,
+      yourColor: 'red',
+      opponent: { id: blackUserId, username: blackConn?.username || 'Opponent' }
+    });
+  }
+  if (blackConn) {
+    blackConn.socket.join(`game:${gameId}`);
+    blackConn.socket.emit('matchmaking:found', {
+      gameId,
+      yourColor: 'black',
+      opponent: { id: redUserId, username: redConn?.username || 'Opponent' }
+    });
+  }
+
+  // Update presence
+  setUserStatus(redUserId, 'in-game');
+  setUserStatus(blackUserId, 'in-game');
+
+  // Start the game after a short delay (for wheel animation)
+  setTimeout(() => {
+    io.to(`game:${gameId}`).emit('game:start', {
+      gameId,
+      board: room.game.board,
+      redTime: room.game.redTime,
+      blackTime: room.game.blackTime,
+      currentPlayer: room.game.currentPlayer
+    });
+    room.startTimer(io);
+  }, 4500); // matches wheel animation duration
+
+  return room;
+}
+
+export { createGameDirect };
