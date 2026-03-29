@@ -1,19 +1,27 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { getSocket } from '../../lib/socket.js';
+
+  export let visible = false;
 
   let messages = [];
   let input = '';
   let messagesEl;
-  let socket;
+  let socket = null;
+  let attached = false;
 
-  onMount(() => {
+  // Re-attach when panel becomes visible or socket changes
+  $: if (visible && !attached) attachSocket();
+
+  function attachSocket() {
     socket = getSocket();
     if (!socket) return;
+    if (attached) return;
+    attached = true;
     socket.on('chat:global', onMessage);
-    socket.emit('chat:global-history');
     socket.on('chat:global-history', onHistory);
-  });
+    socket.emit('chat:global-history');
+  }
 
   onDestroy(() => {
     if (socket) {
@@ -79,9 +87,5 @@
   .msg { font-size: var(--fs-caption); line-height: 1.4; }
   .msg strong { color: var(--accent); margin-right: var(--sp-xs); font-weight: 600; }
   .msg span { color: var(--text); }
-
-  .input-row {
-    display: flex; gap: var(--sp-xs); padding: var(--sp-sm) var(--sp-md);
-    border-top: 1px solid var(--surface2); flex-shrink: 0;
-  }
+  .input-row { display: flex; gap: var(--sp-xs); padding: var(--sp-sm) var(--sp-md); border-top: 1px solid var(--surface2); flex-shrink: 0; }
 </style>

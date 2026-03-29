@@ -37,7 +37,7 @@ describe('POST /api/auth/register', () => {
     expect(res.body.user.username).toBe('alice');
     expect(res.body.user.email).toBe('alice@test.com');
     expect(res.body.user.elo).toBe(1000);
-    expect(res.body.user.coins).toBe(0);
+    expect(res.body.user.coins).toBe(50);
     expect(res.body.user.friendCode).toHaveLength(8);
     expect(res.body.user.passwordHash).toBeUndefined();
 

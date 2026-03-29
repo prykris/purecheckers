@@ -56,7 +56,7 @@ router.post('/register', async (req, res) => {
     const friendCode = generateFriendCode();
 
     const user = await prisma.user.create({
-      data: { username, email, passwordHash, friendCode }
+      data: { username, email, passwordHash, friendCode, coins: 50 }
     });
 
     const token = signToken(user);

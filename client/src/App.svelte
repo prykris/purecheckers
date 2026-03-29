@@ -76,7 +76,7 @@
 {/if}
 
 <SlidePanel bind:open={chatOpen} side="left" title="Global Chat">
-  <GlobalChat />
+  <GlobalChat visible={chatOpen} />
 </SlidePanel>
 
 <SlidePanel bind:open={lbOpen} side="right" title="Leaderboard">

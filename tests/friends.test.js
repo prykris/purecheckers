@@ -144,7 +144,7 @@ describe('Tipping', () => {
     expect(res.body.coins).toBe(75);
 
     const bob = await prisma.user.findUnique({ where: { id: userB.id } });
-    expect(bob.coins).toBe(25);
+    expect(bob.coins).toBe(75); // 50 starter + 25 tipped
   });
 
   it('rejects tip with insufficient coins', async () => {

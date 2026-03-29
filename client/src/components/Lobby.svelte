@@ -36,13 +36,7 @@
       $user = data.user;
     } catch {}
 
-    const socket = getSocket() || connectSocket();
-    if (socket) {
-      socket.on('matchmaking:found', (data) => {
-        const { gameState } = require('../stores/app.js');
-        // Handled by QuickPlay component
-      });
-    }
+    getSocket() || connectSocket();
   });
 
   function logout() {
