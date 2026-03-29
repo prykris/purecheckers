@@ -181,6 +181,15 @@ class GameRoom {
   }
 }
 
+export function findActiveGameForUser(userId) {
+  for (const [gameId, room] of activeGames) {
+    if (room.game.gameOver) continue;
+    const color = room.getPlayerColor(userId);
+    if (color) return { gameId, room, color };
+  }
+  return null;
+}
+
 let matchmakingInterval = null;
 
 export function setupGameHandler(io, socket) {
@@ -192,6 +201,29 @@ export function setupGameHandler(io, socket) {
         createGame(io, a, b);
       }
     }, 2000);
+  }
+
+  // --- Check for active game on reconnect ---
+  const activeGame = findActiveGameForUser(socket.userId);
+  if (activeGame) {
+    const { gameId, room, color } = activeGame;
+    const opponentId = room.getOpponentId(socket.userId);
+    const opponentConn = connectedUsers.get(opponentId);
+    socket.join(`game:${gameId}`);
+
+    // Clear disconnect timer
+    if (room.disconnectTimers.has(socket.userId)) {
+      clearTimeout(room.disconnectTimers.get(socket.userId));
+      room.disconnectTimers.delete(socket.userId);
+    }
+
+    socket.emit('game:reconnect', {
+      gameId,
+      yourColor: color,
+      opponentName: opponentConn?.username || 'Opponent',
+      opponentId,
+      state: room.getState()
+    });
   }
 
   // --- Matchmaking ---

@@ -3,7 +3,7 @@
   import { screen } from './stores/app.js';
   import { user, token } from './stores/user.js';
   import { api } from './lib/api.js';
-  import { connectSocket } from './lib/socket.js';
+  import { connectSocket, getSocket } from './lib/socket.js';
 
   import AuthScreen from './components/AuthScreen.svelte';
   import Lobby from './components/Lobby.svelte';
@@ -31,8 +31,23 @@
       try {
         const data = await api.get('/auth/me');
         $user = data.user;
-        connectSocket();
+        const sock = connectSocket();
         $screen = 'lobby';
+
+        // Listen for active game reconnect
+        if (sock) {
+          sock.on('game:reconnect', (data) => {
+            gameState.set({
+              gameId: data.gameId,
+              myColor: data.yourColor,
+              opponentName: data.opponentName,
+              opponentId: data.opponentId,
+              mode: 'online',
+              reconnectState: data.state
+            });
+            screen.set('game');
+          });
+        }
       } catch {
         $token = null;
         $user = null;

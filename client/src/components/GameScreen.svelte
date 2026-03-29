@@ -17,6 +17,19 @@
   let opponentName = $gameState?.opponentName || 'Opponent';
   let selectedPiece = null;
   let validMoves = [];
+
+  // Restore state on reconnect
+  if ($gameState?.reconnectState) {
+    const rs = $gameState.reconnectState;
+    game.board = rs.board;
+    game.currentPlayer = rs.currentPlayer;
+    game.redTime = rs.redTime;
+    game.blackTime = rs.blackTime;
+    game.chainPiece = rs.chainPiece;
+    game.gameOver = rs.gameOver;
+    game.winner = rs.winner;
+    game.moveHistory = rs.moveHistory || [];
+  }
   let lastMove = null;
   let hoveredCell = null;
   let animating = false;
