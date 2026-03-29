@@ -124,14 +124,14 @@
     ctx.save();
     if (alpha !== undefined && alpha < 1) ctx.globalAlpha = alpha;
     ctx.beginPath(); ctx.ellipse(px+1,py+3,r,r*0.7,0,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(px,py+2,r,0,Math.PI*2); ctx.fillStyle=color==='red'?'#b8334a':'#1a1a1a'; ctx.fill();
+    ctx.beginPath(); ctx.arc(px,py+2,r,0,Math.PI*2); ctx.fillStyle=color==='red'?'#b91c1c':'#1a1a1a'; ctx.fill();
     const g = ctx.createRadialGradient(px-r*0.3,py-r*0.3,r*0.1,px,py,r);
-    if (color==='red'){g.addColorStop(0,'#ff6b7f');g.addColorStop(0.7,'#e94560');g.addColorStop(1,'#c73a52');}
-    else{g.addColorStop(0,'#4a4a4a');g.addColorStop(0.7,'#2d2d2d');g.addColorStop(1,'#1a1a1a');}
+    if (color==='red'){g.addColorStop(0,'#f87171');g.addColorStop(0.7,'#ef4444');g.addColorStop(1,'#dc2626');}
+    else{g.addColorStop(0,'#57534e');g.addColorStop(0.7,'#3d3530');g.addColorStop(1,'#1c1917');}
     ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-    ctx.strokeStyle=color==='red'?'#a02040':'#444'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.strokeStyle=color==='red'?'#991b1b':'#44403c'; ctx.lineWidth=1.5; ctx.stroke();
     ctx.beginPath(); ctx.arc(px,py,r*0.65,0,Math.PI*2);
-    ctx.strokeStyle=color==='red'?'rgba(255,180,190,0.35)':'rgba(150,150,150,0.25)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.strokeStyle=color==='red'?'rgba(252,165,165,0.3)':'rgba(168,162,158,0.2)'; ctx.lineWidth=1; ctx.stroke();
     ctx.beginPath(); ctx.ellipse(px-r*0.15,py-r*0.2,r*0.3,r*0.15,-0.3,0,Math.PI*2);
     ctx.fillStyle=color==='red'?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.08)'; ctx.fill();
     if (isQueen) {
@@ -294,7 +294,7 @@
     position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
     padding: var(--sp-sm); padding-top: max(var(--sp-sm), env(safe-area-inset-top));
     padding-bottom: max(var(--sp-sm), env(safe-area-inset-bottom));
-    gap: var(--sp-xs); background: var(--bg);
+    gap: var(--sp-xs); background: linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg) 30%);
   }
 
   .player-bar { width: 100%; max-width: 640px; display: flex; flex-direction: column; }

@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-export const user = writable(null);       // { id, username, elo, coins, friendCode, ... }
+export const user = writable(null);
 export const token = writable(localStorage.getItem('checkers_token') || null);
 
 token.subscribe(val => {

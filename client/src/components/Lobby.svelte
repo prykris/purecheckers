@@ -143,7 +143,7 @@
   .lobby-layout {
     position: fixed; inset: 0;
     display: flex; flex-direction: column;
-    background: var(--bg);
+    background: linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg) 40%);
     padding-bottom: calc(var(--tab-height) + env(safe-area-inset-bottom, 0px));
   }
   .top-header {
