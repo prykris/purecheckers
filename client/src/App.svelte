@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { screen } from './stores/app.js';
+  import { screen, gameState } from './stores/app.js';
   import { user, token } from './stores/user.js';
   import { api } from './lib/api.js';
   import { connectSocket, getSocket } from './lib/socket.js';
