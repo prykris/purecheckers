@@ -53,6 +53,8 @@
   let capturedOverlay = [];
   let trail = [];
   let boardTextureCanvas = null;
+  let introAnim = null;
+  let lastMoveCaptured = []; // [{row, col}] positions where captures happened
 
   const bot = new ColonelBot();
   let timerInterval = null;
@@ -79,14 +81,23 @@
 
     if (mode === 'bot') {
       startTimer();
-      if (myColor === 'black') setTimeout(() => botTurn(), 600);
+      if (myColor === 'black') setTimeout(() => botTurn(), 1100);
     }
 
-    drawBoard();
+    // Play intro animation unless reconnecting
+    if (!$gameState?.reconnectState) {
+      playIntroAnimation();
+    } else {
+      drawBoard();
+    }
+
+    // Also listen for zoom changes
+    window.visualViewport?.addEventListener('resize', resizeBoard);
   });
 
   onDestroy(() => {
     window.removeEventListener('resize', resizeBoard);
+    window.visualViewport?.removeEventListener('resize', resizeBoard);
     clearInterval(timerInterval);
     clearTimeout(emoteTimeout);
     if (socket) {
@@ -173,14 +184,48 @@
       const fr=flip?7-lastMove.fromRow:lastMove.fromRow,fc=flip?7-lastMove.fromCol:lastMove.fromCol;
       const tr=flip?7-lastMove.toRow:lastMove.toRow,tc=flip?7-lastMove.toCol:lastMove.toCol;
       ctx.fillRect(fc*CELL,fr*CELL,CELL,CELL); ctx.fillRect(tc*CELL,tr*CELL,CELL,CELL);
+      // Highlight captured squares in red tint
+      ctx.fillStyle='rgba(239,68,68,0.25)';
+      for (const cap of lastMoveCaptured) {
+        const cr=flip?7-cap.row:cap.row, cc=flip?7-cap.col:cap.col;
+        ctx.fillRect(cc*CELL,cr*CELL,CELL,CELL);
+      }
     }
     if (selectedPiece) { const sr=flip?7-selectedPiece.row:selectedPiece.row,sc=flip?7-selectedPiece.col:selectedPiece.col; ctx.fillStyle='rgba(255,255,100,0.45)'; ctx.fillRect(sc*CELL,sr*CELL,CELL,CELL); }
     if (hoveredCell&&!selectedPiece&&!animating&&!game.gameOver) { const p=game.at(hoveredCell.row,hoveredCell.col); if(p&&p.color===myColor&&game.currentPlayer===myColor){const hr=flip?7-hoveredCell.row:hoveredCell.row,hc=flip?7-hoveredCell.col:hoveredCell.col;ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(hc*CELL,hr*CELL,CELL,CELL);} }
     for (const m of validMoves) { const mr=flip?7-m.toRow:m.toRow,mc=flip?7-m.toCol:m.toCol,cx=mc*CELL+CELL/2,cy=mr*CELL+CELL/2; if(m.captured.length>0){ctx.beginPath();ctx.arc(cx,cy,CELL*0.35,0,Math.PI*2);ctx.strokeStyle='rgba(233,69,96,0.45)';ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,CELL*0.12,0,Math.PI*2);ctx.fillStyle='rgba(233,69,96,0.5)';ctx.fill();}else{ctx.beginPath();ctx.arc(cx,cy,CELL*0.15,0,Math.PI*2);ctx.fillStyle='rgba(255,255,100,0.5)';ctx.fill();} }
     for (const t of trail) drawPiece(t.x,t.y,t.color,t.queen,t.alpha);
-    for (let r=0;r<8;r++) for (let c=0;c<8;c++) { if(moveAnimState&&r===moveAnimState.destRow&&c===moveAnimState.destCol) continue; const p=game.at(r,c); if(!p) continue; const dr=flip?7-r:r,dc=flip?7-c:c; drawPiece(dc*CELL+CELL/2,dr*CELL+CELL/2,p.color,p.queen); }
+    for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
+      if(moveAnimState&&r===moveAnimState.destRow&&c===moveAnimState.destCol) continue;
+      const p=game.at(r,c); if(!p) continue;
+      const dr=flip?7-r:r,dc=flip?7-c:c;
+      if (introAnim) {
+        const elapsed = performance.now() - introAnim.startTime;
+        const pieceDelay = (dr + dc) * 35;
+        const progress = Math.max(0, Math.min(1, (elapsed - pieceDelay) / 300));
+        if (progress <= 0) continue;
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const targetY = dr*CELL+CELL/2;
+        const curY = -CELL + (targetY + CELL) * eased;
+        drawPiece(dc*CELL+CELL/2, curY, p.color, p.queen, progress);
+        continue;
+      }
+      drawPiece(dc*CELL+CELL/2,dr*CELL+CELL/2,p.color,p.queen);
+    }
     for (const cap of capturedOverlay) { const cr=flip?7-cap.row:cap.row,cc=flip?7-cap.col:cap.col; drawPiece(cc*CELL+CELL/2,cr*CELL+CELL/2,cap.color,cap.queen); }
     for (const p of shatterParticles) { ctx.save();ctx.globalAlpha=Math.max(0,p.life);ctx.translate(p.x,p.y);ctx.rotate(p.rotation);ctx.fillStyle=p.color;ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);ctx.restore(); }
+  }
+
+  function playIntroAnimation() {
+    introAnim = { startTime: performance.now() };
+    animating = true;
+    function tick() {
+      const elapsed = performance.now() - introAnim.startTime;
+      drawBoard();
+      if (elapsed < 950) requestAnimationFrame(tick);
+      else { introAnim = null; animating = false; drawBoard(); }
+    }
+    requestAnimationFrame(tick);
   }
 
   // ---- Animation system ----
@@ -192,9 +237,11 @@
   async function performAnimatedMove(fr,fc,tr,tc) {
     const info=gatherAnimInfo(fr,fc,tr,tc); const result=game.makeMove(fr,fc,tr,tc); if(!result)return null;
     lastMove={fromRow:fr,fromCol:fc,toRow:tr,toCol:tc};
+    lastMoveCaptured = info?.captured?.map(c => ({row:c.row, col:c.col})) || [];
     if(info?.captured.length>0){for(const cap of info.captured)capturedPieces[info.pieceColor].push({color:cap.color,queen:cap.queen});capturedPieces=capturedPieces;}
     moveLog=[...moveLog,{num:++moveNumber,color:info?.pieceColor,from:`${'abcdefgh'[fc]}${8-fr}`,to:`${'abcdefgh'[tc]}${8-tr}`,capture:result.captured.length>0}];
     if(info){animating=true;await animateSlide(info);if(info.captured.length>0){const flip=myColor==='black';for(const cap of info.captured){const cr=flip?7-cap.row:cap.row,cc=flip?7-cap.col:cap.col;spawnShatter(cc*CELL+CELL/2,cr*CELL+CELL/2,cap.color);}}if(shatterParticles.length>0)await animateEffects();animating=false;}
+    syncTimers();
     return result;
   }
 
@@ -206,12 +253,12 @@
   async function executeMove(fr,fc,tr,tc) { if(mode==='online')socket.emit('game:move',{gameId:$gameState.gameId,fromRow:fr,fromCol:fc,toRow:tr,toCol:tc}); const result=await performAnimatedMove(fr,fc,tr,tc); if(!result)return; if(result.chainContinues){selectedPiece={row:tr,col:tc};validMoves=game.getValidMovesFor(tr,tc);}else{selectedPiece=null;validMoves=[];} drawBoard(); if(game.gameOver){handleGameOver();return;} if(mode==='bot'&&game.currentPlayer!==myColor)botTurn(); }
 
   async function onServerMove(data) { if(data.fromRow===undefined)return; const isMyMove=game.currentPlayer===myColor; if(!isMyMove){const result=await performAnimatedMove(data.fromRow,data.fromCol,data.toRow,data.toCol);if(result){selectedPiece=null;validMoves=[];drawBoard();}} game.redTime=data.redTime;game.blackTime=data.blackTime; }
-  function onTick(data) { game.redTime=data.redTime; game.blackTime=data.blackTime; game=game; }
+  function onTick(data) { game.redTime=data.redTime; game.blackTime=data.blackTime; syncTimers(); }
   function onGameOver(data) { game.gameOver=true; game.winner=data.winner; gameOverData=data; }
 
   function botTurn() { botThinking=true; setTimeout(async()=>{const move=bot.chooseMove(game);if(!move){botThinking=false;return;}const result=await performAnimatedMove(move.fromRow,move.fromCol,move.toRow,move.toCol);if(!result){botThinking=false;return;}selectedPiece=null;validMoves=[];drawBoard();if(game.gameOver){botThinking=false;handleGameOver();return;}if(result.chainContinues)setTimeout(()=>botTurn(),300);else botThinking=false;},400+Math.random()*600); }
 
-  function startTimer() { timerInterval=setInterval(()=>{if(game.gameOver){clearInterval(timerInterval);return;}game.tickTime(1);game=game;if(game.gameOver)handleGameOver();},1000); }
+  function startTimer() { timerInterval=setInterval(()=>{if(game.gameOver){clearInterval(timerInterval);return;}game.tickTime(1);syncTimers();if(game.gameOver)handleGameOver();},1000); }
   function handleGameOver() { clearInterval(timerInterval); if(!gameOverData)gameOverData={winner:game.winner,eloChanges:{red:0,black:0},coinRewards:{red:0,black:0}}; }
 
   function resign() { showResignConfirm=false; game.gameOver=true; game.winner=myColor==='red'?'black':'red'; if(mode==='online')socket.emit('game:resign',{gameId:$gameState.gameId}); handleGameOver(); }
@@ -220,10 +267,17 @@
   function onEmoteShow(data) { activeEmote={emoji:data.emote.emoji,label:data.emote.label,username:data.username}; clearTimeout(emoteTimeout); emoteTimeout=setTimeout(()=>{activeEmote=null;},2500); }
   function sendEmote(emote) { socket?.emit('emote:send',{gameId:$gameState?.gameId,emote:{emoji:emote.data.emoji,label:emote.data.label}}); showEmoteBar=false; }
 
-  $: isMyTurn = game.currentPlayer === myColor && !game.gameOver;
+  let redTime = game.redTime;
+  let blackTime = game.blackTime;
+  let currentPlayer = game.currentPlayer;
+
+  // Sync reactive time vars from game state
+  function syncTimers() { redTime = game.redTime; blackTime = game.blackTime; currentPlayer = game.currentPlayer; }
+
   $: topColor = myColor === 'red' ? 'black' : 'red';
-  $: topTime = topColor === 'red' ? game.redTime : game.blackTime;
-  $: bottomTime = myColor === 'red' ? game.redTime : game.blackTime;
+  $: topTime = topColor === 'red' ? redTime : blackTime;
+  $: bottomTime = myColor === 'red' ? redTime : blackTime;
+  $: isMyTurn = currentPlayer === myColor && !game.gameOver;
   $: statusText = game.gameOver ? (game.winner===myColor?'Victory!':'Defeat') : isMyTurn ? 'Your turn' : (mode==='bot'?'The Colonel is thinking...':"Opponent's turn");
   function fmtTime(s) { const sec=Math.ceil(s); return `0:${sec.toString().padStart(2,'0')}`; }
 </script>
@@ -231,12 +285,12 @@
 <div class="game-layout">
   <!-- Top: opponent -->
   <div class="player-bar opponent">
-    <div class="pinfo" class:active={game.currentPlayer === topColor}>
+    <div class="pinfo" class:active={currentPlayer === topColor}>
       <div class="dot {topColor}"></div>
       <span class="pname">{myColor==='red'?opponentName:$user?.username}</span>
       <span class="timer" class:low={topTime<=15} class:critical={topTime<=7}>{fmtTime(topTime)}</span>
+      <div class="tbar-track"><div class="tbar-fill" class:low={topTime<=15} class:critical={topTime<=7} style="width:{topTime/TURN_TIME*100}%"></div></div>
     </div>
-    <div class="tbar-track"><div class="tbar-fill" class:low={topTime<=15} class:critical={topTime<=7} style="width:{topTime/TURN_TIME*100}%"></div></div>
     <div class="captured">
       {#each capturedPieces[topColor]||[] as cap}<div class="cap {cap.color}"></div>{/each}
     </div>
@@ -263,8 +317,8 @@
     <div class="captured">
       {#each capturedPieces[myColor]||[] as cap}<div class="cap {cap.color}"></div>{/each}
     </div>
-    <div class="tbar-track"><div class="tbar-fill" class:low={bottomTime<=15} class:critical={bottomTime<=7} style="width:{bottomTime/TURN_TIME*100}%"></div></div>
-    <div class="pinfo" class:active={game.currentPlayer === myColor}>
+    <div class="pinfo" class:active={currentPlayer === myColor}>
+      <div class="tbar-track"><div class="tbar-fill" class:low={bottomTime<=15} class:critical={bottomTime<=7} style="width:{bottomTime/TURN_TIME*100}%"></div></div>
       <div class="dot {myColor}"></div>
       <span class="pname">{myColor==='red'?$user?.username:opponentName}</span>
       <span class="timer" class:low={bottomTime<=15} class:critical={bottomTime<=7}>{fmtTime(bottomTime)}</span>
@@ -323,8 +377,16 @@
   }
 
   .player-bar { width: 100%; max-width: 640px; display: flex; flex-direction: column; }
-  .pinfo { display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md); border-radius: var(--radius-sm); background: var(--surface); transition: outline-color 0.3s, box-shadow 0.3s; }
-  .pinfo.active { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 12px rgba(233,69,96,0.2); }
+  .pinfo {
+    display: flex; align-items: center; gap: var(--sp-sm);
+    padding: var(--sp-sm) var(--sp-md); padding-bottom: var(--sp-xs);
+    border-radius: var(--radius-md); background: var(--surface);
+    border: 1px solid var(--surface2);
+    transition: border-color 0.3s, box-shadow 0.3s;
+    flex-wrap: wrap;
+    overflow: hidden;
+  }
+  .pinfo.active { border-color: var(--accent); box-shadow: 0 0 12px rgba(239,68,68,0.15); }
   .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
   .dot.red { background: var(--red-piece); }
   .dot.black { background: var(--black-piece); border: 2px solid #555; }
@@ -333,7 +395,7 @@
   .timer.low { color: var(--warning); font-weight: 700; }
   .timer.critical { color: var(--accent); animation: timerPulse 0.5s ease-in-out infinite; }
 
-  .tbar-track { height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+  .tbar-track { width: 100%; height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: var(--sp-xs); }
   .tbar-fill { height: 100%; background: var(--accent2); border-radius: 2px; transition: width 1s linear; }
   .tbar-fill.low { background: var(--warning); }
   .tbar-fill.critical { background: var(--accent); }
@@ -402,8 +464,8 @@
       gap: var(--sp-sm) var(--sp-xl); padding: var(--sp-lg);
     }
     .player-bar { max-width: none; grid-column: 1; }
-    .player-bar.opponent { grid-row: 1; align-self: end; }
-    .player-bar.self { grid-row: 2; align-self: start; margin-top: var(--sp-md); }
+    .player-bar.opponent { grid-row: 1; align-self: center; }
+    .player-bar.self { grid-row: 2; align-self: center; }
     .board-wrap { grid-column: 2; grid-row: 1 / 4; justify-self: center; align-self: center; }
     .status { grid-column: 2; grid-row: 4; text-align: center; }
     .actions { grid-column: 3; grid-row: 3; justify-self: center; }

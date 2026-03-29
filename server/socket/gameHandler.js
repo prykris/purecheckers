@@ -17,12 +17,13 @@ const pendingFriendGames = new Map();
 let nextGameId = 1;
 
 class GameRoom {
-  constructor(id, redUserId, blackUserId, mode = 'RANKED') {
+  constructor(id, redUserId, blackUserId, mode = 'RANKED', buyIn = 0) {
     this.id = id;
     this.game = new CheckersGame();
     this.redUserId = redUserId;
     this.blackUserId = blackUserId;
     this.mode = mode;
+    this.buyIn = buyIn;
     this.timerInterval = null;
     this.disconnectTimers = new Map(); // userId -> timeout
     this.startedAt = new Date();
@@ -127,8 +128,9 @@ class GameRoom {
             })
           ]);
 
-          // Award coins
-          const winnerCoinAmount = COINS_RANKED_WIN;
+          // Award coins: base reward + buy-in pot
+          const pot = this.buyIn * 2;
+          const winnerCoinAmount = COINS_RANKED_WIN + pot;
           const loserCoinAmount = COINS_LOSS;
           const winnerUserId = winner === 'red' ? this.redUserId : this.blackUserId;
           const loserUserId = winner === 'red' ? this.blackUserId : this.redUserId;
@@ -422,9 +424,9 @@ function createGame(io, playerA, playerB) {
   return createGameDirect(io, redUserId, blackUserId, 'RANKED');
 }
 
-function createGameDirect(io, redUserId, blackUserId, mode) {
+function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
   const gameId = nextGameId++;
-  const room = new GameRoom(gameId, redUserId, blackUserId, mode);
+  const room = new GameRoom(gameId, redUserId, blackUserId, mode, buyIn);
   activeGames.set(gameId, room);
 
   // Join socket rooms

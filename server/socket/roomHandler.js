@@ -251,7 +251,7 @@ async function startRoomGame(io, room) {
   const redUserId = isFirstRed ? room.players[0].userId : room.players[1].userId;
   const blackUserId = isFirstRed ? room.players[1].userId : room.players[0].userId;
 
-  const gameRoom = createGameDirect(io, redUserId, blackUserId, room.settings.buyIn > 0 ? 'RANKED' : 'FRIENDLY');
+  const gameRoom = createGameDirect(io, redUserId, blackUserId, room.settings.buyIn > 0 ? 'RANKED' : 'FRIENDLY', room.settings.buyIn);
   room.gameId = gameRoom.id;
 
   // Spectators join the game room too
