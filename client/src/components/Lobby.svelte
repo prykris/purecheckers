@@ -138,7 +138,10 @@
 </div>
 
 <style>
-  .lobby { align-items: center; }
+  .lobby {
+    align-items: center;
+    max-width: 520px;
+  }
   .title { font-size: var(--fs-title); letter-spacing: 2px; color: var(--accent); text-align: center; }
   .title span { color: var(--text); font-weight: 300; }
 
@@ -148,8 +151,18 @@
   .stat { font-size: var(--fs-caption); color: var(--text-dim); background: var(--surface2); padding: 2px var(--sp-sm); border-radius: var(--radius-sm); }
   .gold { color: var(--gold); }
 
-  .play-section { display: flex; flex-direction: column; align-items: center; gap: var(--sp-sm); width: 100%; }
-  .play-buttons { display: flex; gap: var(--sp-sm); flex-wrap: wrap; justify-content: center; }
+  .play-section {
+    display: flex; flex-direction: column; align-items: center;
+    gap: var(--sp-md); width: 100%;
+    padding: var(--sp-lg) 0;
+  }
+  .play-buttons {
+    display: flex; gap: var(--sp-md); flex-wrap: wrap; justify-content: center;
+  }
+  .play-buttons .btn {
+    padding: var(--sp-md) var(--sp-xl);
+    font-size: 1.05rem;
+  }
 
   .theme-picker { display: flex; gap: var(--sp-sm); flex-wrap: wrap; justify-content: center; }
   .theme-chip {
@@ -176,16 +189,10 @@
   .me { background: rgba(233, 69, 96, 0.1); }
 
   @media (min-width: 900px) {
-    .lobby {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--sp-xl) var(--sp-xl);
-      align-items: start;
-      max-width: 960px;
+    .lobby { max-width: 580px; }
+    .play-buttons .btn {
+      padding: var(--sp-md) var(--sp-2xl, 48px);
+      font-size: 1.1rem;
     }
-    .title { grid-column: 1 / -1; text-align: center; }
-    .user-bar { grid-column: 1 / -1; }
-    .play-section { grid-column: 1; align-self: start; }
-    .leaderboard { grid-column: 2; grid-row: 3; }
   }
 </style>
