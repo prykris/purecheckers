@@ -21,84 +21,133 @@
 
   const tabScreens = ['lobby', 'shop', 'friends', 'profile'];
   $: showTabs = tabScreens.includes($screen);
-  $: showPanelToggles = $screen !== 'auth' && $screen !== 'game';
+  $: showPanelToggles = $screen !== 'auth' && $screen !== 'game' && !loading;
 
   let chatOpen = false;
   let lbOpen = false;
+  let loading = true;
 
   onMount(async () => {
-    if ($token) {
-      try {
-        const data = await api.get('/auth/me');
-        $user = data.user;
-        const sock = connectSocket();
-        $screen = 'lobby';
-
-        // Listen for active game reconnect
-        if (sock) {
-          sock.on('game:reconnect', (data) => {
-            gameState.set({
-              gameId: data.gameId,
-              myColor: data.yourColor,
-              opponentName: data.opponentName,
-              opponentId: data.opponentId,
-              mode: 'online',
-              reconnectState: data.state
-            });
-            screen.set('game');
-          });
-        }
-      } catch {
-        $token = null;
-        $user = null;
-        $screen = 'auth';
-      }
+    if (!$token) {
+      $screen = 'auth';
+      loading = false;
+      return;
     }
+
+    try {
+      const data = await api.get('/auth/me');
+      $user = data.user;
+      const sock = connectSocket();
+
+      if (sock) {
+        // Wait for either game:reconnect or a timeout (means no active game)
+        const resolved = await Promise.race([
+          new Promise(resolve => {
+            sock.on('game:reconnect', (data) => {
+              gameState.set({
+                gameId: data.gameId,
+                myColor: data.yourColor,
+                opponentName: data.opponentName,
+                opponentId: data.opponentId,
+                mode: 'online',
+                reconnectState: data.state
+              });
+              resolve('game');
+            });
+          }),
+          new Promise(resolve => setTimeout(() => resolve('lobby'), 1500))
+        ]);
+
+        screen.set(resolved === 'game' ? 'game' : 'lobby');
+      } else {
+        $screen = 'lobby';
+      }
+    } catch {
+      $token = null;
+      $user = null;
+      $screen = 'auth';
+    }
+
+    // Fade out splash
+    loading = false;
   });
 </script>
 
-{#if $screen === 'auth'}
-  <AuthScreen />
-{:else if $screen === 'lobby'}
-  <Lobby />
-{:else if $screen === 'search'}
-  <SearchScreen />
-{:else if $screen === 'wheel'}
-  <WheelScreen />
-{:else if $screen === 'game'}
-  <GameScreen />
-{:else if $screen === 'shop'}
-  <ShopScreen />
-{:else if $screen === 'friends'}
-  <FriendsScreen />
-{:else if $screen === 'friend-game'}
-  <FriendGameScreen />
-{:else if $screen === 'room-waiting'}
-  <RoomWaiting />
+{#if loading}
+  <div class="splash">
+    <h1 class="splash-title">Checkers</h1>
+    <div class="splash-spinner"></div>
+  </div>
 {/if}
 
-{#if showTabs}
-  <BottomNav />
-{/if}
+<div class="app" class:hidden={loading}>
+  {#if $screen === 'auth'}
+    <AuthScreen />
+  {:else if $screen === 'lobby'}
+    <Lobby />
+  {:else if $screen === 'search'}
+    <SearchScreen />
+  {:else if $screen === 'wheel'}
+    <WheelScreen />
+  {:else if $screen === 'game'}
+    <GameScreen />
+  {:else if $screen === 'shop'}
+    <ShopScreen />
+  {:else if $screen === 'friends'}
+    <FriendsScreen />
+  {:else if $screen === 'friend-game'}
+    <FriendGameScreen />
+  {:else if $screen === 'room-waiting'}
+    <RoomWaiting />
+  {/if}
 
-{#if showPanelToggles}
-  <button class="edge-toggle left" on:click={() => chatOpen = !chatOpen} title="Global Chat">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-  </button>
-  <button class="edge-toggle right" on:click={() => lbOpen = !lbOpen} title="Leaderboard">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-  </button>
-{/if}
+  {#if showTabs}
+    <BottomNav />
+  {/if}
 
-<SlidePanel bind:open={chatOpen} side="left" title="Global Chat">
-  <GlobalChat visible={chatOpen} />
-</SlidePanel>
+  {#if showPanelToggles}
+    <button class="edge-toggle left" on:click={() => chatOpen = !chatOpen} title="Global Chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    </button>
+    <button class="edge-toggle right" on:click={() => lbOpen = !lbOpen} title="Leaderboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+    </button>
+  {/if}
 
-<SlidePanel bind:open={lbOpen} side="right" title="Leaderboard">
-  <LeaderboardPanel />
-</SlidePanel>
+  <SlidePanel bind:open={chatOpen} side="left" title="Global Chat">
+    <GlobalChat visible={chatOpen} />
+  </SlidePanel>
+
+  <SlidePanel bind:open={lbOpen} side="right" title="Leaderboard">
+    <LeaderboardPanel />
+  </SlidePanel>
+</div>
 
 <style>
+  .splash {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: var(--sp-lg);
+    animation: splash-fade-in 0.3s ease-out;
+  }
+  .splash-title {
+    font-size: 2.5rem; font-weight: 700;
+    color: var(--accent); letter-spacing: 3px;
+  }
+  .splash-spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--surface2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes splash-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .app { transition: opacity 0.3s ease; }
+  .app.hidden { opacity: 0; pointer-events: none; }
+
   .edge-toggle {
     position: fixed;
     top: 50%;
