@@ -39,7 +39,7 @@
     rooms = rooms;
   }
   function onJoined({ room }) {
-    $gameState = { roomId: room.id, mode: 'room' };
+    $gameState = { roomId: room.id, mode: 'room', roomData: room };
     $screen = 'room-waiting';
   }
   function onError({ error }) { joinError = error; setTimeout(() => joinError = '', 3000); }

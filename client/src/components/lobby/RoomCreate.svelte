@@ -28,7 +28,7 @@
   });
 
   function onCreated({ room }) {
-    $gameState = { roomId: room.id, mode: 'room', roomCode: room.settings.code };
+    $gameState = { roomId: room.id, mode: 'room', roomCode: room.settings.code, roomData: room };
     $screen = 'room-waiting';
     dispatch('close');
   }
