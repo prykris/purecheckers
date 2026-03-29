@@ -70,18 +70,18 @@
   }
 </script>
 
-<div class="page-scroll">
-  <div class="page-content lobby">
-    <h1 class="title">Checkers <span>Online</span></h1>
-
-    <div class="card user-bar">
-      <div class="user-info">
-        <strong>{$user?.username}</strong>
-        <span class="stat">ELO {$user?.elo || 1000}</span>
-        <span class="stat gold">{$user?.coins || 0} coins</span>
-      </div>
-      <button class="btn btn-dark btn-small" on:click={logout}>Logout</button>
+<div class="lobby-layout">
+  <div class="card user-bar">
+    <div class="user-info">
+      <strong>{$user?.username}</strong>
+      <span class="stat">ELO {$user?.elo || 1000}</span>
+      <span class="stat gold">{$user?.coins || 0} coins</span>
     </div>
+    <button class="btn btn-dark btn-small" on:click={logout}>Logout</button>
+  </div>
+
+  <div class="lobby-center">
+    <h1 class="title">Checkers <span>Online</span></h1>
 
     <div class="play-section">
       <div class="play-buttons">
@@ -139,14 +139,27 @@
 </div>
 
 <style>
-  .lobby {
-    align-items: center;
-    max-width: 520px;
+  .lobby-layout {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: var(--bg);
+    padding-bottom: calc(var(--tab-height) + env(safe-area-inset-bottom, 0px));
+  }
+  .user-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md);
+    border-radius: 0; flex-shrink: 0;
+  }
+  .lobby-center {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: var(--sp-md); padding: var(--sp-md);
+    overflow-y: auto;
+    max-width: 520px; width: 100%; margin: 0 auto;
   }
   .title { font-size: var(--fs-title); letter-spacing: 2px; color: var(--accent); text-align: center; }
   .title span { color: var(--text); font-weight: 300; }
 
-  .user-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-sm); width: 100%; }
   .user-info { display: flex; flex-wrap: wrap; gap: var(--sp-sm); align-items: center; }
   .user-info strong { font-size: var(--fs-body); }
   .stat { font-size: var(--fs-caption); color: var(--text-dim); background: var(--surface2); padding: 2px var(--sp-sm); border-radius: var(--radius-sm); }
@@ -190,9 +203,9 @@
   .me { background: rgba(233, 69, 96, 0.1); }
 
   @media (min-width: 900px) {
-    .lobby { max-width: 580px; }
+    .lobby-center { max-width: 580px; }
     .play-buttons .btn {
-      padding: var(--sp-md) var(--sp-2xl, 48px);
+      padding: var(--sp-md) 48px;
       font-size: 1.1rem;
     }
   }
