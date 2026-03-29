@@ -217,13 +217,21 @@ export function setupGameHandler(io, socket) {
       room.disconnectTimers.delete(socket.userId);
     }
 
-    socket.emit('game:reconnect', {
-      gameId,
-      yourColor: color,
-      opponentName: opponentConn?.username || 'Opponent',
-      opponentId,
-      state: room.getState()
-    });
+    // Notify opponent that player reconnected
+    if (opponentConn) {
+      opponentConn.socket.emit('game:opponent-reconnected', { gameId });
+    }
+
+    // Delay slightly so client has time to register listener
+    setTimeout(() => {
+      socket.emit('game:reconnect', {
+        gameId,
+        yourColor: color,
+        opponentName: opponentConn?.username || 'Opponent',
+        opponentId,
+        state: room.getState()
+      });
+    }, 500);
   }
 
   // --- Matchmaking ---

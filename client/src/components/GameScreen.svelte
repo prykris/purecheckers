@@ -36,6 +36,7 @@
   let botThinking = false;
   let gameOverData = null;
   let showResignConfirm = false;
+  let opponentDisconnected = false;
 
   let capturedPieces = { red: [], black: [] };
   let moveLog = [];
@@ -67,6 +68,8 @@
       socket.on('game:moved', onServerMove);
       socket.on('game:tick', onTick);
       socket.on('game:over', onGameOver);
+      socket.on('game:opponent-disconnected', () => { opponentDisconnected = true; });
+      socket.on('game:opponent-reconnected', () => { opponentDisconnected = false; });
       socket.on('emote:show', onEmoteShow);
 
       api.get('/shop/inventory').then(({ inventory }) => {
@@ -90,6 +93,8 @@
       socket.off('game:moved', onServerMove);
       socket.off('game:tick', onTick);
       socket.off('game:over', onGameOver);
+      socket.off('game:opponent-disconnected');
+      socket.off('game:opponent-reconnected');
       socket.off('emote:show', onEmoteShow);
     }
   });
@@ -266,7 +271,14 @@
     </div>
   </div>
 
-  <div class="status">{statusText}</div>
+  {#if opponentDisconnected}
+    <div class="disconnect-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Opponent disconnected — waiting 30s for reconnect...
+    </div>
+  {:else}
+    <div class="status">{statusText}</div>
+  {/if}
 
   <div class="actions">
     <button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=true}>Resign</button>
@@ -344,6 +356,18 @@
   .coins { font-size: var(--fs-body); color: var(--gold); }
 
   .status { font-size: var(--fs-caption); color: var(--text-dim); height: 18px; }
+  .disconnect-banner {
+    display: flex; align-items: center; gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--sp-md);
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-sm);
+    color: var(--warning);
+    font-size: var(--fs-caption);
+    font-weight: 500;
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+  @keyframes pulse-border { 0%,100%{border-color:var(--warning);} 50%{border-color:transparent;} }
   .actions { display: flex; gap: var(--sp-sm); }
 
   .moves { display: flex; gap: var(--sp-xs); overflow-x: auto; width: 100%; max-width: 640px; scrollbar-width: none; min-height: 18px; }
