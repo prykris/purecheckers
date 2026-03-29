@@ -87,6 +87,7 @@
       <div class="play-buttons">
         <button class="btn btn-primary" on:click={findOpponent}>Find Opponent</button>
         <button class="btn btn-secondary" on:click={playBot}>Play vs The Colonel</button>
+        <button class="btn btn-dark" on:click={() => $screen = 'friend-game'}>Play vs Friend</button>
       </div>
 
       <button class="btn btn-dark btn-small" on:click={() => showThemes = !showThemes}>

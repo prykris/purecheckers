@@ -12,6 +12,8 @@ const prisma = new PrismaClient();
 
 // Active games: gameId -> GameRoom
 export const activeGames = new Map();
+// Pending friend game lobbies: code -> { hostId, hostSocket }
+const pendingFriendGames = new Map();
 let nextGameId = 1;
 
 class GameRoom {
@@ -202,6 +204,31 @@ export function setupGameHandler(io, socket) {
   socket.on('matchmaking:leave', () => {
     rankedQueue.remove(socket.userId);
     socket.emit('matchmaking:left');
+  });
+
+  // --- Friend game invites ---
+  socket.on('friend-game:create', () => {
+    // Create a pending lobby with a 6-char code
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    pendingFriendGames.set(code, { hostId: socket.userId, hostSocket: socket });
+    socket.emit('friend-game:created', { code });
+  });
+
+  socket.on('friend-game:join', ({ code }) => {
+    const lobby = pendingFriendGames.get(code);
+    if (!lobby) return socket.emit('friend-game:error', { error: 'Game not found' });
+    if (lobby.hostId === socket.userId) return socket.emit('friend-game:error', { error: 'Cannot join your own game' });
+
+    pendingFriendGames.delete(code);
+    // Create the game — host is red, joiner is black
+    createGameDirect(io, lobby.hostId, socket.userId, 'FRIENDLY');
+  });
+
+  socket.on('friend-game:cancel', ({ code }) => {
+    const lobby = pendingFriendGames.get(code);
+    if (lobby && lobby.hostId === socket.userId) {
+      pendingFriendGames.delete(code);
+    }
   });
 
   // --- Emotes ---

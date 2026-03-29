@@ -12,6 +12,7 @@
   import GameScreen from './components/GameScreen.svelte';
   import ShopScreen from './components/ShopScreen.svelte';
   import FriendsScreen from './components/FriendsScreen.svelte';
+  import FriendGameScreen from './components/FriendGameScreen.svelte';
   import BottomNav from './components/BottomNav.svelte';
 
   const tabScreens = ['lobby', 'shop', 'friends', 'profile'];
@@ -47,6 +48,8 @@
   <ShopScreen />
 {:else if $screen === 'friends'}
   <FriendsScreen />
+{:else if $screen === 'friend-game'}
+  <FriendGameScreen />
 {/if}
 
 {#if showTabs}
