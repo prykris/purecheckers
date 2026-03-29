@@ -71,18 +71,19 @@
 </script>
 
 <div class="lobby-layout">
-  <div class="card user-bar">
-    <div class="user-info">
-      <strong>{$user?.username}</strong>
-      <span class="stat">ELO {$user?.elo || 1000}</span>
-      <span class="stat gold">{$user?.coins || 0} coins</span>
+  <div class="top-header">
+    <h1 class="title">Checkers <span>Online</span></h1>
+    <div class="card user-bar">
+      <div class="user-info">
+        <strong>{$user?.username}</strong>
+        <span class="stat">ELO {$user?.elo || 1000}</span>
+        <span class="stat gold">{$user?.coins || 0} coins</span>
+      </div>
+      <button class="btn btn-dark btn-small" on:click={logout}>Logout</button>
     </div>
-    <button class="btn btn-dark btn-small" on:click={logout}>Logout</button>
   </div>
 
   <div class="lobby-center">
-    <h1 class="title">Checkers <span>Online</span></h1>
-
     <div class="play-section">
       <div class="play-buttons">
         <button class="btn btn-primary" on:click={findOpponent}>Find Opponent</button>
@@ -145,10 +146,16 @@
     background: var(--bg);
     padding-bottom: calc(var(--tab-height) + env(safe-area-inset-bottom, 0px));
   }
+  .top-header {
+    flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center;
+    gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md);
+    padding-top: max(var(--sp-sm), env(safe-area-inset-top));
+  }
   .user-bar {
     display: flex; align-items: center; justify-content: space-between;
     gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md);
-    border-radius: 0; flex-shrink: 0;
+    border-radius: var(--radius-lg); width: 100%; max-width: 520px;
   }
   .lobby-center {
     flex: 1; display: flex; flex-direction: column;
