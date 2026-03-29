@@ -3,7 +3,46 @@ import { connectedUsers } from './index.js';
 
 const prisma = new PrismaClient();
 
+const globalChatRateLimit = new Map(); // userId -> lastMessageTime
+
 export function setupChatHandler(io, socket) {
+  // Global chat message
+  socket.on('chat:global', async ({ content }) => {
+    if (!content || content.length > 300) return;
+    const now = Date.now();
+    const last = globalChatRateLimit.get(socket.userId) || 0;
+    if (now - last < 3000) return; // 3s rate limit
+    globalChatRateLimit.set(socket.userId, now);
+
+    const sanitized = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    try {
+      await prisma.chatMessage.create({
+        data: { senderId: socket.userId, content: sanitized }
+      });
+    } catch { /* non-critical */ }
+
+    io.emit('chat:global', {
+      senderId: socket.userId,
+      username: socket.username,
+      content: sanitized,
+      timestamp: now
+    });
+  });
+
+  // Load recent global messages on request
+  socket.on('chat:global-history', async () => {
+    try {
+      const messages = await prisma.chatMessage.findMany({
+        where: { gameId: null, receiverId: null },
+        include: { sender: { select: { id: true, username: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 50
+      });
+      socket.emit('chat:global-history', { messages: messages.reverse() });
+    } catch {}
+  });
+
   // In-game chat message
   socket.on('chat:game-message', async ({ gameId, content }) => {
     if (!content || content.length > 500) return;
