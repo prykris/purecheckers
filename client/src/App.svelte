@@ -23,16 +23,20 @@
   $: showTabs = tabScreens.includes($screen);
   $: showPanelToggles = $screen !== 'auth' && $screen !== 'game' && !loading;
 
+  // When screen becomes lobby and there's a pending join code, auto-join
+  $: if ($screen === 'lobby' && pendingJoinCode) {
+    const sock = getSocket();
+    if (sock) tryJoinFromUrl(sock);
+  }
+
   let chatOpen = false;
   let lbOpen = false;
   let loading = true;
 
   function tryJoinFromUrl(sock) {
-    const match = window.location.pathname.match(/^\/join\/([A-Z0-9]+)$/i);
-    if (!match) return;
-    const code = match[1].toUpperCase();
-    // Clear the URL so refreshing doesn't re-join
-    window.history.replaceState(null, '', '/');
+    if (!pendingJoinCode) return;
+    const code = pendingJoinCode;
+    pendingJoinCode = null;
     // Try to join the room by code
     sock.emit('room:join', { roomId: null, code });
     sock.once('room:joined', ({ room }) => {
@@ -42,6 +46,14 @@
     sock.once('room:error', () => {
       // Room not found or full — just stay on lobby
     });
+  }
+
+  // Check for /join/:code in URL and save it for after auth
+  let pendingJoinCode = null;
+  const joinMatch = window.location.pathname.match(/^\/join\/([A-Z0-9]+)$/i);
+  if (joinMatch) {
+    pendingJoinCode = joinMatch[1].toUpperCase();
+    window.history.replaceState(null, '', '/');
   }
 
   onMount(async () => {

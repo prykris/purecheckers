@@ -9,14 +9,22 @@ import { setupRoomHandler } from './roomHandler.js';
 export const connectedUsers = new Map();
 
 export function setupSocket(io) {
-  // Authenticate sockets via JWT
+  // Authenticate sockets via JWT (supports both users and guests)
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('No token'));
     try {
       const payload = jwt.verify(token, JWT_SECRET);
-      socket.userId = payload.userId;
-      socket.username = payload.username;
+      if (payload.guestId) {
+        // Guest: use negative IDs to avoid collision with real user IDs
+        socket.userId = -Math.floor(Math.random() * 1000000);
+        socket.username = payload.username;
+        socket.isGuest = true;
+      } else {
+        socket.userId = payload.userId;
+        socket.username = payload.username;
+        socket.isGuest = false;
+      }
       next();
     } catch {
       next(new Error('Invalid token'));
