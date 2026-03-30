@@ -43,6 +43,18 @@ export function setupChatHandler(io, socket) {
     } catch {}
   });
 
+  // Room chat message (waiting lobby + in-game)
+  socket.on('chat:room-message', ({ roomId, content }) => {
+    if (!content || content.length > 300) return;
+    const sanitized = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    io.to(`room:${roomId}`).emit('chat:room-message', {
+      senderId: socket.userId,
+      username: socket.username,
+      content: sanitized,
+      timestamp: Date.now()
+    });
+  });
+
   // In-game chat message
   socket.on('chat:game-message', async ({ gameId, content }) => {
     if (!content || content.length > 500) return;

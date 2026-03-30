@@ -82,6 +82,11 @@
     {#if $user?.friendCode}
       <p class="friend-code">Your code: <strong>{$user.friendCode}</strong></p>
     {/if}
+
+    <button class="treasury-link" on:click={() => $screen = 'treasury'}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Community Treasury
+    </button>
   </div>
 </div>
 
@@ -134,4 +139,13 @@
 
   .friend-code { font-size: var(--fs-caption); color: var(--text-dim); }
   .friend-code strong { color: var(--accent); letter-spacing: 2px; font-family: var(--font-mono); }
+
+  .treasury-link {
+    display: flex; align-items: center; gap: var(--sp-xs);
+    background: none; border: none; color: var(--text-dim);
+    font-family: var(--font); font-size: var(--fs-caption);
+    cursor: pointer; text-decoration: underline;
+    transition: color 0.15s;
+  }
+  .treasury-link:hover { color: var(--text); }
 </style>

@@ -18,6 +18,8 @@ model User {
   wins          Int       @default(0)
   losses        Int       @default(0)
   friendCode    String    @unique
+  lastDailyWin  DateTime?
+  peakElo       Int       @default(1000)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -29,6 +31,7 @@ model User {
   sentTips         CoinTransaction[] @relation("TipSender")
   receivedTips     CoinTransaction[] @relation("TipReceiver")
   chatMessages     ChatMessage[]
+  pendingPayouts   PendingPayout[]
 }
 
 model Game {
@@ -131,7 +134,38 @@ enum CoinReason {
   TIP_SENT
   TIP_RECEIVED
   PURCHASE
+  PURCHASE_BURN
   BOT_WIN
+  RANKED_TAX
+  DAILY_BOUNTY
+  ACHIEVEMENT
+  VAULT_DEPOSIT
+  VAULT_WITHDRAWAL
+}
+
+model SystemVault {
+  id      Int @id @default(autoincrement())
+  balance Int @default(0)
+}
+
+model PendingPayout {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  amount    Int
+  reason    CoinReason
+  label     String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model VaultLog {
+  id        Int      @id @default(autoincrement())
+  amount    Int
+  direction String   // 'in' | 'out'
+  reason    String
+  detail    String?
+  createdAt DateTime @default(now())
 }
 
 model ChatMessage {

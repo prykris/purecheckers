@@ -4,6 +4,7 @@
   import { user } from '../stores/user.js';
   import { getSocket } from '../lib/socket.js';
   import { api } from '../lib/api.js';
+  import RoomChat from './chat/RoomChat.svelte';
   import { CheckersGame, ColonelBot } from '../../../shared/game.js';
   import { TURN_TIME } from '../../../shared/constants.js';
 
@@ -46,6 +47,8 @@
   let ownedEmotes = [];
   let activeEmote = null;
   let showEmoteBar = false;
+  let showChat = false;
+  let desktopChat = window.innerWidth >= 1100;
   let emoteTimeout = null;
 
   let moveAnimState = null;
@@ -265,7 +268,11 @@
   function goToLobby() { gameOverData=null; $gameState=null; $screen='lobby'; }
 
   function onEmoteShow(data) { activeEmote={emoji:data.emote.emoji,label:data.emote.label,username:data.username}; clearTimeout(emoteTimeout); emoteTimeout=setTimeout(()=>{activeEmote=null;},2500); }
-  function sendEmote(emote) { socket?.emit('emote:send',{gameId:$gameState?.gameId,emote:{emoji:emote.data.emoji,label:emote.data.label}}); showEmoteBar=false; }
+  function sendEmote(emote) {
+    socket?.emit('emote:send',{gameId:$gameState?.gameId,emote:{emoji:emote.data.emoji,label:emote.data.label}});
+    // Only hide on mobile (desktop keeps it open in left panel)
+    if (window.innerWidth < 1100) showEmoteBar=false;
+  }
 
   let redTime = game.redTime;
   let blackTime = game.blackTime;
@@ -337,8 +344,12 @@
   <div class="actions">
     <button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=true}>Resign</button>
     {#if mode==='online'}
+      <button class="btn btn-dark btn-small" class:mobile-only={showChat || desktopChat} on:click={()=>{ showChat=!showChat; desktopChat=!desktopChat; }}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Chat
+      </button>
       {#if ownedEmotes.length>0}
-        <button class="btn btn-dark btn-small" on:click={()=>showEmoteBar=!showEmoteBar}>Emote</button>
+        <button class="btn btn-dark btn-small mobile-only" on:click={()=>showEmoteBar=!showEmoteBar}>Emote</button>
       {/if}
     {/if}
   </div>
@@ -360,17 +371,28 @@
     <div class="emote-bubble"><span class="emote-emoji">{activeEmote.emoji}</span><span class="emote-who">{activeEmote.username}</span></div>
   {/if}
 
-  {#if showEmoteBar}
-    <div class="emote-bar">
-      {#each ownedEmotes as e}<button class="emote-btn" on:click={()=>sendEmote(e)} title={e.name}>{e.data.emoji}</button>{/each}
-    </div>
-  {/if}
+  <!-- Left panel: emotes + chat (desktop: always visible, mobile: toggled) -->
+  <div class="left-panel" class:mobile-hidden-emotes={!showEmoteBar} class:mobile-hidden-chat={!showChat}>
+    {#if ownedEmotes.length > 0}
+      <div class="emote-bar" class:mobile-hidden={!showEmoteBar}>
+        {#each ownedEmotes as e}<button class="emote-btn" on:click={()=>sendEmote(e)} title={e.name}>{e.data.emoji}</button>{/each}
+      </div>
+    {/if}
+    {#if mode === 'online'}
+      {#if showChat || desktopChat}
+        <div class="game-chat card" class:minimized={!showChat && !desktopChat}>
+          <RoomChat roomId={$gameState?.roomId} gameId={$gameState?.gameId} closeable={true} on:close={() => { showChat = false; desktopChat = false; }} />
+        </div>
+      {/if}
+    {/if}
+  </div>
 
 </div>
 
 <style>
   .game-layout {
-    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
     padding: var(--sp-sm); padding-top: max(var(--sp-sm), env(safe-area-inset-top));
     padding-bottom: max(var(--sp-sm), env(safe-area-inset-bottom));
     gap: var(--sp-xs); background: linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg) 30%);
@@ -449,26 +471,65 @@
   .emote-who { font-size: 0.6rem; color: var(--text-dim); }
   @keyframes emoteFloat { 0%{opacity:0;transform:translateX(-50%) translateY(20px) scale(0.5);} 15%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.1);} 25%{transform:translateX(-50%) translateY(0) scale(1);} 80%{opacity:1;} 100%{opacity:0;transform:translateX(-50%) translateY(-30px);} }
 
-  .emote-bar { display: flex; gap: var(--sp-sm); flex-wrap: wrap; justify-content: center; background: var(--surface); border-radius: var(--radius-lg); padding: var(--sp-sm) var(--sp-md); }
+  .left-panel { display: contents; } /* On mobile, children flow into the main flex */
+  .mobile-only { display: inline-flex; }
+  .mobile-hidden { display: none !important; }
+
+  .emote-bar { display: flex; gap: var(--sp-sm); flex-wrap: wrap; justify-content: center; background: var(--surface); border: 1px solid var(--surface2); border-radius: var(--radius-lg); padding: var(--sp-sm) var(--sp-md); }
+
+  .game-chat {
+    width: 100%; max-width: 640px; height: 200px; padding: 0; overflow: hidden;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    z-index: 15;
+  }
+
+  @media (min-width: 1100px) {
+    .mobile-only { display: none !important; }
+    .left-panel {
+      display: flex !important; flex-direction: column; gap: var(--sp-sm);
+      grid-column: 1; grid-row: 1 / 6;
+      align-self: center;
+      width: 100%;
+    }
+    .game-chat {
+      position: static; height: 360px; max-width: none; width: 100%;
+      border-radius: var(--radius-lg);
+    }
+    .emote-bar { width: 100%; }
+  }
   .emote-btn { width: 40px; height: 40px; border-radius: var(--radius-sm); background: var(--surface2); border: none; cursor: pointer; font-size: 1.4rem; transition: transform 0.1s; }
   .emote-btn:hover { transform: scale(1.15); }
 
 
   /* ---- Desktop 3-column ---- */
+  /* Left: emotes | Center: opponent + board + self + status + actions | Right: moves */
   @media (min-width: 1100px) {
     .game-layout {
       display: grid;
-      grid-template-columns: var(--side-panel) minmax(0, var(--board-max)) var(--side-panel);
-      grid-template-rows: auto 1fr auto auto;
-      align-content: center; justify-content: center;
-      gap: var(--sp-sm) var(--sp-xl); padding: var(--sp-lg);
+      grid-template-columns: var(--side-panel) auto var(--side-panel);
+      grid-template-rows: auto auto auto auto auto;
+      align-content: center;
+      justify-content: center;
+      gap: var(--sp-xs) var(--sp-xl);
+      padding: var(--sp-lg);
     }
-    .player-bar { max-width: none; grid-column: 1; }
-    .player-bar.opponent { grid-row: 1; align-self: center; }
-    .player-bar.self { grid-row: 2; align-self: center; }
-    .board-wrap { grid-column: 2; grid-row: 1 / 4; justify-self: center; align-self: center; }
+
+    .player-bar { max-width: none; grid-column: 2; }
+    .player-bar.opponent { grid-row: 1; }
+    .board-wrap { grid-column: 2; grid-row: 2; justify-self: center; }
+    .player-bar.self { grid-column: 2; grid-row: 3; }
     .status { grid-column: 2; grid-row: 4; text-align: center; }
-    .actions { grid-column: 3; grid-row: 3; justify-self: center; }
-    .moves { grid-column: 3; grid-row: 2; flex-direction: column; overflow-y: auto; overflow-x: hidden; max-height: 300px; max-width: none; scrollbar-width: thin; }
+    .disconnect-banner { grid-column: 2; grid-row: 4; }
+    .actions { grid-column: 2; grid-row: 5; justify-self: center; }
+
+
+    .moves {
+      grid-column: 3; grid-row: 1 / 6;
+      flex-direction: column; overflow-y: auto; overflow-x: hidden;
+      max-height: 400px; max-width: none;
+      align-self: center;
+      scrollbar-width: thin;
+    }
   }
 </style>

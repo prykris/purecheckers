@@ -14,6 +14,7 @@
   import FriendsScreen from './components/FriendsScreen.svelte';
   import FriendGameScreen from './components/FriendGameScreen.svelte';
   import RoomWaiting from './components/lobby/RoomWaiting.svelte';
+  import TreasuryScreen from './components/TreasuryScreen.svelte';
   import BottomNav from './components/BottomNav.svelte';
   import SlidePanel from './components/panels/SlidePanel.svelte';
   import GlobalChat from './components/panels/GlobalChat.svelte';
@@ -99,6 +100,8 @@
     <FriendGameScreen />
   {:else if $screen === 'room-waiting'}
     <RoomWaiting />
+  {:else if $screen === 'treasury'}
+    <TreasuryScreen />
   {/if}
 
   {#if showTabs}

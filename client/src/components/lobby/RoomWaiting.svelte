@@ -3,6 +3,7 @@
   import { screen, gameState } from '../../stores/app.js';
   import { user } from '../../stores/user.js';
   import { getSocket } from '../../lib/socket.js';
+  import RoomChat from '../chat/RoomChat.svelte';
 
   // Initialize from gameState if available (host gets roomData from create)
   let room = $gameState?.roomData || null;
@@ -133,6 +134,10 @@
       {:else if !room.players.every(p => p.ready)}
         <p class="waiting-hint">Both players must ready up to start</p>
       {/if}
+
+      <div class="chat-box card">
+        <RoomChat roomId={$gameState?.roomId} />
+      </div>
     {:else}
       <div class="spinner"></div>
       <p class="dim">Loading room...</p>
@@ -172,4 +177,5 @@
   .actions { display: flex; gap: var(--sp-sm); }
   .dim { color: var(--text-dim); }
   .waiting-hint { font-size: var(--fs-caption); color: var(--text-dim); text-align: center; max-width: 280px; }
+  .chat-box { width: 100%; height: 180px; padding: 0; overflow: hidden; }
 </style>

@@ -5,7 +5,8 @@ import { connectedUsers } from './index.js';
 import { setUserStatus } from './presenceHandler.js';
 import { calculateElo } from '../services/elo.js';
 import { awardCoins } from '../services/coins.js';
-import { COINS_RANKED_WIN, COINS_LOSS } from '../../shared/constants.js';
+import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME, SHOP_VAULT_RATE, SHOP_BURN_RATE } from '../../shared/constants.js';
+import { calculateRankedPayout, depositToVault, awardDailyBounty, checkMilestones, isValidWager } from '../services/vault.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -15,6 +16,24 @@ export const activeGames = new Map();
 // Pending friend game lobbies: code -> { hostId, hostSocket }
 const pendingFriendGames = new Map();
 let nextGameId = 1;
+
+// Diminishing returns: track wins per (winner, loser) pair per day
+// Key: "winnerId:loserId:YYYY-MM-DD" -> count
+const dailyWinTracker = new Map();
+// MAX_DAILY_WINS_VS_SAME imported from shared/constants.js
+
+function getDailyWinKey(winnerId, loserId) {
+  const d = new Date().toISOString().slice(0, 10);
+  return `${winnerId}:${loserId}:${d}`;
+}
+
+function trackAndCheckDiminishing(winnerId, loserId) {
+  if (MAX_DAILY_WINS_VS_SAME <= 0) return false; // disabled
+  const key = getDailyWinKey(winnerId, loserId);
+  const count = (dailyWinTracker.get(key) || 0) + 1;
+  dailyWinTracker.set(key, count);
+  return count > MAX_DAILY_WINS_VS_SAME;
+}
 
 class GameRoom {
   constructor(id, redUserId, blackUserId, mode = 'RANKED', buyIn = 0) {
@@ -128,19 +147,56 @@ class GameRoom {
             })
           ]);
 
-          // Award coins: base reward + buy-in pot
-          const pot = this.buyIn * 2;
-          const winnerCoinAmount = COINS_RANKED_WIN + pot;
-          const loserCoinAmount = COINS_LOSS;
+          // Award coins with vault economics
           const winnerUserId = winner === 'red' ? this.redUserId : this.blackUserId;
           const loserUserId = winner === 'red' ? this.blackUserId : this.redUserId;
 
-          await awardCoins(winnerUserId, winnerCoinAmount, 'WIN_REWARD');
-          await awardCoins(loserUserId, loserCoinAmount, 'WIN_REWARD');
+          // Diminishing returns check
+          const isDiminished = trackAndCheckDiminishing(winnerUserId, loserUserId);
+
+          let winnerTotal = isDiminished ? 0 : COINS_RANKED_WIN;
+          let tax = 0;
+
+          // Buy-in pot with 5% tax (only if wager is valid)
+          if (this.buyIn > 0) {
+            const wagerValid = isValidWager(this.game.moveHistory, this.startedAt);
+            if (wagerValid && !isDiminished) {
+              const payout = calculateRankedPayout(this.buyIn);
+              winnerTotal += payout.winnerPot;
+              tax = payout.tax;
+              await depositToVault(tax, 'Ranked tax', `${RANKED_TAX_RATE * 100}% of ${this.buyIn * 2} pot, game #${this.id}`);
+            } else if (isDiminished && wagerValid) {
+              // 100% tax: entire pot goes to vault (anti-farming)
+              tax = this.buyIn * 2;
+              await depositToVault(tax, 'Anti-farm tax', `100% tax, same-opponent limit, game #${this.id}`);
+            } else {
+              // Invalid wager: refund both players
+              await awardCoins(this.redUserId, this.buyIn, 'WIN_REWARD');
+              await awardCoins(this.blackUserId, this.buyIn, 'WIN_REWARD');
+            }
+          }
+
+          const loserTotal = COINS_LOSS;
+
+          await awardCoins(winnerUserId, winnerTotal, 'WIN_REWARD');
+          await awardCoins(loserUserId, loserTotal, 'WIN_REWARD');
+
+          // Daily bounty (first win of day, paid from vault)
+          const dailyBonus = await awardDailyBounty(winnerUserId);
+          if (dailyBonus > 0) winnerTotal += dailyBonus;
+
+          // ELO milestone check
+          const updatedWinner = await prisma.user.findUnique({ where: { id: winnerUserId } });
+          if (updatedWinner) {
+            const milestones = await checkMilestones(winnerUserId, updatedWinner.elo);
+            for (const m of milestones) winnerTotal += m.reward;
+          }
 
           coinRewards = {
-            red: winner === 'red' ? winnerCoinAmount : loserCoinAmount,
-            black: winner === 'black' ? winnerCoinAmount : loserCoinAmount
+            red: winner === 'red' ? winnerTotal : loserTotal,
+            black: winner === 'black' ? winnerTotal : loserTotal,
+            tax,
+            dailyBonus
           };
         }
       } catch (err) {

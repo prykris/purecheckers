@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { verifyToken } from '../middleware/auth.js';
+import { calculateShopSplit, depositToVault } from '../services/vault.js';
+import { SHOP_VAULT_RATE, SHOP_BURN_RATE } from '../../shared/constants.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -38,7 +40,9 @@ router.post('/purchase', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Insufficient coins' });
     }
 
-    // Atomic: deduct coins + create inventory + log transaction
+    // Burn/vault split per config
+    const { burned, toVault } = calculateShopSplit(item.price);
+
     const [updatedUser, inventory] = await prisma.$transaction([
       prisma.user.update({
         where: { id: req.userId },
@@ -48,15 +52,17 @@ router.post('/purchase', verifyToken, async (req, res) => {
         data: { userId: req.userId, itemId }
       }),
       prisma.coinTransaction.create({
-        data: {
-          receiverId: req.userId,
-          amount: -item.price,
-          reason: 'PURCHASE'
-        }
+        data: { receiverId: req.userId, amount: -item.price, reason: 'PURCHASE' }
+      }),
+      prisma.coinTransaction.create({
+        data: { receiverId: req.userId, amount: -burned, reason: 'PURCHASE_BURN' }
       })
     ]);
 
-    res.json({ coins: updatedUser.coins, inventory });
+    // Send vault share (outside transaction since vault is separate)
+    await depositToVault(toVault, 'Shop purchase', `${SHOP_VAULT_RATE * 100}% of ${item.price} for "${item.name}", ${burned} burned`);
+
+    res.json({ coins: updatedUser.coins, inventory, burned, toVault });
   } catch (err) {
     console.error('Purchase error:', err);
     res.status(500).json({ error: 'Internal server error' });

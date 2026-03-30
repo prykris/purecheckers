@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { JWT_SECRET, JWT_EXPIRES_IN } from '../config.js';
 import { verifyToken } from '../middleware/auth.js';
+import { STARTER_COINS, ELO_START } from '../../shared/constants.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -56,7 +57,7 @@ router.post('/register', async (req, res) => {
     const friendCode = generateFriendCode();
 
     const user = await prisma.user.create({
-      data: { username, email, passwordHash, friendCode, coins: 50 }
+      data: { username, email, passwordHash, friendCode, coins: STARTER_COINS, peakElo: ELO_START }
     });
 
     const token = signToken(user);
