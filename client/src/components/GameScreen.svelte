@@ -428,7 +428,14 @@
   .cap.black { background: var(--black-piece); border: 1px solid #555; }
 
   .board-wrap { position: relative; touch-action: none; }
-  canvas { display: block; border-radius: var(--radius-sm); cursor: pointer; box-shadow: var(--shadow-board); }
+  canvas {
+    display: block; border-radius: var(--radius-sm); cursor: pointer; box-shadow: var(--shadow-board);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
 
   .game-over {
     position: absolute; inset: 0; background: rgba(0,0,0,0.75);

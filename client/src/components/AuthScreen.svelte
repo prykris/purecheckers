@@ -66,17 +66,19 @@
 <div class="page-center">
   <div class="auth-wrapper">
     <h1 class="title">Checkers <span>Online</span></h1>
+    <p class="tagline">Play checkers with friends or strangers. Earn coins, climb the ranks.</p>
 
     <!-- Guest quick play -->
     <div class="card guest-card">
       <input class="input guest-input" type="text" bind:value={guestName}
         placeholder="Nickname" maxlength="20" />
       <button class="btn btn-primary full-w" on:click={playAsGuest} disabled={loading}>
-        {loading ? '...' : 'Play as Guest'}
+        {loading ? '...' : 'Jump In'}
       </button>
+      <p class="guest-note">No sign-up needed. You can create an account later.</p>
     </div>
 
-    <div class="divider"><span>or</span></div>
+    <div class="divider"><span>or sign in to track stats &amp; coins</span></div>
 
     <!-- Full auth -->
     <div class="card auth-card">
@@ -121,6 +123,7 @@
   }
   .title { font-size: var(--fs-title); letter-spacing: 2px; color: var(--accent); }
   .title span { color: var(--text); font-weight: 300; }
+  .tagline { color: var(--text-dim); font-size: var(--fs-caption); text-align: center; max-width: 300px; }
 
   .guest-card {
     width: 100%;
@@ -133,6 +136,11 @@
     text-align: center;
     font-weight: 600;
     font-size: 1rem;
+  }
+  .guest-note {
+    text-align: center;
+    font-size: 0.6rem;
+    color: var(--text-dim);
   }
 
   .divider {

@@ -98,6 +98,22 @@ router.post('/login', async (req, res) => {
 // GET /api/auth/me
 router.get('/me', verifyToken, async (req, res) => {
   try {
+    // Guest users don't have a real User record
+    if (req.isGuest) {
+      return res.json({
+        user: {
+          id: null,
+          username: req.username,
+          isGuest: true,
+          elo: 1000,
+          coins: 0,
+          gamesPlayed: 0,
+          wins: 0,
+          losses: 0
+        }
+      });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
       include: {

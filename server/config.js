@@ -20,4 +20,5 @@ function detectLanIp() {
   return 'localhost';
 }
 
-export const SITE_URL = process.env.SITE_URL || `http://${detectLanIp()}:${PORT}`;
+const CLIENT_PORT = process.env.CLIENT_PORT || 3000;
+export const SITE_URL = process.env.SITE_URL || `http://${detectLanIp()}:${CLIENT_PORT}`;

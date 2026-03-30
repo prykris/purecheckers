@@ -217,6 +217,18 @@ class GameRoom {
     setUserStatus(this.redUserId, 'online');
     setUserStatus(this.blackUserId, 'online');
 
+    // Clean up game room reference
+    const { gameRooms } = await import('./roomHandler.js');
+    for (const [roomId, room] of gameRooms) {
+      if (room.gameId === this.id) {
+        room.status = 'finished';
+        io.to(`room:${roomId}`).emit('room:updated', { room: null, closed: true });
+        io.emit('room:list-update', { room: { id: roomId, closed: true } });
+        gameRooms.delete(roomId);
+        break;
+      }
+    }
+
     // Clean up after a delay (allow rematch requests)
     setTimeout(() => {
       activeGames.delete(this.id);
