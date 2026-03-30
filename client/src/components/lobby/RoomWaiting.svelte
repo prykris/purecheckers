@@ -5,15 +5,17 @@
   import { getSocket } from '../../lib/socket.js';
   import RoomChat from '../chat/RoomChat.svelte';
 
-  // Initialize from gameState if available (host gets roomData from create)
-  let room = $gameState?.roomData || null;
   let socket;
-  let myReady = false;
   let copied = false;
 
-  $: joinUrl = room?.joinUrl || $gameState?.roomData?.joinUrl || null;
+  // Room data comes from the activeRoom store (kept in sync by RoomBanner)
+  $: room = $activeRoom;
+  $: joinUrl = room?.joinUrl || null;
   $: qrDataUrl = room?.qrDataUrl || $gameState?.roomData?.qrDataUrl || null;
-  $: code = room?.joinCode || $gameState?.roomCode;
+  $: code = room?.joinCode || '';
+  $: isHost = room?.hostId === $user?.id;
+  $: myPlayer = room?.players?.find(p => p.userId === $user?.id);
+  $: myReady = myPlayer?.ready || false;
 
   function copyLink() {
     if (!joinUrl) return;
@@ -26,36 +28,18 @@
   onMount(() => {
     socket = getSocket();
     if (!socket) return;
-    socket.on('room:updated', onUpdate);
     socket.on('room:kicked', onKicked);
     socket.on('matchmaking:found', onGameStart);
-
-    // Sync ready state from initial data
-    if (room) {
-      const me = room.players?.find(p => p.userId === $user?.id);
-      if (me) myReady = me.ready;
-    }
   });
 
   onDestroy(() => {
     if (socket) {
-      socket.off('room:updated', onUpdate);
       socket.off('room:kicked', onKicked);
       socket.off('matchmaking:found', onGameStart);
     }
   });
 
-  function onUpdate({ room: r, closed }) {
-    if (closed) { $activeRoom = null; $screen = 'lobby'; return; }
-    if (r.id === $gameState?.roomId) {
-      room = r;
-      $activeRoom = r; // keep banner in sync
-      const me = room?.players?.find(p => p.userId === $user?.id);
-      if (me) myReady = me.ready;
-    }
-  }
-
-  function onKicked() { $screen = 'lobby'; }
+  function onKicked() { $activeRoom = null; $screen = 'lobby'; }
 
   function onGameStart(data) {
     $activeRoom = null;
@@ -64,20 +48,23 @@
   }
 
   function toggleReady() {
-    socket?.emit('room:ready', { roomId: $gameState?.roomId });
+    socket?.emit('room:ready', { roomId: room?.id });
   }
 
-  function leave() {
-    socket?.emit('room:leave', { roomId: $gameState?.roomId });
+  function backToLobby() {
+    // Just navigate away — room stays active (banner shows)
+    $screen = 'lobby';
+  }
+
+  function leaveRoom() {
+    socket?.emit('room:leave', { roomId: room?.id });
     $activeRoom = null;
     $screen = 'lobby';
   }
 
   function kick(userId) {
-    socket?.emit('room:kick', { roomId: $gameState?.roomId, userId });
+    socket?.emit('room:kick', { roomId: room?.id, userId });
   }
-
-  $: isHost = room?.hostId === $user?.id;
 </script>
 
 <div class="page-center">
@@ -100,7 +87,7 @@
           <img class="qr-code" src={qrDataUrl} alt="Join QR code" />
         {/if}
         <span class="code-label">Room Code</span>
-        <span class="code">{room.joinCode || code || '...'}</span>
+        <span class="code">{code}</span>
         {#if joinUrl}
           <button class="btn btn-dark btn-small copy-btn" on:click={copyLink}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -115,6 +102,7 @@
           <div class="card slot" class:filled={room.players[i]} class:ready={room.players[i]?.ready}>
             {#if room.players[i]}
               <div class="player-row">
+                <span class="presence-dot" class:online={room.players[i].online !== false} class:offline={room.players[i].online === false}></span>
                 <span class="pname">{room.players[i].username}</span>
                 <span class="pelo">ELO {room.players[i].elo}</span>
                 {#if room.players[i].ready}
@@ -148,7 +136,10 @@
             {myReady ? 'Unready' : 'Ready Up'}
           </button>
         {/if}
-        <button class="btn btn-dark btn-small" on:click={leave}>Leave</button>
+        <button class="btn btn-dark btn-small" on:click={backToLobby}>Back</button>
+        <button class="btn btn-dark btn-small leave-btn" on:click={leaveRoom}>
+          {isHost ? 'Close Room' : 'Leave'}
+        </button>
       </div>
 
       {#if room.players.length < 2}
@@ -158,7 +149,7 @@
       {/if}
 
       <div class="chat-box card">
-        <RoomChat roomId={$gameState?.roomId} />
+        <RoomChat roomId={room.id} />
       </div>
     {:else}
       <div class="spinner"></div>
@@ -187,6 +178,9 @@
   .slot { padding: var(--sp-md); min-height: 60px; display: flex; align-items: center; }
   .slot.ready { border-color: var(--success); }
   .player-row { display: flex; align-items: center; gap: var(--sp-sm); width: 100%; }
+  .presence-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .presence-dot.online { background: var(--success); }
+  .presence-dot.offline { background: var(--text-dim); }
   .pname { font-weight: 600; font-size: var(--fs-body); }
   .pelo { font-size: var(--fs-caption); color: var(--text-dim); }
   .ready-badge { font-size: 0.65rem; color: var(--success); font-weight: 700; text-transform: uppercase; margin-left: auto; }
@@ -198,7 +192,8 @@
   .kick-btn:hover { color: var(--accent); }
 
   .spectators { font-size: var(--fs-caption); color: var(--text-dim); }
-  .actions { display: flex; gap: var(--sp-sm); }
+  .actions { display: flex; gap: var(--sp-sm); flex-wrap: wrap; justify-content: center; }
+  .leave-btn { color: var(--accent); }
   .dim { color: var(--text-dim); }
   .waiting-hint { font-size: var(--fs-caption); color: var(--text-dim); text-align: center; max-width: 280px; }
   .chat-box { width: 100%; height: 180px; padding: 0; overflow: hidden; }

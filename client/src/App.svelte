@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { screen, gameState } from './stores/app.js';
+  import { screen, gameState, activeRoom } from './stores/app.js';
   import { user, token } from './stores/user.js';
   import { api } from './lib/api.js';
   import { connectSocket, getSocket } from './lib/socket.js';
@@ -72,7 +72,7 @@
 
       if (sock) {
         sock.on('session:kicked', () => { kicked = true; });
-        // Wait for either game:reconnect or a timeout (means no active game)
+        // Wait for game:reconnect, room:reconnect, or timeout
         const resolved = await Promise.race([
           new Promise(resolve => {
             sock.on('game:reconnect', (data) => {
@@ -86,15 +86,21 @@
               });
               resolve('game');
             });
+            sock.on('room:reconnect', ({ room }) => {
+              activeRoom.set(room);
+              gameState.set({ roomId: room.id, mode: 'room', roomData: room });
+              resolve('room');
+            });
           }),
           new Promise(resolve => setTimeout(() => resolve('lobby'), 1500))
         ]);
 
         if (resolved === 'game') {
           screen.set('game');
+        } else if (resolved === 'room') {
+          screen.set('lobby'); // Go to lobby with banner showing
         } else {
           screen.set('lobby');
-          // Check for /join/:code in URL
           tryJoinFromUrl(sock);
         }
       } else {

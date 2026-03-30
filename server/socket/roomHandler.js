@@ -25,6 +25,14 @@ export function findRoomByCode(code) {
   return null;
 }
 
+export function findRoomForUser(userId) {
+  for (const room of gameRooms.values()) {
+    if (room.status === 'playing') continue;
+    if (room.players.some(p => p.userId === userId)) return room;
+  }
+  return null;
+}
+
 function sanitizeRoom(room, includeCode = false) {
   const result = {
     id: room.id,
@@ -37,7 +45,7 @@ function sanitizeRoom(room, includeCode = false) {
       isPrivate: room.settings.isPrivate,
       allowSpectators: room.settings.allowSpectators,
     },
-    players: room.players.map(p => ({ userId: p.userId, username: p.username, elo: p.elo, ready: p.ready })),
+    players: room.players.map(p => ({ userId: p.userId, username: p.username, elo: p.elo, ready: p.ready, online: p.online !== false })),
     spectators: room.spectators.map(s => ({ userId: s.userId, username: s.username })),
     status: room.status,
     createdAt: room.createdAt
@@ -55,8 +63,25 @@ function broadcastRoomUpdate(io, room) {
 
 export function setupRoomHandler(io, socket) {
 
+  // --- Reconnect: check if user is already in a room ---
+  const existingRoom = findRoomForUser(socket.userId);
+  if (existingRoom) {
+    socket.join(`room:${existingRoom.id}`);
+    const player = existingRoom.players.find(p => p.userId === socket.userId);
+    if (player) player.online = true;
+    broadcastRoomUpdate(io, existingRoom);
+    setTimeout(() => {
+      socket.emit('room:reconnect', { room: sanitizeRoom(existingRoom) });
+    }, 600);
+  }
+
   // --- Create room ---
   socket.on('room:create', async ({ buyIn = 0, turnTimer = 60, isPrivate = false, allowSpectators = true }) => {
+    // One room per user
+    if (findRoomForUser(socket.userId)) {
+      return socket.emit('room:error', { error: 'You are already in a room' });
+    }
+
     // Validate
     buyIn = Math.max(0, Math.floor(buyIn));
     turnTimer = [30, 60, 90, 0].includes(turnTimer) ? turnTimer : 60; // 0 = unlimited
@@ -76,7 +101,7 @@ export function setupRoomHandler(io, socket) {
       hostName: socket.username,
       joinCode, // always generated — used for QR/links
       settings: { buyIn, turnTimer: turnTimer || TURN_TIME, isPrivate, code: isPrivate ? joinCode : null, allowSpectators },
-      players: [{ userId: socket.userId, username: socket.username, elo: 0, ready: false }],
+      players: [{ userId: socket.userId, username: socket.username, elo: 0, ready: false, online: true }],
       spectators: [],
       status: 'waiting',
       gameId: null,
@@ -122,6 +147,10 @@ export function setupRoomHandler(io, socket) {
 
   // --- Join room ---
   socket.on('room:join', async ({ roomId, code }) => {
+    // One room per user
+    const alreadyIn = findRoomForUser(socket.userId);
+    if (alreadyIn) return socket.emit('room:error', { error: 'Leave your current room first' });
+
     // Look up by roomId or by joinCode
     let room = roomId ? gameRooms.get(roomId) : null;
     if (!room && code) room = findRoomByCode(code);
@@ -143,7 +172,8 @@ export function setupRoomHandler(io, socket) {
       userId: socket.userId,
       username: socket.username,
       elo: joinerUser?.elo || 1000,
-      ready: false
+      ready: false,
+      online: true
     });
 
     socket.join(`room:${room.id}`);
@@ -152,8 +182,8 @@ export function setupRoomHandler(io, socket) {
   });
 
   // --- Leave room ---
-  socket.on('room:leave', ({ roomId }) => {
-    const room = gameRooms.get(roomId);
+  socket.on('room:leave', ({ roomId } = {}) => {
+    let room = roomId ? gameRooms.get(roomId) : findRoomForUser(socket.userId);
     if (!room) return;
 
     socket.leave(`room:${room.id}`);
@@ -223,20 +253,32 @@ export function setupRoomHandler(io, socket) {
   });
 
   // --- Cleanup on disconnect ---
+  // Don't remove from room on disconnect (they might be refreshing).
+  // Rooms are only destroyed by explicit room:leave or timeout.
   socket.on('disconnect', () => {
     for (const [roomId, room] of gameRooms) {
-      if (room.status === 'playing') continue; // Don't destroy rooms with active games
-
-      const wasPlayer = room.players.some(p => p.userId === socket.userId);
-      room.players = room.players.filter(p => p.userId !== socket.userId);
-      room.spectators = room.spectators.filter(s => s.userId !== socket.userId);
-
-      if (room.hostId === socket.userId || room.players.length === 0) {
-        gameRooms.delete(roomId);
-        io.to(`room:${roomId}`).emit('room:updated', { room: null, closed: true });
-        io.emit('room:list-update', { room: { id: roomId, closed: true } });
-      } else if (wasPlayer) {
+      if (room.status === 'playing') continue;
+      const player = room.players.find(p => p.userId === socket.userId);
+      if (player) {
+        player.online = false;
         broadcastRoomUpdate(io, room);
+        // Auto-destroy after 2 minutes if they don't reconnect
+        setTimeout(() => {
+          const current = gameRooms.get(roomId);
+          if (!current) return;
+          const p = current.players.find(pp => pp.userId === socket.userId);
+          if (p && p.online === false) {
+            // Still disconnected — remove them
+            current.players = current.players.filter(pp => pp.userId !== socket.userId);
+            if (current.hostId === socket.userId || current.players.length === 0) {
+              gameRooms.delete(roomId);
+              io.to(`room:${roomId}`).emit('room:updated', { room: null, closed: true });
+              io.emit('room:list-update', { room: { id: roomId, closed: true } });
+            } else {
+              broadcastRoomUpdate(io, current);
+            }
+          }
+        }, 120000); // 2 minutes
       }
     }
   });
