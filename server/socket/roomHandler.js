@@ -25,23 +25,26 @@ export function findRoomByCode(code) {
   return null;
 }
 
-function sanitizeRoom(room) {
-  return {
+function sanitizeRoom(room, includeCode = false) {
+  const result = {
     id: room.id,
     hostId: room.hostId,
     hostName: room.hostName,
+    joinCode: room.joinCode,
     settings: {
       buyIn: room.settings.buyIn,
       turnTimer: room.settings.turnTimer,
       isPrivate: room.settings.isPrivate,
       allowSpectators: room.settings.allowSpectators,
-      // Don't expose private room code in list
     },
     players: room.players.map(p => ({ userId: p.userId, username: p.username, elo: p.elo, ready: p.ready })),
     spectators: room.spectators.map(s => ({ userId: s.userId, username: s.username })),
     status: room.status,
     createdAt: room.createdAt
   };
+  // Include join URL for room members (not for public list of private rooms)
+  result.joinUrl = `${SITE_URL}/join/${room.joinCode}`;
+  return result;
 }
 
 function broadcastRoomUpdate(io, room) {
@@ -92,9 +95,9 @@ export function setupRoomHandler(io, socket) {
     let qrDataUrl = null;
     try { qrDataUrl = await QRCode.toDataURL(joinUrl, { width: 200, margin: 1, color: { dark: '#000', light: '#fff' } }); } catch {}
 
-    socket.emit('room:created', {
-      room: { ...sanitizeRoom(room), joinCode, joinUrl, qrDataUrl }
-    });
+    const roomData = sanitizeRoom(room);
+    roomData.qrDataUrl = qrDataUrl;
+    socket.emit('room:created', { room: roomData });
     io.emit('room:list-update', { room: sanitizeRoom(room) });
   });
 

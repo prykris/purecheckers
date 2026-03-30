@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { screen, gameState } from '../../stores/app.js';
+  import { screen, gameState, activeRoom } from '../../stores/app.js';
   import { user } from '../../stores/user.js';
   import { getSocket } from '../../lib/socket.js';
   import RoomCreate from './RoomCreate.svelte';
@@ -40,6 +40,7 @@
   }
   function onJoined({ room }) {
     $gameState = { roomId: room.id, mode: 'room', roomData: room };
+    $activeRoom = room;
     $screen = 'room-waiting';
   }
   function onError({ error }) { joinError = error; setTimeout(() => joinError = '', 3000); }

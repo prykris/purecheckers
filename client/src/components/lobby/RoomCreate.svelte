@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { screen, gameState } from '../../stores/app.js';
+  import { screen, gameState, activeRoom } from '../../stores/app.js';
   import { getSocket } from '../../lib/socket.js';
 
   const dispatch = createEventDispatcher();
@@ -30,7 +30,8 @@
   });
 
   function onCreated({ room }) {
-    $gameState = { roomId: room.id, mode: 'room', roomCode: room.settings.code, roomData: room };
+    $gameState = { roomId: room.id, mode: 'room', roomCode: room.joinCode, roomData: room };
+    $activeRoom = room;
     $screen = 'room-waiting';
     dispatch('close');
   }

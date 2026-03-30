@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { screen, gameState } from '../../stores/app.js';
+  import { screen, gameState, activeRoom } from '../../stores/app.js';
   import { user } from '../../stores/user.js';
   import { getSocket } from '../../lib/socket.js';
   import RoomChat from '../chat/RoomChat.svelte';
@@ -11,9 +11,9 @@
   let myReady = false;
   let copied = false;
 
-  $: joinUrl = $gameState?.roomData?.joinUrl || null;
-  $: qrDataUrl = $gameState?.roomData?.qrDataUrl || null;
-  $: code = $gameState?.roomCode;
+  $: joinUrl = room?.joinUrl || $gameState?.roomData?.joinUrl || null;
+  $: qrDataUrl = room?.qrDataUrl || $gameState?.roomData?.qrDataUrl || null;
+  $: code = room?.joinCode || $gameState?.roomCode;
 
   function copyLink() {
     if (!joinUrl) return;
@@ -46,9 +46,10 @@
   });
 
   function onUpdate({ room: r, closed }) {
-    if (closed) { $screen = 'lobby'; return; }
+    if (closed) { $activeRoom = null; $screen = 'lobby'; return; }
     if (r.id === $gameState?.roomId) {
       room = r;
+      $activeRoom = r; // keep banner in sync
       const me = room?.players?.find(p => p.userId === $user?.id);
       if (me) myReady = me.ready;
     }
@@ -57,6 +58,7 @@
   function onKicked() { $screen = 'lobby'; }
 
   function onGameStart(data) {
+    $activeRoom = null;
     $gameState = { gameId: data.gameId, myColor: data.yourColor, opponentName: data.opponent.username, opponentId: data.opponent.id, mode: 'online' };
     $screen = 'wheel';
   }
@@ -67,6 +69,7 @@
 
   function leave() {
     socket?.emit('room:leave', { roomId: $gameState?.roomId });
+    $activeRoom = null;
     $screen = 'lobby';
   }
 

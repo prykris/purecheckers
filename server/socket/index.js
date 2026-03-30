@@ -33,6 +33,14 @@ export function setupSocket(io) {
 
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.username} (${socket.userId})`);
+
+    // Kick existing session for same user (one session per user)
+    const existing = connectedUsers.get(socket.userId);
+    if (existing && !socket.isGuest) {
+      existing.socket.emit('session:kicked', { reason: 'Logged in from another device' });
+      existing.socket.disconnect(true);
+    }
+
     connectedUsers.set(socket.userId, {
       socketId: socket.id,
       socket,

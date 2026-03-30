@@ -15,6 +15,7 @@
   import RoomWaiting from './components/lobby/RoomWaiting.svelte';
   import TreasuryScreen from './components/TreasuryScreen.svelte';
   import BottomNav from './components/BottomNav.svelte';
+  import RoomBanner from './components/RoomBanner.svelte';
   import SlidePanel from './components/panels/SlidePanel.svelte';
   import GlobalChat from './components/panels/GlobalChat.svelte';
   import LeaderboardPanel from './components/panels/LeaderboardPanel.svelte';
@@ -32,6 +33,7 @@
   let chatOpen = false;
   let lbOpen = false;
   let loading = true;
+  let kicked = false;
 
   function tryJoinFromUrl(sock) {
     if (!pendingJoinCode) return;
@@ -69,6 +71,7 @@
       const sock = connectSocket();
 
       if (sock) {
+        sock.on('session:kicked', () => { kicked = true; });
         // Wait for either game:reconnect or a timeout (means no active game)
         const resolved = await Promise.race([
           new Promise(resolve => {
@@ -108,12 +111,25 @@
   });
 </script>
 
+{#if kicked}
+  <div class="kicked-overlay">
+    <div class="card kicked-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <h3>Session Ended</h3>
+      <p>You logged in from another device or tab.</p>
+      <button class="btn btn-primary" on:click={() => window.location.reload()}>Reconnect</button>
+    </div>
+  </div>
+{/if}
+
 {#if loading}
   <div class="splash">
     <h1 class="splash-title">Checkers</h1>
     <div class="splash-spinner"></div>
   </div>
 {/if}
+
+<RoomBanner />
 
 <div class="app" class:hidden={loading}>
   {#if $screen === 'auth'}
@@ -159,6 +175,21 @@
 </div>
 
 <style>
+  .kicked-overlay {
+    position: fixed; inset: 0; z-index: 999;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    padding: var(--sp-md);
+  }
+  .kicked-box {
+    display: flex; flex-direction: column; align-items: center;
+    gap: var(--sp-md); padding: var(--sp-xl); text-align: center;
+    max-width: 320px; color: var(--text);
+  }
+  .kicked-box svg { color: var(--warning); }
+  .kicked-box h3 { font-size: var(--fs-heading); }
+  .kicked-box p { font-size: var(--fs-caption); color: var(--text-dim); }
+
   .splash {
     position: fixed; inset: 0; z-index: 200;
     background: var(--bg);
