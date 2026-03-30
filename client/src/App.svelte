@@ -4,6 +4,7 @@
   import { user, token } from './stores/user.js';
   import { api } from './lib/api.js';
   import { connectSocket, getSocket } from './lib/socket.js';
+  import { attachSocketListeners } from './lib/socketService.js';
 
   import AuthScreen from './components/AuthScreen.svelte';
   import Lobby from './components/Lobby.svelte';
@@ -19,6 +20,12 @@
   import SlidePanel from './components/panels/SlidePanel.svelte';
   import GlobalChat from './components/panels/GlobalChat.svelte';
   import LeaderboardPanel from './components/panels/LeaderboardPanel.svelte';
+
+  const VALID_SCREENS = new Set(['lobby', 'shop', 'friends', 'profile', 'treasury', 'room-waiting']);
+  function getHashScreen() {
+    const hash = window.location.hash.replace(/^#\/?/, '');
+    return VALID_SCREENS.has(hash) ? hash : null;
+  }
 
   const tabScreens = ['lobby', 'shop', 'friends', 'profile'];
   $: showTabs = tabScreens.includes($screen);
@@ -50,12 +57,14 @@
     });
   }
 
-  // Check for /join/:code in URL and save it for after auth
+  // Check for join code in URL: /join/CODE or #/join/CODE
   let pendingJoinCode = null;
-  const joinMatch = window.location.pathname.match(/^\/join\/([A-Z0-9]+)$/i);
+  const pathMatch = window.location.pathname.match(/^\/join\/([A-Z0-9]+)$/i);
+  const hashMatch = window.location.hash.match(/^#\/join\/([A-Z0-9]+)$/i);
+  const joinMatch = pathMatch || hashMatch;
   if (joinMatch) {
     pendingJoinCode = joinMatch[1].toUpperCase();
-    window.history.replaceState(null, '', '/');
+    window.history.replaceState(null, '', '/#/lobby');
   }
 
   onMount(async () => {
@@ -69,10 +78,12 @@
       const data = await api.get('/auth/me');
       $user = data.user;
       const sock = connectSocket();
+      attachSocketListeners();
 
       if (sock) {
         sock.on('session:kicked', () => { kicked = true; });
         // Wait for game:reconnect, room:reconnect, or timeout
+        // (socketService handles store updates, we just need to know which screen)
         const resolved = await Promise.race([
           new Promise(resolve => {
             sock.on('game:reconnect', (data) => {
@@ -82,15 +93,14 @@
                 opponentName: data.opponentName,
                 opponentId: data.opponentId,
                 mode: 'online',
-                reconnectState: data.state
+                reconnectState: data.state,
+                opponentOnline: data.opponentOnline
               });
+              // Load game chat history
+              sock.emit('chat:history', { type: 'game', targetId: data.gameId });
               resolve('game');
             });
-            sock.on('room:reconnect', ({ room }) => {
-              activeRoom.set(room);
-              gameState.set({ roomId: room.id, mode: 'room', roomData: room });
-              resolve('room');
-            });
+            sock.on('room:reconnect', () => resolve('room'));
           }),
           new Promise(resolve => setTimeout(() => resolve('lobby'), 1500))
         ]);
@@ -98,9 +108,16 @@
         if (resolved === 'game') {
           screen.set('game');
         } else if (resolved === 'room') {
-          screen.set('lobby'); // Go to lobby with banner showing
+          // Restore hash screen or default to lobby (banner shows the room)
+          const hashScreen = getHashScreen();
+          screen.set(hashScreen || 'lobby');
         } else {
-          screen.set('lobby');
+          const hashScreen = getHashScreen();
+          if (hashScreen && hashScreen !== 'auth') {
+            screen.set(hashScreen);
+          } else {
+            screen.set('lobby');
+          }
           tryJoinFromUrl(sock);
         }
       } else {

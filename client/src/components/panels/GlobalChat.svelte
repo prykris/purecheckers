@@ -9,39 +9,36 @@
   let messagesEl;
   let socket = null;
   let attached = false;
+  let lastSendTime = 0;
 
-  // Re-attach when panel becomes visible or socket changes
-  $: if (visible && !attached) attachSocket();
+  $: if (visible && !attached) attach();
 
-  function attachSocket() {
+  function attach() {
     socket = getSocket();
     if (!socket) return;
     if (attached) return;
     attached = true;
-    socket.on('chat:global', onMessage);
-    socket.on('chat:global-history', onHistory);
-    socket.emit('chat:global-history');
+    socket.on('chat:message', onMsg);
+    socket.on('chat:history', onHistory);
+    socket.emit('chat:history', { channelId: 'global' });
   }
 
   onDestroy(() => {
     if (socket) {
-      socket.off('chat:global', onMessage);
-      socket.off('chat:global-history', onHistory);
+      socket.off('chat:message', onMsg);
+      socket.off('chat:history', onHistory);
     }
   });
 
-  function onMessage(msg) {
+  function onMsg(msg) {
+    if (msg.channelId !== 'global') return;
     messages = [...messages, msg];
     scrollDown();
   }
 
-  function onHistory({ messages: msgs }) {
-    messages = msgs.map(m => ({
-      senderId: m.sender.id,
-      username: m.sender.username,
-      content: m.content,
-      timestamp: new Date(m.createdAt).getTime()
-    }));
+  function onHistory({ channelId, messages: msgs }) {
+    if (channelId !== 'global') return;
+    messages = msgs;
     scrollDown();
   }
 
@@ -52,8 +49,11 @@
   }
 
   function send() {
-    if (!input.trim()) return;
-    socket?.emit('chat:global', { content: input.trim() });
+    if (!input.trim() || !socket) return;
+    const now = Date.now();
+    if (now - lastSendTime < 1000) return;
+    lastSendTime = now;
+    socket.emit('chat:send', { channelId: 'global', content: input.trim().slice(0, 300) });
     input = '';
   }
 </script>
@@ -74,8 +74,8 @@
   <div class="input-row">
     <input class="input" type="text" bind:value={input} placeholder="Type a message..."
       maxlength="300" on:keydown={(e) => e.key === 'Enter' && send()} />
-    <button class="btn btn-primary btn-small" on:click={send}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    <button class="btn btn-primary btn-small" on:click={send} aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
     </button>
   </div>
 </div>
@@ -84,7 +84,7 @@
   .chat-content { display: flex; flex-direction: column; height: 100%; }
   .messages { flex: 1; overflow-y: auto; padding: var(--sp-sm) var(--sp-md); display: flex; flex-direction: column; gap: var(--sp-xs); }
   .empty { color: var(--text-dim); font-size: var(--fs-caption); text-align: center; padding: var(--sp-lg); }
-  .msg { font-size: var(--fs-caption); line-height: 1.4; }
+  .msg { font-size: var(--fs-caption); line-height: 1.4; word-break: break-word; }
   .msg strong { color: var(--accent); margin-right: var(--sp-xs); font-weight: 600; }
   .msg span { color: var(--text); }
   .input-row { display: flex; gap: var(--sp-xs); padding: var(--sp-sm) var(--sp-md); border-top: 1px solid var(--surface2); flex-shrink: 0; }

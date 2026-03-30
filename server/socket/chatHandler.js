@@ -3,145 +3,112 @@ import { connectedUsers } from './index.js';
 
 const prisma = new PrismaClient();
 
-const globalChatRateLimit = new Map(); // userId -> lastMessageTime
+// Rate limit per user per channel: channelId:userId -> lastSendTime
+const rateLimits = new Map();
+const RATE_LIMIT_MS = 1000; // 1 message per second per channel
+
+/**
+ * Validate that a user can access a channel.
+ * Returns true if allowed, false if not.
+ */
+function canAccessChannel(channelId, socket) {
+  if (channelId === 'global') return true;
+
+  const [type, id] = channelId.split(':');
+  const numId = parseInt(id);
+  if (!numId) return false;
+
+  if (type === 'room') {
+    // Must be imported dynamically to avoid circular dependency
+    // Check if user is in this room's socket.io room
+    const rooms = socket.rooms;
+    return rooms.has(`room:${numId}`);
+  }
+
+  if (type === 'game') {
+    const rooms = socket.rooms;
+    return rooms.has(`game:${numId}`);
+  }
+
+  return false;
+}
 
 export function setupChatHandler(io, socket) {
-  // Global chat message
-  socket.on('chat:global', async ({ content }) => {
-    if (!content || content.length > 300) return;
+
+  // Auto-join the global chat channel
+  socket.join('chat:global');
+
+  // ---- Send message to any channel ----
+  socket.on('chat:send', async ({ channelId, content }) => {
+    if (!channelId || !content || content.length > 300) return;
+    const sanitized = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Rate limit
+    const rlKey = `${channelId}:${socket.userId}`;
     const now = Date.now();
-    const last = globalChatRateLimit.get(socket.userId) || 0;
-    if (now - last < 3000) return; // 3s rate limit
-    globalChatRateLimit.set(socket.userId, now);
+    if ((rateLimits.get(rlKey) || 0) + RATE_LIMIT_MS > now) return;
+    rateLimits.set(rlKey, now);
 
-    const sanitized = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Access control
+    if (!canAccessChannel(channelId, socket)) return;
 
+    // Persist
+    let msg;
     try {
-      await prisma.chatMessage.create({
-        data: { senderId: socket.userId, content: sanitized }
+      msg = await prisma.chatMessage.create({
+        data: {
+          channelId,
+          senderId: socket.userId,
+          username: socket.username,
+          content: sanitized
+        }
       });
-    } catch { /* non-critical */ }
+    } catch { return; }
 
-    io.emit('chat:global', {
+    // Broadcast to the channel's socket room
+    const socketRoom = `chat:${channelId}`;
+    io.to(socketRoom).emit('chat:message', {
+      id: msg.id,
+      channelId,
       senderId: socket.userId,
       username: socket.username,
       content: sanitized,
-      timestamp: now
+      createdAt: msg.createdAt
     });
   });
 
-  // Load recent global messages on request
-  socket.on('chat:global-history', async () => {
-    try {
-      const messages = await prisma.chatMessage.findMany({
-        where: { gameId: null, receiverId: null },
-        include: { sender: { select: { id: true, username: true } } },
-        orderBy: { createdAt: 'desc' },
-        take: 50
-      });
-      socket.emit('chat:global-history', { messages: messages.reverse() });
-    } catch {}
-  });
-
-  // Room chat message (waiting lobby + in-game)
-  socket.on('chat:room-message', ({ roomId, content }) => {
-    if (!content || content.length > 300) return;
-    const sanitized = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    io.to(`room:${roomId}`).emit('chat:room-message', {
-      senderId: socket.userId,
-      username: socket.username,
-      content: sanitized,
-      timestamp: Date.now()
-    });
-  });
-
-  // In-game chat message
-  socket.on('chat:game-message', async ({ gameId, content }) => {
-    if (!content || content.length > 500) return;
-    const sanitized = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // ---- Fetch history for a channel ----
+  socket.on('chat:history', async ({ channelId, afterId }) => {
+    if (!channelId) return;
+    if (!canAccessChannel(channelId, socket)) return;
 
     try {
-      await prisma.chatMessage.create({
-        data: { senderId: socket.userId, gameId, content: sanitized }
-      });
-    } catch { /* non-critical */ }
-
-    io.to(`game:${gameId}`).emit('chat:game-message', {
-      senderId: socket.userId,
-      username: socket.username,
-      content: sanitized,
-      timestamp: Date.now()
-    });
-  });
-
-  // Direct message to a friend
-  socket.on('chat:dm', async ({ receiverId, content }) => {
-    if (!content || content.length > 500 || !receiverId) return;
-    const sanitized = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-    // Verify friendship
-    const friendship = await prisma.friendship.findFirst({
-      where: {
-        status: 'ACCEPTED',
-        OR: [
-          { requesterId: socket.userId, receiverId },
-          { requesterId: receiverId, receiverId: socket.userId }
-        ]
-      }
-    });
-    if (!friendship) return;
-
-    try {
-      await prisma.chatMessage.create({
-        data: { senderId: socket.userId, receiverId, content: sanitized }
-      });
-    } catch { /* non-critical */ }
-
-    // Send to recipient if online
-    const recipient = connectedUsers.get(receiverId);
-    if (recipient) {
-      recipient.socket.emit('chat:dm', {
-        senderId: socket.userId,
-        username: socket.username,
-        content: sanitized,
-        timestamp: Date.now()
-      });
-    }
-
-    // Echo back to sender for confirmation
-    socket.emit('chat:dm', {
-      senderId: socket.userId,
-      username: socket.username,
-      content: sanitized,
-      timestamp: Date.now(),
-      receiverId
-    });
-  });
-
-  // Fetch chat history
-  socket.on('chat:history', async ({ type, targetId, before }) => {
-    try {
-      const where = {};
-      if (type === 'game') {
-        where.gameId = targetId;
-      } else if (type === 'dm') {
-        where.OR = [
-          { senderId: socket.userId, receiverId: targetId },
-          { senderId: targetId, receiverId: socket.userId }
-        ];
-      }
-      if (before) where.createdAt = { lt: new Date(before) };
+      const where = { channelId };
+      if (afterId) where.id = { gt: afterId };
 
       const messages = await prisma.chatMessage.findMany({
         where,
-        include: { sender: { select: { id: true, username: true } } },
         orderBy: { createdAt: 'desc' },
         take: 50
       });
 
-      socket.emit('chat:history', { messages: messages.reverse() });
-    } catch (err) {
-      console.error('Chat history error:', err);
-    }
+      socket.emit('chat:history', {
+        channelId,
+        messages: messages.reverse()
+      });
+    } catch {}
+  });
+
+  // ---- Join a chat channel (called when entering a room/game) ----
+  socket.on('chat:join', ({ channelId }) => {
+    if (!channelId) return;
+    if (!canAccessChannel(channelId, socket)) return;
+    socket.join(`chat:${channelId}`);
+  });
+
+  // ---- Leave a chat channel ----
+  socket.on('chat:leave', ({ channelId }) => {
+    if (!channelId) return;
+    socket.leave(`chat:${channelId}`);
   });
 }

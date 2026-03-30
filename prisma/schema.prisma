@@ -30,7 +30,6 @@ model User {
   receivedRequests Friendship[]      @relation("FriendReceiver")
   sentTips         CoinTransaction[] @relation("TipSender")
   receivedTips     CoinTransaction[] @relation("TipReceiver")
-  chatMessages     ChatMessage[]
   pendingPayouts   PendingPayout[]
 }
 
@@ -178,11 +177,11 @@ model GuestSession {
 
 model ChatMessage {
   id         Int      @id @default(autoincrement())
+  channelId  String   // "global" | "room:<id>" | "game:<id>"
   senderId   Int
-  gameId     Int?
-  receiverId Int?
+  username   String   // denormalized
   content    String
   createdAt  DateTime @default(now())
 
-  sender User @relation(fields: [senderId], references: [id])
+  @@index([channelId, createdAt])
 }

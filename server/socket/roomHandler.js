@@ -9,7 +9,8 @@ const prisma = new PrismaClient();
 
 // Active rooms: roomId -> Room
 export const gameRooms = new Map();
-let nextRoomId = 1;
+// Timestamp-based unique ID — never collides across restarts
+let nextRoomId = Date.now();
 
 function genCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -48,15 +49,17 @@ function sanitizeRoom(room, includeCode = false) {
     players: room.players.map(p => ({ userId: p.userId, username: p.username, elo: p.elo, ready: p.ready, online: p.online !== false })),
     spectators: room.spectators.map(s => ({ userId: s.userId, username: s.username })),
     status: room.status,
+    gameId: room.gameId || null,
     createdAt: room.createdAt
   };
-  // Include join URL for room members (not for public list of private rooms)
+  // Include join URL for room members
   result.joinUrl = `${SITE_URL}/join/${room.joinCode}`;
   return result;
 }
 
 function broadcastRoomUpdate(io, room) {
-  io.to(`room:${room.id}`).emit('room:updated', { room: sanitizeRoom(room) });
+  // Broadcast globally — RoomBanner and RoomList filter by room ID
+  io.emit('room:updated', { room: sanitizeRoom(room) });
   // Also broadcast to the lobby so room lists update
   io.emit('room:list-update', { room: sanitizeRoom(room) });
 }
@@ -66,7 +69,9 @@ export function setupRoomHandler(io, socket) {
   // --- Reconnect: check if user is already in a room ---
   const existingRoom = findRoomForUser(socket.userId);
   if (existingRoom) {
+    console.log(`[Room] Reconnect: ${socket.username} (${socket.userId}) -> room #${existingRoom.id}`);
     socket.join(`room:${existingRoom.id}`);
+    socket.join(`chat:room:${existingRoom.id}`);
     const player = existingRoom.players.find(p => p.userId === socket.userId);
     if (player) player.online = true;
     broadcastRoomUpdate(io, existingRoom);
@@ -114,6 +119,8 @@ export function setupRoomHandler(io, socket) {
 
     gameRooms.set(room.id, room);
     socket.join(`room:${room.id}`);
+    socket.join(`chat:room:${room.id}`);
+    console.log(`[Room] Created: room #${room.id} by ${socket.username} (${socket.userId}), code=${joinCode}, buyIn=${buyIn}`);
 
     // Generate join URL + QR code
     const joinUrl = `${SITE_URL}/join/${joinCode}`;
@@ -177,6 +184,8 @@ export function setupRoomHandler(io, socket) {
     });
 
     socket.join(`room:${room.id}`);
+    socket.join(`chat:room:${room.id}`);
+    console.log(`[Room] Joined: ${socket.username} (${socket.userId}) -> room #${room.id}, players: ${room.players.map(p => p.username).join(', ')}`);
     socket.emit('room:joined', { room: sanitizeRoom(room) });
     broadcastRoomUpdate(io, room);
   });
@@ -185,29 +194,46 @@ export function setupRoomHandler(io, socket) {
   socket.on('room:leave', ({ roomId } = {}) => {
     let room = roomId ? gameRooms.get(roomId) : findRoomForUser(socket.userId);
     if (!room) return;
+    console.log(`[Room] Leave: ${socket.username} (${socket.userId}) from room #${room.id}, isHost=${room.hostId === socket.userId}`);
 
     socket.leave(`room:${room.id}`);
     room.players = room.players.filter(p => p.userId !== socket.userId);
     room.spectators = room.spectators.filter(s => s.userId !== socket.userId);
 
-    // If host left, close the room
-    if (room.hostId === socket.userId || room.players.length === 0) {
+    if (room.players.length === 0) {
+      // No players left — destroy room
+      console.log(`[Room] Destroyed: room #${room.id} (empty)`);
       gameRooms.delete(room.id);
-      io.to(`room:${room.id}`).emit('room:updated', { room: null, closed: true });
+      io.emit('room:updated', { room: { id: room.id }, closed: true });
       io.emit('room:list-update', { room: { id: room.id, closed: true } });
     } else {
+      // Transfer host if the host left
+      if (room.hostId === socket.userId) {
+        room.hostId = room.players[0].userId;
+        room.hostName = room.players[0].username;
+        console.log(`[Room] Host transferred: room #${room.id} -> ${room.hostName} (${room.hostId})`);
+      }
+      // Reset ready states since player composition changed
+      room.players.forEach(p => p.ready = false);
       broadcastRoomUpdate(io, room);
     }
   });
 
   // --- Ready up ---
   socket.on('room:ready', ({ roomId }) => {
-    const room = gameRooms.get(roomId);
-    if (!room || room.status !== 'waiting') return;
+    const room = roomId ? gameRooms.get(roomId) : findRoomForUser(socket.userId);
+    if (!room || room.status !== 'waiting') {
+      console.log(`[Room] Ready FAILED: ${socket.username} (${socket.userId}), roomId=${roomId}, room=${room ? `#${room.id} status=${room.status}` : 'null'}`);
+      return;
+    }
 
     const player = room.players.find(p => p.userId === socket.userId);
-    if (!player) return;
+    if (!player) {
+      console.log(`[Room] Ready FAILED: ${socket.username} (${socket.userId}) not in room #${room.id} players: [${room.players.map(p => `${p.username}(${p.userId})`).join(', ')}]`);
+      return;
+    }
     player.ready = !player.ready;
+    console.log(`[Room] Ready: ${socket.username} (${socket.userId}) in room #${room.id} -> ${player.ready}`);
 
     broadcastRoomUpdate(io, room);
 
@@ -218,7 +244,7 @@ export function setupRoomHandler(io, socket) {
   });
 
   // --- Spectate ---
-  socket.on('room:spectate', ({ roomId }) => {
+  socket.on('room:spectate', async ({ roomId }) => {
     const room = gameRooms.get(roomId);
     if (!room) return socket.emit('room:error', { error: 'Room not found' });
     if (!room.settings.allowSpectators) return socket.emit('room:error', { error: 'Spectators not allowed' });
@@ -229,6 +255,20 @@ export function setupRoomHandler(io, socket) {
     }
 
     socket.join(`room:${room.id}`);
+    socket.join(`chat:room:${room.id}`);
+
+    // If game is active, join the game room too so spectator sees moves
+    if (room.gameId) {
+      const { activeGames } = await import('./gameHandler.js');
+      const gameRoom = activeGames.get(room.gameId);
+      if (gameRoom) {
+        socket.join(`game:${room.gameId}`);
+        socket.join(`chat:game:${room.gameId}`);
+        // Send current game state to spectator
+        socket.emit('game:sync', gameRoom.getState());
+      }
+    }
+
     socket.emit('room:joined', { room: sanitizeRoom(room), spectating: true });
     broadcastRoomUpdate(io, room);
   });
@@ -237,7 +277,8 @@ export function setupRoomHandler(io, socket) {
   socket.on('room:kick', ({ roomId, userId }) => {
     const room = gameRooms.get(roomId);
     if (!room || room.hostId !== socket.userId) return;
-    if (userId === socket.userId) return; // Can't kick yourself
+    if (userId === socket.userId) return;
+    console.log(`[Room] Kick: ${socket.username} kicked userId=${userId} from room #${room.id}`);
 
     room.players = room.players.filter(p => p.userId !== userId);
     room.spectators = room.spectators.filter(s => s.userId !== userId);
@@ -260,6 +301,7 @@ export function setupRoomHandler(io, socket) {
       if (room.status === 'playing') continue;
       const player = room.players.find(p => p.userId === socket.userId);
       if (player) {
+        console.log(`[Room] Disconnect: ${socket.username} (${socket.userId}) from room #${roomId}, marking offline (2min timeout)`);
         player.online = false;
         broadcastRoomUpdate(io, room);
         // Auto-destroy after 2 minutes if they don't reconnect
@@ -268,13 +310,21 @@ export function setupRoomHandler(io, socket) {
           if (!current) return;
           const p = current.players.find(pp => pp.userId === socket.userId);
           if (p && p.online === false) {
-            // Still disconnected — remove them
+            // Still disconnected after 2min — remove them
+            console.log(`[Room] Timeout: ${socket.username} (${socket.userId}) removed from room #${roomId}`);
             current.players = current.players.filter(pp => pp.userId !== socket.userId);
-            if (current.hostId === socket.userId || current.players.length === 0) {
+            if (current.players.length === 0) {
+              console.log(`[Room] Timeout destroy: room #${roomId} (empty)`);
               gameRooms.delete(roomId);
-              io.to(`room:${roomId}`).emit('room:updated', { room: null, closed: true });
+              io.emit('room:updated', { room: { id: roomId }, closed: true });
               io.emit('room:list-update', { room: { id: roomId, closed: true } });
             } else {
+              if (current.hostId === socket.userId) {
+                current.hostId = current.players[0].userId;
+                current.hostName = current.players[0].username;
+                console.log(`[Room] Timeout host transfer: room #${roomId} -> ${current.hostName}`);
+              }
+              current.players.forEach(p => p.ready = false);
               broadcastRoomUpdate(io, current);
             }
           }

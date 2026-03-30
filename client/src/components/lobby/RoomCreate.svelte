@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { screen, gameState, activeRoom } from '../../stores/app.js';
+  import { setActiveChannel } from '../../lib/socketService.js';
   import { getSocket } from '../../lib/socket.js';
 
   const dispatch = createEventDispatcher();
@@ -32,6 +33,7 @@
   function onCreated({ room }) {
     $gameState = { roomId: room.id, mode: 'room', roomCode: room.joinCode, roomData: room };
     $activeRoom = room;
+    setActiveChannel(`room:${room.id}`);
     $screen = 'room-waiting';
     dispatch('close');
   }

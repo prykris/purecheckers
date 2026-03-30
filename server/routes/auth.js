@@ -100,9 +100,13 @@ router.get('/me', verifyToken, async (req, res) => {
   try {
     // Guest users don't have a real User record
     if (req.isGuest) {
+      // Compute same hash for consistent guest ID
+      const token = req.headers.authorization.slice(7);
+      let hash = 0;
+      for (let i = 0; i < token.length; i++) hash = ((hash << 5) - hash + token.charCodeAt(i)) | 0;
       return res.json({
         user: {
-          id: null,
+          id: -Math.abs(hash || 1),
           username: req.username,
           isGuest: true,
           elo: 1000,

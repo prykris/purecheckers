@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { screen, gameState, activeRoom } from '../../stores/app.js';
+  import { setActiveChannel } from '../../lib/socketService.js';
   import { user } from '../../stores/user.js';
   import { getSocket } from '../../lib/socket.js';
   import RoomCreate from './RoomCreate.svelte';
@@ -38,10 +39,33 @@
     if (idx >= 0) rooms[idx] = room; else if (!room.settings?.isPrivate) rooms = [room, ...rooms];
     rooms = rooms;
   }
-  function onJoined({ room }) {
-    $gameState = { roomId: room.id, mode: 'room', roomData: room };
-    $activeRoom = room;
-    $screen = 'room-waiting';
+  function onJoined({ room, spectating }) {
+    if (spectating && room.gameId) {
+      // Spectator joins an active game
+      const redPlayer = room.players[0]?.username || 'Red';
+      const blackPlayer = room.players[1]?.username || 'Black';
+      $gameState = {
+        gameId: room.gameId,
+        mode: 'spectator',
+        myColor: 'red', // spectator sees from red's perspective
+        opponentName: blackPlayer,
+        spectatorRedName: redPlayer,
+        spectatorBlackName: blackPlayer
+      };
+      setActiveChannel(`game:${room.gameId}`);
+      // Wait for game:sync to arrive with board state, then show game
+      const sock = getSocket();
+      sock?.once('game:sync', (state) => {
+        $gameState = { ...$gameState, reconnectState: state };
+        $screen = 'game';
+      });
+      return;
+    } else {
+      $gameState = { roomId: room.id, mode: 'room', roomData: room };
+      $activeRoom = room;
+      setActiveChannel(`room:${room.id}`);
+      $screen = 'room-waiting';
+    }
   }
   function onError({ error }) { joinError = error; setTimeout(() => joinError = '', 3000); }
 
@@ -86,11 +110,13 @@
       <p class="empty">No rooms available. Create one!</p>
     {:else}
       {#each rooms as room}
-        <div class="card room-card">
+        {@const isMine = room.players.some(p => p.userId === $user?.id)}
+        <div class="card room-card" class:my-room={isMine}>
           <div class="room-info">
             <div class="host-row">
               <span class="host">{room.hostName}</span>
               <span class="elo">{room.players[0]?.elo || '?'}</span>
+              {#if isMine}<span class="my-badge">Your room</span>{/if}
             </div>
             <div class="details">
               {#if room.settings.buyIn > 0}
@@ -100,16 +126,31 @@
               {/if}
               <span class="tag">{room.settings.turnTimer}s</span>
               <span class="tag">{room.players.length}/2</span>
+              {#if room.spectators?.length > 0}
+                <span class="tag spectator-tag">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  {room.spectators.length}
+                </span>
+              {/if}
               {#if room.settings.isPrivate}
                 <svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
               {/if}
             </div>
           </div>
           <div class="room-actions">
-            {#if room.status === 'waiting' && room.players.length < 2}
+            {#if isMine}
+              <button class="btn btn-secondary btn-small" on:click={() => $screen = 'room-waiting'}>Open</button>
+            {:else if room.status === 'waiting' && room.players.length < 2}
               <button class="btn btn-primary btn-small" on:click={() => joinRoom(room)}>Join</button>
             {:else if room.status === 'playing' && room.settings.allowSpectators}
-              <button class="btn btn-dark btn-small" on:click={() => spectateRoom(room)}>Watch</button>
+              <button class="btn btn-dark btn-small watch-btn" on:click={() => spectateRoom(room)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Watch
+              </button>
+            {:else if room.status === 'waiting' && room.players.length >= 2}
+              <span class="full-tag">Full</span>
+            {:else if room.status === 'playing'}
+              <span class="live-tag">Live</span>
             {:else}
               <span class="full-tag">Full</span>
             {/if}
@@ -142,6 +183,8 @@
 
   .room-list { display: flex; flex-direction: column; gap: var(--sp-sm); }
   .room-card { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md); }
+  .room-card.my-room { border-color: var(--accent); background: var(--accent-glow, rgba(239,68,68,0.06)); }
+  .my-badge { font-size: 0.55rem; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; background: var(--accent-glow, rgba(239,68,68,0.1)); padding: 1px 6px; border-radius: var(--radius-pill); }
   .room-info { display: flex; flex-direction: column; gap: var(--sp-xs); min-width: 0; }
   .host-row { display: flex; align-items: center; gap: var(--sp-sm); }
   .host { font-weight: 600; font-size: var(--fs-body); }
@@ -153,4 +196,7 @@
   .lock { color: var(--text-dim); }
   .room-actions { flex-shrink: 0; }
   .full-tag { font-size: var(--fs-caption); color: var(--text-dim); }
+  .live-tag { font-size: var(--fs-caption); color: var(--success); font-weight: 600; }
+  .watch-btn { gap: var(--sp-xs); }
+  .spectator-tag { display: inline-flex; align-items: center; gap: 2px; color: var(--text-dim); }
 </style>

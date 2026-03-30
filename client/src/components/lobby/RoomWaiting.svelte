@@ -29,23 +29,15 @@
     socket = getSocket();
     if (!socket) return;
     socket.on('room:kicked', onKicked);
-    socket.on('matchmaking:found', onGameStart);
   });
 
   onDestroy(() => {
     if (socket) {
       socket.off('room:kicked', onKicked);
-      socket.off('matchmaking:found', onGameStart);
     }
   });
 
   function onKicked() { $activeRoom = null; $screen = 'lobby'; }
-
-  function onGameStart(data) {
-    $activeRoom = null;
-    $gameState = { gameId: data.gameId, myColor: data.yourColor, opponentName: data.opponent.username, opponentId: data.opponent.id, mode: 'online' };
-    $screen = 'wheel';
-  }
 
   function toggleReady() {
     socket?.emit('room:ready', { roomId: room?.id });
@@ -103,7 +95,10 @@
             {#if room.players[i]}
               <div class="player-row">
                 <span class="presence-dot" class:online={room.players[i].online !== false} class:offline={room.players[i].online === false}></span>
-                <span class="pname">{room.players[i].username}</span>
+                <span class="pname">
+                  {room.players[i].username}
+                  {#if room.players[i].userId === $user?.id}<span class="you-tag">You</span>{/if}
+                </span>
                 <span class="pelo">ELO {room.players[i].elo}</span>
                 {#if room.players[i].ready}
                   <span class="ready-badge">Ready</span>
@@ -149,7 +144,7 @@
       {/if}
 
       <div class="chat-box card">
-        <RoomChat roomId={room.id} />
+        <RoomChat channelId={`room:${room.id}`} />
       </div>
     {:else}
       <div class="spinner"></div>
@@ -181,7 +176,8 @@
   .presence-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .presence-dot.online { background: var(--success); }
   .presence-dot.offline { background: var(--text-dim); }
-  .pname { font-weight: 600; font-size: var(--fs-body); }
+  .pname { font-weight: 600; font-size: var(--fs-body); display: flex; align-items: center; gap: var(--sp-xs); }
+  .you-tag { font-size: 0.55rem; color: var(--accent); font-weight: 700; text-transform: uppercase; background: var(--accent-glow, rgba(239,68,68,0.1)); padding: 1px 5px; border-radius: var(--radius-pill); }
   .pelo { font-size: var(--fs-caption); color: var(--text-dim); }
   .ready-badge { font-size: 0.65rem; color: var(--success); font-weight: 700; text-transform: uppercase; margin-left: auto; }
   .not-ready { font-size: 0.65rem; color: var(--text-dim); margin-left: auto; }

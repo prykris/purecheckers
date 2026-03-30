@@ -16,8 +16,10 @@ export function setupSocket(io) {
     try {
       const payload = jwt.verify(token, JWT_SECRET);
       if (payload.guestId) {
-        // Guest: use negative IDs to avoid collision with real user IDs
-        socket.userId = -Math.floor(Math.random() * 1000000);
+        // Guest: deterministic negative ID from token hash (stable across reconnects)
+        let hash = 0;
+        for (let i = 0; i < token.length; i++) hash = ((hash << 5) - hash + token.charCodeAt(i)) | 0;
+        socket.userId = -Math.abs(hash || 1);
         socket.username = payload.username;
         socket.isGuest = true;
       } else {

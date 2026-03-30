@@ -1,10 +1,11 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { screen, gameState } from '../stores/app.js';
+  import { screen, gameState, roomUnreadChat, roomChatMessages } from '../stores/app.js';
   import { user } from '../stores/user.js';
   import { getSocket } from '../lib/socket.js';
   import { api } from '../lib/api.js';
   import RoomChat from './chat/RoomChat.svelte';
+  import { setActiveChannel } from '../lib/socketService.js';
   import { CheckersGame, ColonelBot } from '../../../shared/game.js';
   import { TURN_TIME } from '../../../shared/constants.js';
 
@@ -70,6 +71,7 @@
 
     if (mode === 'online') {
       socket = getSocket();
+      if ($gameState?.gameId) setActiveChannel(`game:${$gameState.gameId}`);
       socket.on('game:moved', onServerMove);
       socket.on('game:tick', onTick);
       socket.on('game:over', onGameOver);
@@ -342,11 +344,16 @@
   {/if}
 
   <div class="actions">
-    <button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=true}>Resign</button>
+    {#if !game.gameOver && mode !== 'spectator'}
+      <button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=true}>Resign</button>
+    {/if}
     {#if mode==='online'}
-      <button class="btn btn-dark btn-small" class:mobile-only={showChat || desktopChat} on:click={()=>{ showChat=!showChat; desktopChat=!desktopChat; }}>
+      <button class="btn btn-dark btn-small chat-toggle" class:mobile-only={showChat || desktopChat} on:click={()=>{ showChat=!showChat; desktopChat=!desktopChat; $roomUnreadChat=0; }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         Chat
+        {#if $roomUnreadChat > 0 && !showChat && !desktopChat}
+          <span class="unread-badge">{$roomUnreadChat > 9 ? '9+' : $roomUnreadChat}</span>
+        {/if}
       </button>
       {#if ownedEmotes.length>0}
         <button class="btn btn-dark btn-small mobile-only" on:click={()=>showEmoteBar=!showEmoteBar}>Emote</button>
@@ -381,7 +388,7 @@
     {#if mode === 'online'}
       {#if showChat || desktopChat}
         <div class="game-chat card" class:minimized={!showChat && !desktopChat}>
-          <RoomChat roomId={$gameState?.roomId} gameId={$gameState?.gameId} closeable={true} on:close={() => { showChat = false; desktopChat = false; }} />
+          <RoomChat channelId={$gameState?.gameId ? `game:${$gameState.gameId}` : null} closeable={true} readOnly={mode === 'spectator'} on:close={() => { showChat = false; desktopChat = false; }} />
         </div>
       {/if}
     {/if}
@@ -460,6 +467,15 @@
   }
   @keyframes pulse-border { 0%,100%{border-color:var(--warning);} 50%{border-color:transparent;} }
   .actions { display: flex; gap: var(--sp-sm); }
+  .chat-toggle { position: relative; }
+  .unread-badge {
+    position: absolute; top: -6px; right: -6px;
+    min-width: 16px; height: 16px;
+    background: var(--accent); color: #fff;
+    font-size: 0.55rem; font-weight: 700;
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; line-height: 1;
+  }
 
   .moves { display: flex; gap: var(--sp-xs); overflow-x: auto; width: 100%; max-width: 640px; scrollbar-width: none; min-height: 18px; }
   .moves::-webkit-scrollbar { display: none; }

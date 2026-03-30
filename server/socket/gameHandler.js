@@ -14,7 +14,8 @@ const prisma = new PrismaClient();
 // Active games: gameId -> GameRoom
 export const activeGames = new Map();
 // Pending friend game lobbies: code -> { hostId, hostSocket }
-let nextGameId = 1;
+// Timestamp-based unique ID — never collides across restarts
+let nextGameId = Date.now();
 
 // Diminishing returns: track wins per (winner, loser) pair per day
 // Key: "winnerId:loserId:YYYY-MM-DD" -> count
@@ -279,6 +280,7 @@ export function setupGameHandler(io, socket) {
     const opponentId = room.getOpponentId(socket.userId);
     const opponentConn = connectedUsers.get(opponentId);
     socket.join(`game:${gameId}`);
+    socket.join(`chat:game:${gameId}`);
 
     // Clear disconnect timer
     if (room.disconnectTimers.has(socket.userId)) {
@@ -286,10 +288,16 @@ export function setupGameHandler(io, socket) {
       room.disconnectTimers.delete(socket.userId);
     }
 
-    // Notify opponent that player reconnected
+    // Notify opponent + persist system message
     if (opponentConn) {
       opponentConn.socket.emit('game:opponent-reconnected', { gameId });
     }
+    const channelId = `game:${gameId}`;
+    prisma.chatMessage.create({
+      data: { channelId, senderId: 0, username: 'System', content: `${socket.username} reconnected.` }
+    }).then(msg => {
+      io.to(`chat:${channelId}`).emit('chat:message', { id: msg.id, channelId, senderId: 0, username: 'System', content: msg.content, createdAt: msg.createdAt, system: true });
+    }).catch(() => {});
 
     // Delay slightly so client has time to register listener
     setTimeout(() => {
@@ -298,6 +306,7 @@ export function setupGameHandler(io, socket) {
         yourColor: color,
         opponentName: opponentConn?.username || 'Opponent',
         opponentId,
+        opponentOnline: connectedUsers.has(opponentId),
         state: room.getState()
       });
     }, 500);
@@ -388,6 +397,7 @@ export function setupGameHandler(io, socket) {
 
     // Rejoin the socket room
     socket.join(`game:${gameId}`);
+    socket.join(`chat:game:${gameId}`);
     socket.emit('game:sync', room.getState());
 
     // Clear disconnect timer
@@ -447,12 +457,18 @@ export function setupGameHandler(io, socket) {
 
       room.disconnectTimers.set(socket.userId, timer);
 
-      // Notify opponent
+      // Notify opponent + persist system message
       const opponentId = room.getOpponentId(socket.userId);
       const opponentConn = connectedUsers.get(opponentId);
       if (opponentConn) {
         opponentConn.socket.emit('game:opponent-disconnected', { gameId });
       }
+      const channelId = `game:${gameId}`;
+      prisma.chatMessage.create({
+        data: { channelId, senderId: 0, username: 'System', content: `${socket.username} disconnected. Waiting 30s...` }
+      }).then(msg => {
+        io.to(`chat:${channelId}`).emit('chat:message', { id: msg.id, channelId, senderId: 0, username: 'System', content: msg.content, createdAt: msg.createdAt, system: true });
+      }).catch(() => {});
     }
   });
 }
@@ -477,6 +493,7 @@ function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
 
   if (redConn) {
     redConn.socket.join(`game:${gameId}`);
+    redConn.socket.join(`chat:game:${gameId}`);
     redConn.socket.emit('matchmaking:found', {
       gameId,
       yourColor: 'red',
@@ -485,6 +502,7 @@ function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
   }
   if (blackConn) {
     blackConn.socket.join(`game:${gameId}`);
+    blackConn.socket.join(`chat:game:${gameId}`);
     blackConn.socket.emit('matchmaking:found', {
       gameId,
       yourColor: 'black',

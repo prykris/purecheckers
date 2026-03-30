@@ -1,112 +1,74 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import { screen, activeRoom, gameState } from '../stores/app.js';
+  import { screen, activeRoom, roomChatMessages, roomUnreadChat } from '../stores/app.js';
   import { getSocket } from '../lib/socket.js';
 
-  let socket;
+  function goToRoom() { $screen = 'room-waiting'; }
 
-  onMount(() => {
-    socket = getSocket();
-    if (socket) {
-      socket.on('room:updated', onRoomUpdate);
-    }
-  });
-
-  onDestroy(() => {
-    if (socket) socket.off('room:updated', onRoomUpdate);
-  });
-
-  function onRoomUpdate({ room, closed }) {
-    if (closed && $activeRoom?.id === room?.id) {
-      $activeRoom = null;
-      return;
-    }
-    if (room && $activeRoom && room.id === $activeRoom.id) {
-      $activeRoom = room;
-    }
-  }
-
-  function goToRoom() {
-    $screen = 'room-waiting';
-  }
-
-  function leaveRoom() {
-    socket?.emit('room:leave', { roomId: $activeRoom?.id });
+  function leaveRoom(e) {
+    e.stopPropagation();
+    getSocket()?.emit('room:leave', { roomId: $activeRoom?.id });
     $activeRoom = null;
+    $roomChatMessages = [];
+    $roomUnreadChat = 0;
   }
 
   $: playerCount = $activeRoom?.players?.length || 0;
   $: hasOpponent = playerCount >= 2;
   $: allReady = hasOpponent && $activeRoom?.players?.every(p => p.ready);
+  $: opponentName = $activeRoom?.players?.[1]?.username || '';
   $: opponentOnline = $activeRoom?.players?.[1]?.online !== false;
+
+  $: dotClass = allReady ? 'ready' : hasOpponent ? 'joined' : 'waiting';
+  $: label = allReady ? 'Ready!' : hasOpponent ? (opponentOnline ? opponentName : `${opponentName} (away)`) : 'Waiting...';
+  $: show = $activeRoom && $screen !== 'room-waiting' && $screen !== 'game' && $screen !== 'wheel' && $screen !== 'auth';
 </script>
 
-{#if $activeRoom && $screen !== 'room-waiting' && $screen !== 'game' && $screen !== 'wheel' && $screen !== 'auth'}
-  <div class="room-banner" class:has-opponent={hasOpponent} class:all-ready={allReady}>
-    <button class="banner-content" on:click={goToRoom}>
-      <span class="banner-icon">
-        {#if allReady}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
-        {:else if hasOpponent}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        {:else}
-          <div class="mini-spinner"></div>
-        {/if}
-      </span>
-      <span class="banner-text">
-        {#if allReady}
-          Both ready! Tap to start
-        {:else if hasOpponent}
-          {$activeRoom.players[1].username} joined{opponentOnline ? '' : ' (away)'} — tap to ready up
-        {:else}
-          Waiting for opponent... ({playerCount}/2)
-        {/if}
-      </span>
-    </button>
-    <button class="banner-close" on:click={leaveRoom} title="Leave room">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
+{#if show}
+  <div class="room-pill" class:joined={hasOpponent} class:ready={allReady} on:click={goToRoom} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && goToRoom()}>
+    <span class="dot {dotClass}"></span>
+    <span class="pill-text">{label}</span>
+    <span class="pill-close" on:click={leaveRoom} role="button" tabindex="0" title="Leave room">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </span>
   </div>
 {/if}
 
 <style>
-  .room-banner {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 45;
-    display: flex;
-    align-items: center;
-    background: var(--surface);
-    border-bottom: 2px solid var(--surface2);
-    padding: var(--sp-xs) var(--sp-sm);
-    padding-top: max(var(--sp-xs), env(safe-area-inset-top));
+  .room-pill {
+    position: fixed; z-index: 48;
+    display: flex; align-items: center; gap: var(--sp-sm);
+    padding: var(--sp-sm) var(--sp-md);
+    background: var(--surface); border: 1px solid var(--surface2);
+    border-radius: var(--radius-pill);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    cursor: pointer; font-family: var(--font); color: var(--text);
+    transition: transform 0.15s, box-shadow 0.15s;
+    bottom: calc(var(--tab-height) + var(--sp-sm) + env(safe-area-inset-bottom, 0px));
+    left: 50%; transform: translateX(-50%);
   }
-  .room-banner.has-opponent {
-    background: rgba(34, 197, 94, 0.1);
-    border-bottom-color: var(--success);
-  }
-  .room-banner.all-ready {
-    background: rgba(34, 197, 94, 0.2);
-    animation: pulse-bg 1s ease-in-out infinite;
-  }
-  @keyframes pulse-bg { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
+  .room-pill:hover { transform: translateX(-50%) translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.4); }
+  .room-pill:active { transform: translateX(-50%) translateY(0); }
+  .room-pill.joined { border-color: var(--success); }
+  .room-pill.ready { border-color: var(--success); animation: pill-pulse 1.5s ease-in-out infinite; }
+  @keyframes pill-pulse { 0%,100%{ box-shadow: 0 4px 20px rgba(0,0,0,0.3); } 50%{ box-shadow: 0 4px 20px rgba(34,197,94,0.3); } }
 
-  .banner-content {
-    flex: 1; display: flex; align-items: center; gap: var(--sp-sm);
-    background: none; border: none; color: var(--text); cursor: pointer;
-    font-family: var(--font); font-size: var(--fs-caption); font-weight: 500;
-    text-align: left; padding: var(--sp-xs);
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.waiting { background: var(--text-dim); animation: dot-blink 1.5s ease-in-out infinite; }
+  .dot.joined { background: var(--success); }
+  .dot.ready { background: var(--success); animation: dot-blink 0.6s ease-in-out infinite; }
+  @keyframes dot-blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  .pill-text { font-size: var(--fs-caption); font-weight: 600; white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+  .pill-close {
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; color: var(--text-dim);
+    cursor: pointer; padding: 2px; margin-left: var(--sp-xs); border-radius: 50%;
   }
-  .banner-icon { display: flex; align-items: center; flex-shrink: 0; color: var(--success); }
-  .mini-spinner {
-    width: 14px; height: 14px;
-    border: 2px solid var(--surface2); border-top-color: var(--accent);
-    border-radius: 50%; animation: spin 0.8s linear infinite;
+  .pill-close:hover { color: var(--accent); }
+
+  @media (min-width: 900px) {
+    .room-pill { bottom: auto; top: var(--sp-md); left: auto; right: var(--sp-md); transform: none; }
+    .room-pill:hover { transform: translateY(-2px); }
+    .room-pill:active { transform: translateY(0); }
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .banner-close {
-    background: none; border: none; color: var(--text-dim); cursor: pointer;
-    padding: var(--sp-xs); flex-shrink: 0;
-  }
-  .banner-close:hover { color: var(--accent); }
 </style>

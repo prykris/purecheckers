@@ -43,14 +43,19 @@ router.post('/', async (req, res) => {
       data: { username, token, expiresAt }
     });
 
+    // Compute same hash used by socket auth for stable guest userId
+    let hash = 0;
+    for (let i = 0; i < token.length; i++) hash = ((hash << 5) - hash + token.charCodeAt(i)) | 0;
+    const guestUserId = -Math.abs(hash || 1);
+
     res.status(201).json({
       token,
       guest: {
-        id: session.id,
+        id: guestUserId,
         username: session.username,
         isGuest: true
       },
-      suggestedName: generateGuestName() // in case they want a different one
+      suggestedName: generateGuestName()
     });
   } catch (err) {
     console.error('Guest error:', err);
