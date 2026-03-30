@@ -5,9 +5,11 @@
 
   const dispatch = createEventDispatcher();
 
+  export let defaultPrivate = false;
+
   let buyIn = 0;
   let turnTimer = 60;
-  let isPrivate = false;
+  let isPrivate = defaultPrivate;
   let allowSpectators = true;
   let error = '';
   let socket;

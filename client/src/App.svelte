@@ -12,7 +12,6 @@
   import GameScreen from './components/GameScreen.svelte';
   import ShopScreen from './components/ShopScreen.svelte';
   import FriendsScreen from './components/FriendsScreen.svelte';
-  import FriendGameScreen from './components/FriendGameScreen.svelte';
   import RoomWaiting from './components/lobby/RoomWaiting.svelte';
   import TreasuryScreen from './components/TreasuryScreen.svelte';
   import BottomNav from './components/BottomNav.svelte';
@@ -27,6 +26,23 @@
   let chatOpen = false;
   let lbOpen = false;
   let loading = true;
+
+  function tryJoinFromUrl(sock) {
+    const match = window.location.pathname.match(/^\/join\/([A-Z0-9]+)$/i);
+    if (!match) return;
+    const code = match[1].toUpperCase();
+    // Clear the URL so refreshing doesn't re-join
+    window.history.replaceState(null, '', '/');
+    // Try to join the room by code
+    sock.emit('room:join', { roomId: null, code });
+    sock.once('room:joined', ({ room }) => {
+      gameState.set({ roomId: room.id, mode: 'room', roomData: room });
+      screen.set('room-waiting');
+    });
+    sock.once('room:error', () => {
+      // Room not found or full — just stay on lobby
+    });
+  }
 
   onMount(async () => {
     if (!$token) {
@@ -59,7 +75,13 @@
           new Promise(resolve => setTimeout(() => resolve('lobby'), 1500))
         ]);
 
-        screen.set(resolved === 'game' ? 'game' : 'lobby');
+        if (resolved === 'game') {
+          screen.set('game');
+        } else {
+          screen.set('lobby');
+          // Check for /join/:code in URL
+          tryJoinFromUrl(sock);
+        }
       } else {
         $screen = 'lobby';
       }
@@ -96,8 +118,6 @@
     <ShopScreen />
   {:else if $screen === 'friends'}
     <FriendsScreen />
-  {:else if $screen === 'friend-game'}
-    <FriendGameScreen />
   {:else if $screen === 'room-waiting'}
     <RoomWaiting />
   {:else if $screen === 'treasury'}

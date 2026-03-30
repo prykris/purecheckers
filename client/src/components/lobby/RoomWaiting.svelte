@@ -9,6 +9,19 @@
   let room = $gameState?.roomData || null;
   let socket;
   let myReady = false;
+  let copied = false;
+
+  $: joinUrl = $gameState?.roomData?.joinUrl || null;
+  $: qrDataUrl = $gameState?.roomData?.qrDataUrl || null;
+  $: code = $gameState?.roomCode;
+
+  function copyLink() {
+    if (!joinUrl) return;
+    navigator.clipboard.writeText(joinUrl).then(() => {
+      copied = true;
+      setTimeout(() => copied = false, 2000);
+    });
+  }
 
   onMount(() => {
     socket = getSocket();
@@ -62,7 +75,6 @@
   }
 
   $: isHost = room?.hostId === $user?.id;
-  $: code = $gameState?.roomCode;
 </script>
 
 <div class="page-center">
@@ -80,13 +92,20 @@
         {#if room.settings.allowSpectators}<span class="tag">Spectators OK</span>{/if}
       </div>
 
-      {#if code}
-        <div class="code-section">
-          <span class="code-label">Room Code</span>
-          <span class="code">{code}</span>
-          <p class="code-hint">Share this with your friend to join</p>
-        </div>
-      {/if}
+      <div class="invite-section">
+        {#if qrDataUrl}
+          <img class="qr-code" src={qrDataUrl} alt="Join QR code" />
+        {/if}
+        <span class="code-label">Room Code</span>
+        <span class="code">{room.joinCode || code || '...'}</span>
+        {#if joinUrl}
+          <button class="btn btn-dark btn-small copy-btn" on:click={copyLink}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            {copied ? 'Copied!' : 'Copy Link'}
+          </button>
+        {/if}
+        <p class="code-hint">Scan QR or share the link to invite</p>
+      </div>
 
       <div class="slots">
         {#each [0, 1] as i}
@@ -154,10 +173,12 @@
   .gold { color: var(--gold); background: rgba(251,191,36,0.1); }
   .green { color: var(--success); background: rgba(34,197,94,0.1); }
 
-  .code-section { display: flex; flex-direction: column; align-items: center; gap: var(--sp-xs); padding: var(--sp-md) 0; }
+  .invite-section { display: flex; flex-direction: column; align-items: center; gap: var(--sp-sm); }
+  .qr-code { width: 160px; height: 160px; border-radius: var(--radius-md); background: #fff; padding: var(--sp-xs); }
   .code-label { font-size: var(--fs-caption); color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; }
-  .code { font-size: 2rem; font-weight: 700; letter-spacing: 6px; color: var(--accent); font-family: var(--font-mono); }
-  .code-hint { font-size: var(--fs-caption); color: var(--text-dim); }
+  .code { font-size: 1.8rem; font-weight: 700; letter-spacing: 6px; color: var(--accent); font-family: var(--font-mono); }
+  .copy-btn { gap: var(--sp-xs); }
+  .code-hint { font-size: var(--fs-caption); color: var(--text-dim); text-align: center; }
 
   .slots { display: flex; flex-direction: column; gap: var(--sp-sm); width: 100%; }
   .slot { padding: var(--sp-md); min-height: 60px; display: flex; align-items: center; }

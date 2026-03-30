@@ -1,7 +1,9 @@
 import { PrismaClient } from '@prisma/client';
+import QRCode from 'qrcode';
 import { connectedUsers } from './index.js';
 import { createGameDirect } from './gameHandler.js';
 import { TURN_TIME } from '../../shared/constants.js';
+import { SITE_URL } from '../config.js';
 
 const prisma = new PrismaClient();
 
@@ -14,6 +16,13 @@ function genCode() {
   let s = '';
   for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
   return s;
+}
+
+export function findRoomByCode(code) {
+  for (const room of gameRooms.values()) {
+    if (room.joinCode === code) return room;
+  }
+  return null;
 }
 
 function sanitizeRoom(room) {
@@ -57,11 +66,13 @@ export function setupRoomHandler(io, socket) {
       }
     }
 
+    const joinCode = genCode();
     const room = {
       id: nextRoomId++,
       hostId: socket.userId,
       hostName: socket.username,
-      settings: { buyIn, turnTimer: turnTimer || TURN_TIME, isPrivate, code: isPrivate ? genCode() : null, allowSpectators },
+      joinCode, // always generated — used for QR/links
+      settings: { buyIn, turnTimer: turnTimer || TURN_TIME, isPrivate, code: isPrivate ? joinCode : null, allowSpectators },
       players: [{ userId: socket.userId, username: socket.username, elo: 0, ready: false }],
       spectators: [],
       status: 'waiting',
@@ -76,9 +87,13 @@ export function setupRoomHandler(io, socket) {
     gameRooms.set(room.id, room);
     socket.join(`room:${room.id}`);
 
-    // Send full room info (with code) to creator
+    // Generate join URL + QR code
+    const joinUrl = `${SITE_URL}/join/${joinCode}`;
+    let qrDataUrl = null;
+    try { qrDataUrl = await QRCode.toDataURL(joinUrl, { width: 200, margin: 1, color: { dark: '#000', light: '#fff' } }); } catch {}
+
     socket.emit('room:created', {
-      room: { ...sanitizeRoom(room), settings: { ...room.settings, code: room.settings.code } }
+      room: { ...sanitizeRoom(room), joinCode, joinUrl, qrDataUrl }
     });
     io.emit('room:list-update', { room: sanitizeRoom(room) });
   });
@@ -104,12 +119,13 @@ export function setupRoomHandler(io, socket) {
 
   // --- Join room ---
   socket.on('room:join', async ({ roomId, code }) => {
-    const room = gameRooms.get(roomId);
+    // Look up by roomId or by joinCode
+    let room = roomId ? gameRooms.get(roomId) : null;
+    if (!room && code) room = findRoomByCode(code);
     if (!room) return socket.emit('room:error', { error: 'Room not found' });
     if (room.status !== 'waiting') return socket.emit('room:error', { error: 'Game already started' });
     if (room.players.length >= 2) return socket.emit('room:error', { error: 'Room is full' });
     if (room.players.some(p => p.userId === socket.userId)) return socket.emit('room:error', { error: 'Already in this room' });
-    if (room.settings.isPrivate && code !== room.settings.code) return socket.emit('room:error', { error: 'Invalid room code' });
 
     // Check buy-in
     if (room.settings.buyIn > 0) {

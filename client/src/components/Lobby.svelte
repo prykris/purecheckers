@@ -10,11 +10,17 @@
   let showThemes = false;
 
   const themes = [
+    // Dark themes
     { name: 'Default', vars: {} },
     { name: 'Ocean', vars: { '--bg':'#0a1628','--bg-subtle':'#0d1e30','--surface':'#0d2137','--surface2':'#0a3d62','--accent':'#00b4d8','--accent2':'#0077b6','--board-light':'#a8c4d4','--board-dark':'#2a6f97' } },
     { name: 'Forest', vars: { '--bg':'#1a2e1a','--bg-subtle':'#1e351e','--surface':'#1e3a1e','--surface2':'#2d5a27','--accent':'#7bc950','--accent2':'#3a7d2c','--board-light':'#c5d5a3','--board-dark':'#4a7c3f' } },
     { name: 'Sunset', vars: { '--bg':'#2d1b2e','--bg-subtle':'#35212e','--surface':'#3d2040','--surface2':'#5c2d5e','--accent':'#ff6b6b','--accent2':'#c44569','--board-light':'#e8c49a','--board-dark':'#b5564a' } },
-    { name: 'Midnight', vars: { '--bg':'#0d0d1a','--bg-subtle':'#111122','--surface':'#12122a','--surface2':'#1a1a3e','--accent':'#7c5cbf','--accent2':'#4a3580','--board-light':'#9a96a8','--board-dark':'#3d3a54' } }
+    { name: 'Midnight', vars: { '--bg':'#0d0d1a','--bg-subtle':'#111122','--surface':'#12122a','--surface2':'#1a1a3e','--accent':'#7c5cbf','--accent2':'#4a3580','--board-light':'#9a96a8','--board-dark':'#3d3a54' } },
+    // Light themes
+    { name: 'Latte', vars: { '--bg':'#f5f0eb','--bg-subtle':'#ebe4dc','--surface':'#fff8f0','--surface2':'#e0d5c8','--accent':'#c0392b','--accent2':'#8e44ad','--text':'#2c2017','--text-dim':'#7a6e60','--board-light':'#f0d9b5','--board-dark':'#b58863','--gold':'#d4920a','--success':'#1e8449','--warning':'#d68910' } },
+    { name: 'Paper', vars: { '--bg':'#f0f0f0','--bg-subtle':'#e8e8e8','--surface':'#ffffff','--surface2':'#d4d4d4','--accent':'#2563eb','--accent2':'#7c3aed','--text':'#1a1a1a','--text-dim':'#6b7280','--board-light':'#e8d5b0','--board-dark':'#a07850','--gold':'#b8860b','--success':'#16a34a','--warning':'#d97706' } },
+    { name: 'Sand', vars: { '--bg':'#f5f1e8','--bg-subtle':'#ede7d9','--surface':'#faf7f0','--surface2':'#ddd6c6','--accent':'#d97706','--accent2':'#9333ea','--text':'#292017','--text-dim':'#8a7e6e','--board-light':'#e8d4a8','--board-dark':'#9e7e50','--gold':'#c08000','--success':'#15803d','--warning':'#c2410c' } },
+    { name: 'Cloud', vars: { '--bg':'#eef2f7','--bg-subtle':'#e3e9f0','--surface':'#f8fafc','--surface2':'#cbd5e1','--accent':'#0ea5e9','--accent2':'#6366f1','--text':'#0f172a','--text-dim':'#64748b','--board-light':'#c8dae8','--board-dark':'#5b7fa0','--gold':'#a87d00','--success':'#059669','--warning':'#ea580c' } },
   ];
 
   let activeTheme = localStorage.getItem('checkers_theme') || 'Default';
@@ -22,8 +28,14 @@
   function applyTheme(theme) {
     activeTheme = theme.name;
     localStorage.setItem('checkers_theme', theme.name);
-    const defaults = { '--bg':'#1c1917','--bg-subtle':'#231f1b','--surface':'#292524','--surface2':'#3d3530','--accent':'#ef4444','--accent2':'#a855f7','--board-light':'#d4a76a','--board-dark':'#7c5e3c' };
+    const defaults = {
+      '--bg':'#1c1917','--bg-subtle':'#231f1b','--surface':'#292524','--surface2':'#3d3530',
+      '--accent':'#ef4444','--accent2':'#a855f7','--text':'#fafaf9','--text-dim':'#a8a29e',
+      '--board-light':'#d4a76a','--board-dark':'#7c5e3c','--gold':'#fbbf24','--success':'#22c55e','--warning':'#f59e0b'
+    };
     const vars = Object.keys(theme.vars).length > 0 ? theme.vars : defaults;
+    // Apply all defaults first to reset, then override with theme vars
+    Object.entries(defaults).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
     Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
   }
 
@@ -67,7 +79,7 @@
         {#each themes as theme}
           <button class="theme-chip" class:active={activeTheme === theme.name}
             on:click={() => applyTheme(theme)}
-            style="background:{theme.vars['--bg']||'#1c1917'};border-color:{theme.vars['--accent']||'#ef4444'}">
+            style="background:{theme.vars['--bg']||'#1c1917'};border-color:{theme.vars['--accent']||'#ef4444'};color:{theme.vars['--text']||'#fafaf9'}">
             <span class="theme-dot" style="background:{theme.vars['--accent']||'#ef4444'}"></span>
             {theme.name}
           </button>
@@ -123,11 +135,11 @@
   .theme-chip {
     display: flex; align-items: center; gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-md); border-radius: var(--radius-pill);
-    border: 2px solid; cursor: pointer; color: #eee; font-size: var(--fs-caption); font-weight: 600;
+    border: 2px solid; cursor: pointer; font-size: var(--fs-caption); font-weight: 600;
     transition: transform 0.1s;
   }
   .theme-chip:hover { transform: scale(1.05); }
-  .theme-chip.active { outline: 2px solid #fff; outline-offset: 2px; }
+  .theme-chip.active { outline: 2px solid var(--accent); outline-offset: 2px; }
   .theme-dot { width: 10px; height: 10px; border-radius: 50%; }
 
   .lobby-center {

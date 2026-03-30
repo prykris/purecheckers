@@ -2,14 +2,13 @@
   import { screen, gameState } from '../../stores/app.js';
   import { user } from '../../stores/user.js';
   import { getSocket } from '../../lib/socket.js';
+  import RoomCreate from './RoomCreate.svelte';
+
+  let showCreatePrivate = false;
 
   function findOpponent() {
     getSocket()?.emit('matchmaking:join', { elo: $user?.elo || 1000 });
     $screen = 'search';
-  }
-
-  function playFriend() {
-    $screen = 'friend-game';
   }
 </script>
 
@@ -24,11 +23,15 @@
     Find Opponent
   </button>
 
-  <button class="btn btn-dark play-btn" on:click={playFriend}>
+  <button class="btn btn-dark play-btn" on:click={() => showCreatePrivate = true}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
     Play vs Friend
   </button>
 </div>
+
+{#if showCreatePrivate}
+  <RoomCreate defaultPrivate={true} on:close={() => showCreatePrivate = false} />
+{/if}
 
 <style>
   .quick { display: flex; flex-direction: column; align-items: center; gap: var(--sp-lg); padding: var(--sp-lg) 0; }
