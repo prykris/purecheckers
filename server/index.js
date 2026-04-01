@@ -21,7 +21,7 @@ setupSocket(io);
 if (isProduction) {
   const distPath = resolve(__dirname, '..', 'dist');
   app.use(express.static(distPath));
-  app.get('*', (req, res) => {
+  app.get('/{*splat}', (req, res) => {
     if (!req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
       res.sendFile(resolve(distPath, 'index.html'));
     }
