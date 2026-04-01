@@ -101,14 +101,14 @@ const skins = [
 ];
 
 const emotes = [
-  { slug: 'emote-gg', name: 'GG', type: 'EMOTE', price: 10, data: { emoji: '🤝', label: 'GG' } },
-  { slug: 'emote-think', name: 'Thinking', type: 'EMOTE', price: 10, data: { emoji: '🤔', label: 'Hmm...' } },
+  { slug: 'emote-gg', name: 'GG', type: 'EMOTE', price: 0, data: { emoji: '🤝', label: 'GG' } },
+  { slug: 'emote-think', name: 'Thinking', type: 'EMOTE', price: 0, data: { emoji: '🤔', label: 'Hmm...' } },
+  { slug: 'emote-clap', name: 'Clap', type: 'EMOTE', price: 0, data: { emoji: '👏', label: 'Nice!' } },
+  { slug: 'emote-wave', name: 'Wave', type: 'EMOTE', price: 0, data: { emoji: '👋', label: 'Hi!' } },
   { slug: 'emote-fire', name: 'Fire', type: 'EMOTE', price: 15, data: { emoji: '🔥', label: 'On fire!' } },
-  { slug: 'emote-clap', name: 'Clap', type: 'EMOTE', price: 10, data: { emoji: '👏', label: 'Nice!' } },
   { slug: 'emote-laugh', name: 'Laugh', type: 'EMOTE', price: 15, data: { emoji: '😂', label: 'Haha' } },
   { slug: 'emote-crown', name: 'Crown', type: 'EMOTE', price: 25, data: { emoji: '👑', label: 'King move' } },
-  { slug: 'emote-oops', name: 'Oops', type: 'EMOTE', price: 10, data: { emoji: '😬', label: 'Oops' } },
-  { slug: 'emote-wave', name: 'Wave', type: 'EMOTE', price: 5, data: { emoji: '👋', label: 'Hi!' } }
+  { slug: 'emote-oops', name: 'Oops', type: 'EMOTE', price: 10, data: { emoji: '😬', label: 'Oops' } }
 ];
 
 async function seed() {

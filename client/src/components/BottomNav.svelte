@@ -70,6 +70,6 @@
   }
 
   @media (min-width: 900px) {
-    .tab-bar { display: none; }
+    .tab-bar { max-width: 480px; margin: 0 auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
   }
 </style>

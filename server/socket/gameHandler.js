@@ -2,7 +2,7 @@ import { CheckersGame } from '../../shared/game.js';
 import { TURN_TIME } from '../../shared/constants.js';
 import { rankedQueue } from '../services/matchmaking.js';
 import { connectedUsers } from './index.js';
-import { setUserStatus } from './presenceHandler.js';
+import { setUserStatus, broadcastStats } from './presenceHandler.js';
 import { calculateElo } from '../services/elo.js';
 import { awardCoins } from '../services/coins.js';
 import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME, SHOP_VAULT_RATE, SHOP_BURN_RATE } from '../../shared/constants.js';
@@ -317,11 +317,13 @@ export function setupGameHandler(io, socket) {
     const elo = data?.elo || 1000;
     rankedQueue.add(socket.userId, elo, socket.id);
     socket.emit('matchmaking:joined');
+    broadcastStats(io);
   });
 
   socket.on('matchmaking:leave', () => {
     rankedQueue.remove(socket.userId);
     socket.emit('matchmaking:left');
+    broadcastStats(io);
   });
 
   // --- Emotes ---

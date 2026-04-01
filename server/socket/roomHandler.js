@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import QRCode from 'qrcode';
 import { connectedUsers } from './index.js';
 import { createGameDirect } from './gameHandler.js';
+import { broadcastStats } from './presenceHandler.js';
 import { TURN_TIME } from '../../shared/constants.js';
 import { SITE_URL } from '../config.js';
 
@@ -62,6 +63,7 @@ function broadcastRoomUpdate(io, room) {
   io.emit('room:updated', { room: sanitizeRoom(room) });
   // Also broadcast to the lobby so room lists update
   io.emit('room:list-update', { room: sanitizeRoom(room) });
+  broadcastStats(io);
 }
 
 export function setupRoomHandler(io, socket) {
@@ -194,7 +196,7 @@ export function setupRoomHandler(io, socket) {
   socket.on('room:leave', ({ roomId } = {}) => {
     let room = roomId ? gameRooms.get(roomId) : findRoomForUser(socket.userId);
     if (!room) return;
-    console.log(`[Room] Leave: ${socket.username} (${socket.userId}) from room #${room.id}, isHost=${room.hostId === socket.userId}`);
+    console.log(`[Room] Leave: ${socket.username} (${socket.userId}) from room #${room.id}`);
 
     socket.leave(`room:${room.id}`);
     room.players = room.players.filter(p => p.userId !== socket.userId);
@@ -298,6 +300,12 @@ export function setupRoomHandler(io, socket) {
   // Rooms are only destroyed by explicit room:leave or timeout.
   socket.on('disconnect', () => {
     for (const [roomId, room] of gameRooms) {
+      // Remove spectators immediately on disconnect
+      const wasSpectator = room.spectators.some(s => s.userId === socket.userId);
+      if (wasSpectator) {
+        room.spectators = room.spectators.filter(s => s.userId !== socket.userId);
+        broadcastRoomUpdate(io, room);
+      }
       if (room.status === 'playing') continue;
       const player = room.players.find(p => p.userId === socket.userId);
       if (player) {

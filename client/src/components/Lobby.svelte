@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { screen } from '../stores/app.js';
+  import { screen, presenceStats } from '../stores/app.js';
   import { user, token } from '../stores/user.js';
   import { api } from '../lib/api.js';
   import { getSocket, connectSocket, disconnectSocket } from '../lib/socket.js';
@@ -60,6 +60,12 @@
 <div class="lobby-layout">
   <div class="top-header">
     <h1 class="title">Checkers <span>Online</span></h1>
+    <div class="presence-stats">
+      <span class="stat-pill online"><span class="pulse-dot"></span>{$presenceStats.online} online</span>
+      {#if $presenceStats.lookingToPlay > 0}
+        <span class="stat-pill looking">{$presenceStats.lookingToPlay} looking to play</span>
+      {/if}
+    </div>
     <div class="card user-bar">
       <div class="user-info">
         <strong>{$user?.username}</strong>
@@ -116,6 +122,20 @@
   }
   .title { font-size: var(--fs-title); letter-spacing: 2px; color: var(--accent); text-align: center; }
   .title span { color: var(--text); font-weight: 300; }
+
+  .presence-stats { display: flex; gap: var(--sp-sm); align-items: center; justify-content: center; }
+  .stat-pill {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.65rem; font-weight: 600; color: var(--text-dim);
+    padding: 2px 10px; border-radius: var(--radius-pill);
+    background: var(--surface); border: 1px solid var(--surface2);
+  }
+  .stat-pill.looking { color: var(--gold); }
+  .pulse-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
   .user-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-sm); width: 100%; max-width: 520px; }
   .user-info { display: flex; flex-wrap: wrap; gap: var(--sp-sm); align-items: center; }

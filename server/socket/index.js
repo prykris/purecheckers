@@ -56,7 +56,11 @@ export function setupSocket(io) {
 
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.username}`);
-      connectedUsers.delete(socket.userId);
+      // Only delete if this socket is still the active one (not replaced by a new session)
+      const current = connectedUsers.get(socket.userId);
+      if (current && current.socketId === socket.id) {
+        connectedUsers.delete(socket.userId);
+      }
     });
   });
 }

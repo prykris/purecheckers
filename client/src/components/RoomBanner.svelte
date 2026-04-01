@@ -27,7 +27,7 @@
   <div class="room-pill" class:joined={hasOpponent} class:ready={allReady} on:click={goToRoom} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && goToRoom()}>
     <span class="dot {dotClass}"></span>
     <span class="pill-text">{label}</span>
-    <span class="pill-close" on:click={leaveRoom} role="button" tabindex="0" title="Leave room">
+    <span class="pill-close" on:click={leaveRoom} on:keydown={(e) => e.key === 'Enter' && leaveRoom()} role="button" tabindex="0" title="Leave room">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </span>
   </div>

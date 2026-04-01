@@ -1,32 +1,16 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import { screen, gameState } from '../stores/app.js';
+  import { screen, searching, presenceStats } from '../stores/app.js';
   import { getSocket } from '../lib/socket.js';
 
-  let socket;
-
-  onMount(() => {
-    socket = getSocket();
-    if (socket) socket.on('matchmaking:found', onFound);
-  });
-
-  onDestroy(() => {
-    if (socket) socket.off('matchmaking:found', onFound);
-  });
-
-  function onFound(data) {
-    $gameState = {
-      gameId: data.gameId,
-      myColor: data.yourColor,
-      opponentName: data.opponent.username,
-      opponentId: data.opponent.id,
-      mode: 'online'
-    };
-    $screen = 'wheel';
-  }
+  $: others = $presenceStats.lookingToPlay - 1;
 
   function cancel() {
     getSocket()?.emit('matchmaking:leave');
+    $searching = false;
+    $screen = 'lobby';
+  }
+
+  function minimize() {
     $screen = 'lobby';
   }
 </script>
@@ -35,11 +19,21 @@
   <div class="search">
     <div class="spinner"></div>
     <p>Looking for an opponent...</p>
-    <button class="btn btn-dark btn-small" on:click={cancel}>Cancel</button>
+    {#if others > 0}
+      <p class="count">{others} other {others === 1 ? 'player' : 'players'} looking to play</p>
+    {:else}
+      <p class="count">No other players searching right now</p>
+    {/if}
+    <div class="search-actions">
+      <button class="btn btn-dark btn-small" on:click={minimize}>Minimize</button>
+      <button class="btn btn-dark btn-small" on:click={cancel}>Cancel</button>
+    </div>
   </div>
 </div>
 
 <style>
   .search { display: flex; flex-direction: column; align-items: center; gap: var(--sp-lg); }
   p { color: var(--text-dim); font-size: var(--fs-body); }
+  .count { font-size: var(--fs-caption); color: var(--text-dim); opacity: 0.7; margin-top: calc(-1 * var(--sp-sm)); }
+  .search-actions { display: flex; gap: var(--sp-sm); }
 </style>

@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { screen, gameState, roomUnreadChat, roomChatMessages } from '../stores/app.js';
+  import { screen, gameState, roomUnreadChat, roomChatMessages, activeRoom } from '../stores/app.js';
   import { user } from '../stores/user.js';
   import { getSocket } from '../lib/socket.js';
   import { api } from '../lib/api.js';
@@ -79,9 +79,22 @@
       socket.on('game:opponent-reconnected', () => { opponentDisconnected = false; });
       socket.on('emote:show', onEmoteShow);
 
-      api.get('/shop/inventory').then(({ inventory }) => {
-        ownedEmotes = inventory.filter(i => i.item.type === 'EMOTE').map(i => i.item);
-      }).catch(() => {});
+      const loadEmotes = async () => {
+        try {
+          const [invData, shopData] = await Promise.all([api.get('/shop/inventory'), api.get('/shop/items')]);
+          const owned = invData.inventory.filter(i => i.item.type === 'EMOTE').map(i => i.item);
+          const free = (shopData.items || []).filter(i => i.type === 'EMOTE' && i.price === 0);
+          const ids = new Set(owned.map(e => e.id));
+          ownedEmotes = [...owned, ...free.filter(e => !ids.has(e.id))];
+        } catch {
+          // Fallback: try just free items
+          try {
+            const shopData = await api.get('/shop/items');
+            ownedEmotes = (shopData.items || []).filter(i => i.type === 'EMOTE' && i.price === 0);
+          } catch {}
+        }
+      };
+      loadEmotes();
     }
 
     if (mode === 'bot') {
@@ -288,10 +301,17 @@
   $: bottomTime = myColor === 'red' ? redTime : blackTime;
   $: isMyTurn = currentPlayer === myColor && !game.gameOver;
   $: statusText = game.gameOver ? (game.winner===myColor?'Victory!':'Defeat') : isMyTurn ? 'Your turn' : (mode==='bot'?'The Colonel is thinking...':"Opponent's turn");
+  $: spectatorCount = $activeRoom?.spectators?.length || 0;
   function fmtTime(s) { const sec=Math.ceil(s); return `0:${sec.toString().padStart(2,'0')}`; }
 </script>
 
 <div class="game-layout">
+  {#if spectatorCount > 0}
+    <div class="spectator-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      {spectatorCount}
+    </div>
+  {/if}
   <!-- Top: opponent -->
   <div class="player-bar opponent">
     <div class="pinfo" class:active={currentPlayer === topColor}>
@@ -317,6 +337,10 @@
         {#if gameOverData.eloChanges}<p class="elo">ELO: {gameOverData.eloChanges[myColor]>=0?'+':''}{gameOverData.eloChanges[myColor]}</p>{/if}
         {#if gameOverData.coinRewards?.[myColor]}<p class="coins">+{gameOverData.coinRewards[myColor]} coins</p>{/if}
         <button class="btn btn-primary btn-small" on:click={goToLobby}>Lobby</button>
+        {#if $user?.isGuest}
+          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+          <p class="guest-nudge" on:click={() => { $screen = 'profile'; }}>Create an account to keep your ELO and progress</p>
+        {/if}
       </div>
     {/if}
   </div>
@@ -355,9 +379,9 @@
           <span class="unread-badge">{$roomUnreadChat > 9 ? '9+' : $roomUnreadChat}</span>
         {/if}
       </button>
-      {#if ownedEmotes.length>0}
-        <button class="btn btn-dark btn-small mobile-only" on:click={()=>showEmoteBar=!showEmoteBar}>Emote</button>
-      {/if}
+    {/if}
+    {#if ownedEmotes.length > 0}
+      {#each ownedEmotes as e}<button class="emote-btn" on:click={()=>sendEmote(e)} title={e.name}>{e.data.emoji}</button>{/each}
     {/if}
   </div>
 
@@ -369,7 +393,7 @@
 
   <!-- Overlays -->
   {#if showResignConfirm}
-    <div class="overlay" on:click|self={()=>showResignConfirm=false}>
+    <div class="overlay" on:click|self={()=>showResignConfirm=false} on:keydown|self={(e)=>e.key==='Escape'&&(showResignConfirm=false)} role="dialog" tabindex="-1">
       <div class="card confirm"><p>Resign this game?</p><div class="confirm-btns"><button class="btn btn-primary btn-small" on:click={resign}>Resign</button><button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=false}>Cancel</button></div></div>
     </div>
   {/if}
@@ -452,8 +476,21 @@
   .game-over h2 { font-size: var(--fs-title); }
   .elo { font-size: var(--fs-body); color: var(--text-dim); }
   .coins { font-size: var(--fs-body); color: var(--gold); }
+  .guest-nudge {
+    font-size: var(--fs-caption); color: var(--accent2); cursor: pointer;
+    text-decoration: underline; opacity: 0.85; margin-top: var(--sp-xs);
+  }
+  .guest-nudge:hover { opacity: 1; }
 
   .status { font-size: var(--fs-caption); color: var(--text-dim); height: 18px; }
+  .spectator-badge {
+    position: fixed; top: var(--sp-sm); right: var(--sp-sm);
+    display: flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: var(--radius-pill);
+    background: var(--surface); border: 1px solid var(--surface2);
+    color: var(--text-dim); font-size: 0.65rem; font-weight: 600;
+    z-index: 10;
+  }
   .disconnect-banner {
     display: flex; align-items: center; gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-md);

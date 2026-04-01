@@ -46,6 +46,7 @@
       const blackPlayer = room.players[1]?.username || 'Black';
       $gameState = {
         gameId: room.gameId,
+        roomId: room.id,
         mode: 'spectator',
         myColor: 'red', // spectator sees from red's perspective
         opponentName: blackPlayer,
@@ -53,12 +54,18 @@
         spectatorBlackName: blackPlayer
       };
       setActiveChannel(`game:${room.gameId}`);
-      // Wait for game:sync to arrive with board state, then show game
-      const sock = getSocket();
-      sock?.once('game:sync', (state) => {
-        $gameState = { ...$gameState, reconnectState: state };
+      // Use pre-captured sync state (registered before emit), or wait for it
+      if (pendingSyncState) {
+        $gameState = { ...$gameState, reconnectState: pendingSyncState };
+        pendingSyncState = null;
         $screen = 'game';
-      });
+      } else {
+        const sock = getSocket();
+        sock?.once('game:sync', (state) => {
+          $gameState = { ...$gameState, reconnectState: state };
+          $screen = 'game';
+        });
+      }
       return;
     } else {
       $gameState = { roomId: room.id, mode: 'room', roomData: room };
@@ -79,8 +86,15 @@
   }
 
   function spectateRoom(room) {
-    socket?.emit('room:spectate', { roomId: room.id });
+    if (!socket) return;
+    // Listen for game:sync BEFORE emitting, since server sends sync before room:joined
+    socket.once('game:sync', (state) => {
+      pendingSyncState = state;
+    });
+    pendingSyncState = null;
+    socket.emit('room:spectate', { roomId: room.id });
   }
+  let pendingSyncState = null;
 
   function onCreated() {
     showCreate = false;

@@ -137,6 +137,84 @@ router.get('/me', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/auth/history — recent match history
+router.get('/history', verifyToken, async (req, res) => {
+  if (req.isGuest) return res.json({ games: [] });
+  try {
+    const games = await prisma.game.findMany({
+      where: { OR: [{ redPlayerId: req.userId }, { blackPlayerId: req.userId }] },
+      orderBy: { startedAt: 'desc' },
+      take: 20,
+      include: {
+        redPlayer: { select: { id: true, username: true } },
+        blackPlayer: { select: { id: true, username: true } },
+      }
+    });
+    const history = games.map(g => {
+      const isRed = g.redPlayerId === req.userId;
+      const opponent = isRed ? g.blackPlayer : g.redPlayer;
+      const eloChange = isRed ? g.redEloChange : g.blackEloChange;
+      const coinsEarned = isRed ? g.redCoinsEarned : g.blackCoinsEarned;
+      const won = g.winnerId === req.userId;
+      const draw = g.result === 'DRAW';
+      return {
+        id: g.id,
+        opponent: opponent.username,
+        myColor: isRed ? 'red' : 'black',
+        result: draw ? 'draw' : won ? 'win' : 'loss',
+        eloChange,
+        coinsEarned,
+        mode: g.mode,
+        date: g.startedAt,
+      };
+    });
+    res.json({ games: history });
+  } catch (err) {
+    console.error('History error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/auth/upgrade — convert guest to real account
+router.post('/upgrade', verifyToken, async (req, res) => {
+  if (!req.isGuest) return res.status(400).json({ error: 'Already a registered user' });
+
+  const { email, password, username } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  const name = (username?.trim() || req.username).slice(0, 20);
+  if (name.length < 2) return res.status(400).json({ error: 'Username must be at least 2 characters' });
+
+  try {
+    const existing = await prisma.user.findFirst({
+      where: { OR: [{ email }, { username: name }] }
+    });
+    if (existing) {
+      const field = existing.email === email ? 'Email' : 'Username';
+      return res.status(409).json({ error: `${field} already taken` });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const friendCode = generateFriendCode();
+
+    const user = await prisma.user.create({
+      data: { username: name, email, passwordHash, friendCode, coins: STARTER_COINS, peakElo: ELO_START }
+    });
+
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    res.json({ token, user: sanitizeUser(user) });
+  } catch (err) {
+    console.error('Upgrade error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
 
 // Export for testing

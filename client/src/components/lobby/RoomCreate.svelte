@@ -46,7 +46,7 @@
   }
 </script>
 
-<div class="overlay" on:click|self={() => dispatch('close')}>
+<div class="overlay" on:click|self={() => dispatch('close')} on:keydown|self={(e) => e.key === 'Escape' && dispatch('close')} role="dialog" tabindex="-1">
   <div class="card modal">
     <h3>Create Room</h3>
 

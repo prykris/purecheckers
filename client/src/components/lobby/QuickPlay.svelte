@@ -1,5 +1,5 @@
 <script>
-  import { screen, gameState } from '../../stores/app.js';
+  import { screen, gameState, searching } from '../../stores/app.js';
   import { user } from '../../stores/user.js';
   import { getSocket } from '../../lib/socket.js';
   import RoomCreate from './RoomCreate.svelte';
@@ -8,6 +8,7 @@
 
   function findOpponent() {
     getSocket()?.emit('matchmaking:join', { elo: $user?.elo || 1000 });
+    $searching = true;
     $screen = 'search';
   }
 </script>

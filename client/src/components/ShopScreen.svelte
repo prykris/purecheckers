@@ -43,6 +43,7 @@
     } catch (e) { error = e.message; }
   }
 
+  $: themes = items.filter(i => i.type === 'THEME');
   $: skins = items.filter(i => i.type === 'SKIN');
   $: emotes = items.filter(i => i.type === 'EMOTE');
 </script>
@@ -52,6 +53,35 @@
     <h2>Shop</h2>
     <p class="coins">Your coins: <strong>{$user?.coins || 0}</strong></p>
     {#if error}<p class="error">{error}</p>{/if}
+
+    {#if themes.length > 0}
+      <h3 class="section-title">Themes</h3>
+      <div class="items-grid">
+        {#each themes as item}
+          <div class="card item-card" class:equipped={isEquipped(item.id)}>
+            <div class="theme-preview">
+              <span class="tp-swatch" style="background:{item.data?.['--accent']||'#ef4444'}"></span>
+              <span class="tp-swatch" style="background:{item.data?.['--bg']||'#1c1917'}"></span>
+              <span class="tp-swatch" style="background:{item.data?.['--board-dark']||'#7c5e3c'}"></span>
+            </div>
+            <div class="info">
+              <span class="name">{item.name}</span>
+              <span class="price">{item.price} coins</span>
+            </div>
+            {#if isEquipped(item.id)}
+              <span class="badge equipped">Equipped</span>
+            {:else if isOwned(item.id)}
+              <button class="btn btn-secondary btn-small" on:click={() => equip(item)}>Equip</button>
+            {:else}
+              <button class="btn btn-primary btn-small" on:click={() => buy(item)}
+                disabled={buying === item.id || ($user?.coins || 0) < item.price}>
+                {buying === item.id ? '...' : 'Buy'}
+              </button>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
 
     {#if skins.length > 0}
       <h3 class="section-title">Piece Skins</h3>
@@ -86,9 +116,11 @@
             <div class="emote-icon">{item.data?.emoji || '?'}</div>
             <div class="info">
               <span class="name">{item.name}</span>
-              <span class="price">{item.price} coins</span>
+              <span class="price">{item.price === 0 ? 'Free' : `${item.price} coins`}</span>
             </div>
-            {#if isOwned(item.id)}
+            {#if item.price === 0}
+              <span class="badge free">Free</span>
+            {:else if isOwned(item.id)}
               <span class="badge owned">Owned</span>
             {:else}
               <button class="btn btn-primary btn-small" on:click={() => buy(item)}
@@ -115,6 +147,8 @@
     display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md);
   }
   .item-card.equipped { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .theme-preview { display: flex; gap: 3px; flex-shrink: 0; }
+  .tp-swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--surface2); }
   .preview { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; }
   .emote-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0; }
   .info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -123,6 +157,7 @@
   .badge { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
   .equipped { color: var(--accent); }
   .owned { color: var(--success); }
+  .free { color: var(--text-dim); }
 
   @media (min-width: 600px) {
     .items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-md); }

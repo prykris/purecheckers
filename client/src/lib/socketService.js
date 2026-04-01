@@ -3,7 +3,7 @@
  * UI components just read from stores.
  */
 import { get } from 'svelte/store';
-import { screen, gameState, activeRoom, roomChatMessages, roomUnreadChat } from '../stores/app.js';
+import { screen, gameState, activeRoom, roomChatMessages, roomUnreadChat, searching, presenceStats } from '../stores/app.js';
 import { user } from '../stores/user.js';
 import { getSocket } from './socket.js';
 
@@ -20,6 +20,11 @@ export function attachSocketListeners() {
     return;
   }
   attached = true;
+
+  // ---- Presence stats ----
+  socket.on('presence:stats', (data) => {
+    presenceStats.set(data);
+  });
 
   // ---- Room updates ----
   socket.on('room:updated', ({ room, closed }) => {
@@ -47,12 +52,18 @@ export function attachSocketListeners() {
     }
   });
 
-  // ---- Game start from room ----
+  // ---- Game start (matchmaking or room) ----
   socket.on('matchmaking:found', (data) => {
-    activeRoom.set(null);
+    searching.set(false);
+
+    // Clean up whatever the user was doing
+    const gs = get(gameState);
+    if (gs?.mode === 'spectator' && gs?.roomId) {
+      // Leave spectated room
+      socket.emit('room:leave', { roomId: gs.roomId });
+    }
+
     roomUnreadChat.set(0);
-    // Keep chat messages — they carry over from room to game
-    // Switch channel to game
     activeChannelId = `game:${data.gameId}`;
     gameState.set({
       gameId: data.gameId,
@@ -142,6 +153,7 @@ export function getActiveChannelId() {
 export function detachSocketListeners() {
   const socket = getSocket();
   if (socket && attached) {
+    socket.off('presence:stats');
     socket.off('room:updated');
     socket.off('room:kicked');
     socket.off('matchmaking:found');

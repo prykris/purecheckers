@@ -11,12 +11,15 @@
   import SearchScreen from './components/SearchScreen.svelte';
   import WheelScreen from './components/WheelScreen.svelte';
   import GameScreen from './components/GameScreen.svelte';
+  import SpectateScreen from './components/SpectateScreen.svelte';
   import ShopScreen from './components/ShopScreen.svelte';
   import FriendsScreen from './components/FriendsScreen.svelte';
+  import ProfileScreen from './components/ProfileScreen.svelte';
   import RoomWaiting from './components/lobby/RoomWaiting.svelte';
   import TreasuryScreen from './components/TreasuryScreen.svelte';
   import BottomNav from './components/BottomNav.svelte';
   import RoomBanner from './components/RoomBanner.svelte';
+  import SearchBanner from './components/SearchBanner.svelte';
   import SlidePanel from './components/panels/SlidePanel.svelte';
   import GlobalChat from './components/panels/GlobalChat.svelte';
   import LeaderboardPanel from './components/panels/LeaderboardPanel.svelte';
@@ -153,6 +156,7 @@
 {/if}
 
 <RoomBanner />
+<SearchBanner />
 
 <div class="app" class:hidden={loading}>
   {#if $screen === 'auth'}
@@ -164,13 +168,19 @@
   {:else if $screen === 'wheel'}
     <WheelScreen />
   {:else if $screen === 'game'}
-    <GameScreen />
+    {#if $gameState?.mode === 'spectator'}
+      <SpectateScreen />
+    {:else}
+      <GameScreen />
+    {/if}
   {:else if $screen === 'shop'}
     <ShopScreen />
   {:else if $screen === 'friends'}
     <FriendsScreen />
   {:else if $screen === 'room-waiting'}
     <RoomWaiting />
+  {:else if $screen === 'profile'}
+    <ProfileScreen />
   {:else if $screen === 'treasury'}
     <TreasuryScreen />
   {/if}
