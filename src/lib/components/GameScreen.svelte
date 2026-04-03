@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { gameState, roomUnreadChat, roomChatMessages, activeRoom, gameOverVisible, browseTab } from '$lib/stores/app.js';
+  import { gameState, roomUnreadChat, activeRoom, gameOverVisible, browseTab } from '$lib/stores/app.js';
   import { clearScreenOverride } from '$lib/stores/gameScreen.js';
   import { user } from '$lib/stores/user.js';
   import { getSocket } from '$lib/socket.js';
@@ -85,6 +85,12 @@
       socket.on('game:opponent-disconnected', () => { opponentDisconnected = true; });
       socket.on('game:opponent-reconnected', () => { opponentDisconnected = false; });
       socket.on('emote:show', onEmoteShow);
+      socket.on('game:move-analysis', ({ rating }) => {
+        if (moveLog.length > 0) {
+          moveLog[moveLog.length - 1].rating = rating;
+          moveLog = moveLog;
+        }
+      });
 
       const loadEmotes = async () => {
         try {
@@ -132,6 +138,7 @@
       socket.off('game:opponent-disconnected');
       socket.off('game:opponent-reconnected');
       socket.off('emote:show', onEmoteShow);
+      socket.off('game:move-analysis');
     }
   });
 
@@ -222,6 +229,7 @@
     for (const t of trail) drawPiece(t.x,t.y,t.color,t.queen,t.alpha);
     for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
       if(moveAnimState&&r===moveAnimState.destRow&&c===moveAnimState.destCol) continue;
+      if(dragging&&dragStarted&&r===dragging.row&&c===dragging.col) continue; // skip dragged piece at board pos
       const p=game.at(r,c); if(!p) continue;
       const dr=flip?7-r:r,dc=flip?7-c:c;
       if (introAnim) {
@@ -239,6 +247,10 @@
     }
     for (const cap of capturedOverlay) { const cr=flip?7-cap.row:cap.row,cc=flip?7-cap.col:cap.col; drawPiece(cc*CELL+CELL/2,cr*CELL+CELL/2,cap.color,cap.queen); }
     for (const p of shatterParticles) { ctx.save();ctx.globalAlpha=Math.max(0,p.life);ctx.translate(p.x,p.y);ctx.rotate(p.rotation);ctx.fillStyle=p.color;ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);ctx.restore(); }
+    // Draw dragged piece floating at pointer
+    if (dragging && dragStarted) {
+      drawPiece(dragging.x, dragging.y, dragging.piece.color, dragging.piece.queen, 0.85);
+    }
   }
 
   function playIntroAnimation() {
@@ -265,14 +277,130 @@
     lastMoveCaptured = info?.captured?.map(c => ({row:c.row, col:c.col})) || [];
     if(info?.captured.length>0){for(const cap of info.captured)capturedPieces[info.pieceColor].push({color:cap.color,queen:cap.queen});capturedPieces=capturedPieces;}
     moveLog=[...moveLog,{num:++moveNumber,color:info?.pieceColor,from:`${'abcdefgh'[fc]}${8-fr}`,to:`${'abcdefgh'[tc]}${8-tr}`,capture:result.captured.length>0}];
-    if(info){animating=true;await animateSlide(info);if(info.captured.length>0){const flip=myColor==='black';for(const cap of info.captured){const cr=flip?7-cap.row:cap.row,cc=flip?7-cap.col:cap.col;spawnShatter(cc*CELL+CELL/2,cr*CELL+CELL/2,cap.color);}}if(shatterParticles.length>0)await animateEffects();animating=false;}
+    if(info){animating=true;await animateSlide(info);if(info.captured.length>0){const flip=myColor==='black';for(const cap of info.captured){const cr=flip?7-cap.row:cap.row,cc=flip?7-cap.col:cap.col;spawnShatter(cc*CELL+CELL/2,cr*CELL+CELL/2,cap.color);}}if(shatterParticles.length>0)await animateEffects();animating=false;
+      // Execute queued chain move if player clicked during animation
+      if(pendingChainMove&&selectedPiece){const pm=pendingChainMove;pendingChainMove=null;executeMove(selectedPiece.row,selectedPiece.col,pm.toRow,pm.toCol);}}
     syncTimers();
     return result;
   }
 
-  // ---- Input ----
-  function onClick(e) { if(game.gameOver||botThinking||animating||game.currentPlayer!==myColor)return; const rect=canvasEl.getBoundingClientRect(),flip=myColor==='black'; let col=Math.floor((e.clientX-rect.left)/CELL),row=Math.floor((e.clientY-rect.top)/CELL); if(flip){row=7-row;col=7-col;} const mt=validMoves.find(m=>m.toRow===row&&m.toCol===col); if(mt&&selectedPiece){executeMove(selectedPiece.row,selectedPiece.col,row,col);return;} const piece=game.at(row,col); if(piece&&piece.color===myColor){const moves=game.getValidMovesFor(row,col);if(moves.length>0){selectedPiece={row,col};validMoves=moves;}else{selectedPiece=null;validMoves=[];}}else{selectedPiece=null;validMoves=[];} drawBoard(); }
-  function onMouseMove(e) { if(game.gameOver||animating||botThinking){canvasEl.style.cursor='default';return;} const rect=canvasEl.getBoundingClientRect(),flip=myColor==='black'; let col=Math.floor((e.clientX-rect.left)/CELL),row=Math.floor((e.clientY-rect.top)/CELL); if(col<0||col>7||row<0||row>7)return; if(flip){row=7-row;col=7-col;} const piece=game.at(row,col),isTarget=validMoves.some(m=>m.toRow===row&&m.toCol===col); canvasEl.style.cursor=(piece?.color===myColor&&game.currentPlayer===myColor)||isTarget?'pointer':'default'; const nh=(piece?.color===myColor)?{row,col}:null; if(hoveredCell?.row!==nh?.row||hoveredCell?.col!==nh?.col){hoveredCell=nh;if(!animating)drawBoard();} }
+  // ---- Input (click + drag) ----
+  let dragging = null; // { row, col, piece, x, y } — canvas-space coords of dragged piece
+  let dragStarted = false; // true once pointer moves — drag vs click
+  let pendingChainMove = null; // { toRow, toCol } — queued during animation for instant chain
+
+  function getCell(clientX, clientY) {
+    const rect = canvasEl.getBoundingClientRect();
+    const scale = BOARD_PX / rect.width;
+    const flip = myColor === 'black';
+    let col = Math.floor((clientX - rect.left) * scale / CELL);
+    let row = Math.floor((clientY - rect.top) * scale / CELL);
+    if (flip) { row = 7 - row; col = 7 - col; }
+    return { row, col };
+  }
+
+  function getCanvasXY(clientX, clientY) {
+    const rect = canvasEl.getBoundingClientRect();
+    const scale = BOARD_PX / rect.width;
+    return { x: (clientX - rect.left) * scale, y: (clientY - rect.top) * scale };
+  }
+
+  function onPointerDown(e) {
+    if (game.gameOver || botThinking || game.currentPlayer !== myColor) return;
+    // Allow chain queuing during animation
+    if (animating) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const { row, col } = getCell(clientX, clientY);
+    const piece = game.at(row, col);
+
+    if (piece && piece.color === myColor) {
+      const moves = game.getValidMovesFor(row, col);
+      if (moves.length > 0) {
+        const { x, y } = getCanvasXY(clientX, clientY);
+        dragging = { row, col, piece, x, y };
+        dragStarted = false;
+        selectedPiece = { row, col };
+        validMoves = moves;
+        drawBoard();
+      }
+    }
+  }
+
+  function onPointerMove(e) {
+    if (game.gameOver || animating || botThinking) { if (canvasEl) canvasEl.style.cursor = 'default'; return; }
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    if (dragging) {
+      e.preventDefault();
+      const { x, y } = getCanvasXY(clientX, clientY);
+      dragStarted = true;
+      dragging = { ...dragging, x, y };
+      drawBoard();
+      return;
+    }
+
+    // Hover logic (mouse only, not touch)
+    if (e.touches) return;
+    const { row, col } = getCell(clientX, clientY);
+    if (col < 0 || col > 7 || row < 0 || row > 7) return;
+    const piece = game.at(row, col);
+    const isTarget = validMoves.some(m => m.toRow === row && m.toCol === col);
+    canvasEl.style.cursor = (piece?.color === myColor && game.currentPlayer === myColor) || isTarget ? 'pointer' : 'default';
+    const nh = (piece?.color === myColor) ? { row, col } : null;
+    if (hoveredCell?.row !== nh?.row || hoveredCell?.col !== nh?.col) { hoveredCell = nh; if (!animating) drawBoard(); }
+  }
+
+  function onPointerUp(e) {
+    if (!dragging) return;
+    const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+    const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+    const { row, col } = getCell(clientX, clientY);
+
+    if (dragStarted) {
+      const mt = validMoves.find(m => m.toRow === row && m.toCol === col);
+      if (mt) {
+        dragging = null; dragStarted = false;
+        executeMove(selectedPiece.row, selectedPiece.col, row, col);
+        return;
+      }
+    } else {
+      const mt = validMoves.find(m => m.toRow === row && m.toCol === col);
+      if (mt && selectedPiece) {
+        dragging = null; dragStarted = false;
+        executeMove(selectedPiece.row, selectedPiece.col, row, col);
+        return;
+      }
+    }
+
+    dragging = null; dragStarted = false;
+    drawBoard();
+  }
+
+  function onClick(e) {
+    if (game.gameOver || botThinking || game.currentPlayer !== myColor) return;
+    if (dragStarted) return;
+    const { row, col } = getCell(e.clientX, e.clientY);
+
+    // During animation, allow queuing chain continuation moves
+    if (animating && selectedPiece && validMoves.length > 0) {
+      const mt = validMoves.find(m => m.toRow === row && m.toCol === col);
+      if (mt) pendingChainMove = { toRow: row, toCol: col };
+      return;
+    }
+    if (animating) return;
+
+    const mt = validMoves.find(m => m.toRow === row && m.toCol === col);
+    if (mt && selectedPiece) { executeMove(selectedPiece.row, selectedPiece.col, row, col); return; }
+    const piece = game.at(row, col);
+    if (piece && piece.color === myColor) {
+      const moves = game.getValidMovesFor(row, col);
+      if (moves.length > 0) { selectedPiece = { row, col }; validMoves = moves; }
+      else { selectedPiece = null; validMoves = []; }
+    } else { selectedPiece = null; validMoves = []; }
+    drawBoard();
+  }
 
   // ---- Move execution ----
   async function executeMove(fr,fc,tr,tc) { if(mode==='online')socket.emit('game:move',{gameId:gameId,fromRow:fr,fromCol:fc,toRow:tr,toCol:tc}); const result=await performAnimatedMove(fr,fc,tr,tc); if(!result)return; if(result.chainContinues){selectedPiece={row:tr,col:tc};validMoves=game.getValidMovesFor(tr,tc);}else{selectedPiece=null;validMoves=[];} drawBoard(); if(game.gameOver){handleGameOver();return;} if(mode==='bot'&&game.currentPlayer!==myColor)botTurn(); }
@@ -340,9 +468,12 @@
 
   <!-- Center: board -->
   <div class="board-wrap">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <canvas bind:this={canvasEl} width="480" height="480"
-      on:click={onClick} on:mousemove={onMouseMove}
-      on:mouseleave={()=>{hoveredCell=null;if(canvasEl)canvasEl.style.cursor='default';if(!animating)drawBoard();}}></canvas>
+      on:click={onClick}
+      on:mousedown={onPointerDown} on:mousemove={onPointerMove} on:mouseup={onPointerUp}
+      on:touchstart={onPointerDown} on:touchmove={onPointerMove} on:touchend={onPointerUp}
+      on:mouseleave={()=>{if(dragging){dragging=null;dragStarted=false;drawBoard();}hoveredCell=null;if(canvasEl)canvasEl.style.cursor='default';if(!animating)drawBoard();}}></canvas>
 
     {#if gameOverData}
       <div class="game-over">
@@ -400,7 +531,7 @@
 
   <div class="moves">
     {#each moveLog.slice(-10) as m}
-      <div class="move-pill"><span class="mdot {m.color}"></span><span class="mtxt">{m.from}{m.capture?'\u00d7':'\u2192'}{m.to}</span></div>
+      <div class="move-pill" class:rate-best={m.rating==='best'} class:rate-good={m.rating==='good'} class:rate-inaccuracy={m.rating==='inaccuracy'} class:rate-blunder={m.rating==='blunder'}><span class="mdot {m.color}"></span><span class="mtxt">{m.from}{m.capture?'\u00d7':'\u2192'}{m.to}</span></div>
     {/each}
   </div>
 
@@ -534,6 +665,10 @@
   .mdot.red { background: var(--red-piece); }
   .mdot.black { background: var(--black-piece); }
   .mtxt { color: var(--text-dim); font-family: var(--font-mono); }
+  .move-pill.rate-best { border-left: 2px solid var(--gold); }
+  .move-pill.rate-good { border-left: 2px solid var(--success); }
+  .move-pill.rate-inaccuracy { border-left: 2px solid var(--warning); }
+  .move-pill.rate-blunder { border-left: 2px solid var(--accent); }
 
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 20; }
   .confirm { text-align: center; display: flex; flex-direction: column; gap: var(--sp-md); padding: var(--sp-lg); }

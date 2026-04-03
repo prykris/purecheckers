@@ -2,6 +2,8 @@ import { CheckersGame } from '../../shared/game.js';
 import { quickPlayPool } from '../services/quickPlay.js';
 import { createQuickPlayRoom } from './roomHandler.js';
 import { isBotUser, chooseBotMove, getBotDifficulty } from '../services/botPlayer.js';
+import { analyzeMoveQuality } from '../services/moveAnalysis.js';
+import { shouldEmote, getMoveTriggers, getAnalysisTriggers, cleanupGame as cleanupBotEmotes } from '../services/botEmotes.js';
 import { connectedUsers, emitSyncState } from './index.js';
 import { getSession, setPhase, forceIdle } from './userState.js';
 import { calculateElo } from '../services/elo.js';
@@ -203,6 +205,36 @@ class GameRoom {
       } catch (err) {
         console.error('Failed to persist game result:', err);
       }
+    } else {
+      // FRIENDLY game — still record the game, just no ELO/coins
+      try {
+        await prisma.game.create({
+          data: {
+            redPlayerId: this.redUserId,
+            blackPlayerId: this.blackUserId,
+            winnerId,
+            result,
+            moveHistory: this.game.moveHistory,
+            mode: this.mode,
+            endedAt: new Date()
+          }
+        });
+        // Update gamesPlayed/wins/losses for both players (stats tracking, no ELO)
+        await Promise.all([
+          prisma.user.update({ where: { id: this.redUserId }, data: {
+            gamesPlayed: { increment: 1 },
+            wins: winner === 'red' ? { increment: 1 } : undefined,
+            losses: winner === 'black' ? { increment: 1 } : undefined
+          }}),
+          prisma.user.update({ where: { id: this.blackUserId }, data: {
+            gamesPlayed: { increment: 1 },
+            wins: winner === 'black' ? { increment: 1 } : undefined,
+            losses: winner === 'red' ? { increment: 1 } : undefined
+          }})
+        ]);
+      } catch (err) {
+        console.error('Failed to persist friendly game:', err);
+      }
     }
 
     io.to(`game:${this.id}`).emit('game:over', {
@@ -213,6 +245,26 @@ class GameRoom {
       moveHistory: this.game.moveHistory,
       eloChanges,
       coinRewards
+    });
+
+    // Broadcast to all connected clients for the global game log
+    const redConn = connectedUsers.get(this.redUserId);
+    const blackConn = connectedUsers.get(this.blackUserId);
+    let redName = redConn?.username || getSession(this.redUserId)?.username;
+    let blackName = blackConn?.username || getSession(this.blackUserId)?.username;
+    if (!redName || !blackName) {
+      try {
+        if (!redName) { const u = await prisma.user.findUnique({ where: { id: this.redUserId }, select: { username: true } }); redName = u?.username || 'Unknown'; }
+        if (!blackName) { const u = await prisma.user.findUnique({ where: { id: this.blackUserId }, select: { username: true } }); blackName = u?.username || 'Unknown'; }
+      } catch {}
+    }
+    io.emit('global:game-ended', {
+      id: this.id,
+      redPlayer: redName,
+      blackPlayer: blackName,
+      result,
+      mode: this.mode,
+      date: new Date().toISOString(),
     });
 
     // Phase stays 'in-game' — client shows game-over screen.
@@ -249,6 +301,7 @@ class GameRoom {
         const bc = connectedUsers.get(blackId);
         if (bc) emitSyncState(bc.socket, blackId);
       }
+      cleanupBotEmotes(this.id);
     }, 60000);
   }
 
@@ -372,10 +425,12 @@ export function setupGameHandler(io, socket) {
       return socket.emit('game:move-rejected', { reason: 'Not your turn' });
     }
 
+    // Clone pre-move state for analysis (async, non-blocking)
+    const preMoveClone = room.game.clone();
+
     const result = room.game.makeMove(fromRow, fromCol, toRow, toCol);
     if (!result) {
       socket.emit('game:move-rejected', { reason: 'Invalid move' });
-      // Send full board state so client can recover from any drift
       socket.emit('game:sync', room.getState());
       return;
     }
@@ -390,10 +445,38 @@ export function setupGameHandler(io, socket) {
       currentPlayer: room.game.currentPlayer
     });
 
+    // Async move analysis — don't block the move response
+    setTimeout(() => {
+      try {
+        const analysis = analyzeMoveQuality(preMoveClone, room.game, color);
+        socket.emit('game:move-analysis', { rating: analysis.rating, scoreDiff: analysis.scoreDiff });
+
+        // Check if opponent is a bot — trigger emote reaction to player's move
+        const opponentId = room.getOpponentId(socket.userId);
+        isBotUser(opponentId).then(isBot => {
+          if (!isBot) return;
+          getBotDifficulty(opponentId).then(diff => {
+            if (!diff) return;
+            const triggers = getAnalysisTriggers(analysis);
+            for (const trigger of triggers) {
+              const emote = shouldEmote(trigger, diff, gameId);
+              if (emote) {
+                io.to(`game:${gameId}`).emit('emote:show', {
+                  userId: opponentId,
+                  username: 'Bot',
+                  emote
+                });
+                break; // one emote per move
+              }
+            }
+          });
+        });
+      } catch {}
+    }, 0);
+
     if (room.game.gameOver) {
       room.endGame(io, room.game.winner);
     } else {
-      // If next player is a bot, schedule their move
       scheduleBotMoveIfNeeded(io, room);
     }
   });
@@ -572,23 +655,23 @@ async function scheduleBotMoveIfNeeded(io, gameRoom) {
   const currentColor = gameRoom.game.currentPlayer;
   const currentUserId = currentColor === 'red' ? gameRoom.redUserId : gameRoom.blackUserId;
   const isBot = await isBotUser(currentUserId);
-  console.log(`[Bot] Check move: game #${gameRoom.id}, currentPlayer=${currentColor}, userId=${currentUserId}, isBot=${isBot}`);
   if (!isBot) return;
 
   const difficulty = await getBotDifficulty(currentUserId);
-  console.log(`[Bot] Scheduling move: difficulty=${difficulty}`);
   if (!difficulty) return;
 
-  const delay = 400 + Math.random() * 600;
+  // Chain continuations are fast (150ms), first move gets natural thinking delay
+  const isChain = gameRoom.game.chainPiece != null;
+  const delay = isChain ? 150 : (400 + Math.random() * 600);
+
   setTimeout(() => {
     if (gameRoom.game.gameOver) return;
 
     const move = chooseBotMove(gameRoom.game, difficulty);
-    console.log(`[Bot] Chose move:`, move ? `${move.fromRow},${move.fromCol} -> ${move.toRow},${move.toCol}` : 'null');
     if (!move) return;
 
     const result = gameRoom.game.makeMove(move.fromRow, move.fromCol, move.toRow, move.toCol);
-    if (!result) { console.log('[Bot] Move rejected by game engine'); return; }
+    if (!result) return;
 
     io.to(`game:${gameRoom.id}`).emit('game:moved', {
       fromRow: move.fromRow, fromCol: move.fromCol,
@@ -601,13 +684,23 @@ async function scheduleBotMoveIfNeeded(io, gameRoom) {
       currentPlayer: gameRoom.game.currentPlayer
     });
 
+    // Bot emote triggers based on what just happened
+    const triggers = getMoveTriggers(result, gameRoom.game, currentColor);
+    for (const trigger of triggers) {
+      const emote = shouldEmote(trigger, difficulty, gameRoom.id);
+      if (emote) {
+        io.to(`game:${gameRoom.id}`).emit('emote:show', {
+          userId: currentUserId,
+          username: 'Bot',
+          emote
+        });
+        break;
+      }
+    }
+
     if (gameRoom.game.gameOver) {
       gameRoom.endGame(io, gameRoom.game.winner);
-    } else if (result.chainContinues) {
-      // Bot has a chain jump — schedule the next move immediately
-      scheduleBotMoveIfNeeded(io, gameRoom);
     } else {
-      // Check if the next player is also a bot (bot vs bot spectacle)
       scheduleBotMoveIfNeeded(io, gameRoom);
     }
   }, delay);

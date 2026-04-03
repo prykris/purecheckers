@@ -1,13 +1,11 @@
 <script>
-  import { onMount } from 'svelte';
   import { user, token } from '$lib/stores/user.js';
   import { browseTab } from '$lib/stores/app.js';
   import { api } from '$lib/api.js';
   import { reconnectSocket } from '$lib/socketService.js';
   import { disconnectSocket } from '$lib/socket.js';
+  import GameLog from './GameLog.svelte';
 
-  let games = [];
-  let loading = true;
 
   // Guest upgrade form
   let upgradeEmail = '';
@@ -43,29 +41,12 @@
   $: avatarHue = ($user?.username || '').split('').reduce((h, c) => h + c.charCodeAt(0), 0) % 360;
   $: memberSince = $user?.createdAt ? new Date($user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '';
 
-  onMount(async () => {
-    try {
-      const data = await api.get('/auth/history');
-      games = data.games || [];
-    } catch {}
-    loading = false;
-  });
 
   function logout() {
     disconnectSocket();
     disconnectSocket(); $token = null; $user = null;
   }
 
-  function fmtDate(d) {
-    const dt = new Date(d);
-    const now = new Date();
-    const diff = now - dt;
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
-    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
 </script>
 
 <div class="profile-layout">
@@ -141,42 +122,12 @@
       </div>
     {/if}
 
-    <!-- Match history -->
-    <div class="history-section">
-      <h3>Recent Games</h3>
-      {#if loading}
-        <p class="empty">Loading...</p>
-      {:else if games.length === 0}
-        <p class="empty">No games played yet</p>
-      {:else}
-        <div class="history-list">
-          {#each games as g}
-            <div class="history-row" class:win={g.result === 'win'} class:loss={g.result === 'loss'} class:draw={g.result === 'draw'}>
-              <div class="h-result">
-                {#if g.result === 'win'}W{:else if g.result === 'loss'}L{:else}D{/if}
-              </div>
-              <div class="h-info">
-                <span class="h-opponent">vs {g.opponent}</span>
-                <span class="h-meta">
-                  <span class="h-color {g.myColor}"></span>
-                  {g.mode === 'RANKED' ? 'Ranked' : g.mode === 'BOT' ? 'Bot' : 'Friendly'}
-                </span>
-              </div>
-              <div class="h-stats">
-                {#if g.eloChange !== 0}
-                  <span class="h-elo" class:positive={g.eloChange > 0}>{g.eloChange > 0 ? '+' : ''}{g.eloChange}</span>
-                {/if}
-                {#if g.coinsEarned > 0}
-                  <span class="h-coins">+{g.coinsEarned}c</span>
-                {/if}
-              </div>
-              <span class="h-date">{fmtDate(g.date)}</span>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
+    <GameLog mode="personal" />
 
+    <button class="btn btn-dark treasury-btn" on:click={() => $browseTab = 'treasury'}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Community Treasury
+    </button>
     <button class="btn btn-dark logout-btn" on:click={logout}>Logout</button>
   </div>
 </div>
@@ -255,38 +206,6 @@
   .fc-label { font-size: var(--fs-caption); color: var(--text-dim); }
   .fc-value { font-family: var(--font-mono); font-weight: 700; letter-spacing: 2px; color: var(--accent); }
 
-  .history-section { width: 100%; }
-  .history-section h3 { font-size: var(--fs-body); margin-bottom: var(--sp-sm); }
-  .empty { font-size: var(--fs-caption); color: var(--text-dim); text-align: center; padding: var(--sp-lg) 0; }
-
-  .history-list { display: flex; flex-direction: column; gap: var(--sp-xs); }
-  .history-row {
-    display: flex; align-items: center; gap: var(--sp-sm);
-    padding: var(--sp-sm) var(--sp-md);
-    background: var(--surface); border: 1px solid var(--surface2);
-    border-radius: var(--radius-md);
-  }
-  .h-result {
-    width: 24px; height: 24px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.65rem; font-weight: 700; flex-shrink: 0;
-  }
-  .history-row.win .h-result { background: rgba(34,197,94,0.15); color: var(--success); }
-  .history-row.loss .h-result { background: rgba(239,68,68,0.15); color: var(--accent); }
-  .history-row.draw .h-result { background: rgba(168,162,158,0.15); color: var(--text-dim); }
-
-  .h-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-  .h-opponent { font-size: var(--fs-caption); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .h-meta { display: flex; align-items: center; gap: 4px; font-size: 0.6rem; color: var(--text-dim); }
-  .h-color { width: 6px; height: 6px; border-radius: 50%; }
-  .h-color.red { background: var(--red-piece); }
-  .h-color.black { background: var(--black-piece); border: 1px solid #555; }
-
-  .h-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; }
-  .h-elo { font-size: 0.65rem; font-weight: 600; color: var(--accent); }
-  .h-elo.positive { color: var(--success); }
-  .h-coins { font-size: 0.6rem; color: var(--gold); }
-  .h-date { font-size: 0.55rem; color: var(--text-dim); flex-shrink: 0; }
 
   .logout-btn { width: 100%; max-width: 200px; }
 </style>

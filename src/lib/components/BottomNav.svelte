@@ -9,6 +9,12 @@
     </svg>
     <span>Play</span>
   </button>
+  <button class="tab" class:active={$browseTab === 'treasury'} on:click={() => $browseTab = 'treasury'}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+    </svg>
+    <span>Treasury</span>
+  </button>
   <button class="tab" class:active={$browseTab === 'shop'} on:click={() => $browseTab = 'shop'}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
@@ -63,6 +69,6 @@
   .tab:not(.active):hover { color: var(--text); }
 
   @media (min-width: 900px) {
-    .tab-bar { max-width: 480px; margin: 0 auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+    .tab-bar { max-width: 560px; margin: 0 auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
   }
 </style>

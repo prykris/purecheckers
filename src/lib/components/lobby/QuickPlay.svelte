@@ -3,6 +3,7 @@
   import { setScreenOverride } from '$lib/stores/gameScreen.js';
   import { getSocket } from '$lib/socket.js';
   import RoomCreate from './RoomCreate.svelte';
+  import GameLog from '../GameLog.svelte';
 
   let showCreatePrivate = false;
 
@@ -32,6 +33,8 @@
 {#if showCreatePrivate}
   <RoomCreate defaultPrivate={true} on:close={() => showCreatePrivate = false} />
 {/if}
+
+<GameLog />
 
 <style>
   .quick { display: flex; flex-direction: column; align-items: center; gap: var(--sp-lg); padding: var(--sp-lg) 0; }

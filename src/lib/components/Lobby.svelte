@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { presenceStats, browseTab } from '$lib/stores/app.js';
+  import { presenceStats } from '$lib/stores/app.js';
   import { user, token } from '$lib/stores/user.js';
   import { disconnectSocket } from '$lib/socket.js';
   import { api } from '$lib/api.js';
@@ -48,7 +48,6 @@
       $user = data.user;
     } catch {}
 
-    // Socket is already connected via App.svelte initSocket()
   });
 
   function logout() {
@@ -59,7 +58,7 @@
 
 <div class="lobby-layout">
   <div class="top-header">
-    <h1 class="title">Checkers <span>Online</span></h1>
+    <h1 class="title"><span>Pure</span> Checkers</h1>
     <div class="presence-stats">
       <span class="stat-pill online"><span class="pulse-dot"></span>{$presenceStats.online} online</span>
       {#if $presenceStats.lookingToPlay > 0}
@@ -101,10 +100,6 @@
       <p class="friend-code">Your code: <strong>{$user.friendCode}</strong></p>
     {/if}
 
-    <button class="treasury-link" on:click={() => $browseTab = 'treasury'}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-      Community Treasury
-    </button>
   </div>
 </div>
 
@@ -172,12 +167,4 @@
   .friend-code { font-size: var(--fs-caption); color: var(--text-dim); }
   .friend-code strong { color: var(--accent); letter-spacing: 2px; font-family: var(--font-mono); }
 
-  .treasury-link {
-    display: flex; align-items: center; gap: var(--sp-xs);
-    background: none; border: none; color: var(--text-dim);
-    font-family: var(--font); font-size: var(--fs-caption);
-    cursor: pointer; text-decoration: underline;
-    transition: color 0.15s;
-  }
-  .treasury-link:hover { color: var(--text); }
 </style>
