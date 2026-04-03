@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import QRCode from 'qrcode';
 import { connectedUsers, emitSyncState } from './index.js';
 import { createGameDirect } from './gameHandler.js';
+import { getBotUser } from '../services/botPlayer.js';
 import { TURN_TIME } from '../../shared/constants.js';
 import { SITE_URL } from '../config.js';
 import { getSession, setPhase, forceIdle } from './userState.js';
@@ -47,13 +48,13 @@ function sanitizeRoom(room, includeCode = false) {
       isPrivate: room.settings.isPrivate,
       allowSpectators: room.settings.allowSpectators,
     },
-    players: room.players.map(p => ({ userId: p.userId, username: p.username, elo: p.elo, ready: p.ready, online: p.online !== false })),
+    players: room.players.map(p => ({ userId: p.userId, username: p.username, elo: p.elo, ready: p.ready, online: p.online !== false, isGuest: p.isGuest || false, isBot: p.isBot || false })),
     spectators: room.spectators.map(s => ({ userId: s.userId, username: s.username })),
     status: room.status,
     gameId: room.gameId || null,
-    createdAt: room.createdAt
+    createdAt: room.createdAt,
+    effectiveMode: room.players.some(p => p.isGuest || p.isBot) ? 'FRIENDLY' : (room.settings.buyIn > 0 ? 'RANKED' : 'RANKED'),
   };
-  // Include join URL for room members
   result.joinUrl = `${SITE_URL}/join/${room.joinCode}`;
   return result;
 }
@@ -110,7 +111,7 @@ export function setupRoomHandler(io, socket) {
       hostName: socket.username,
       joinCode, // always generated — used for QR/links
       settings: { buyIn, turnTimer: turnTimer || TURN_TIME, isPrivate, code: isPrivate ? joinCode : null, allowSpectators },
-      players: [{ userId: socket.userId, username: socket.username, elo: 0, ready: false, online: true }],
+      players: [{ userId: socket.userId, username: socket.username, elo: 0, ready: false, online: true, isGuest: socket.isGuest, isBot: false }],
       spectators: [],
       status: 'waiting',
       gameId: null,
@@ -148,11 +149,11 @@ export function setupRoomHandler(io, socket) {
     if (filter === 'free') rooms = rooms.filter(r => r.settings.buyIn === 0);
     if (filter === 'available') rooms = rooms.filter(r => r.status === 'waiting' && r.players.length < 2);
 
-    // Sort: waiting first, then by creation time (newest first)
+    // Sort: waiting first, then by creation time (oldest first — stable ordering)
     rooms.sort((a, b) => {
       if (a.status === 'waiting' && b.status !== 'waiting') return -1;
       if (b.status === 'waiting' && a.status !== 'waiting') return 1;
-      return b.createdAt - a.createdAt;
+      return a.createdAt - b.createdAt;
     });
 
     socket.emit('room:list', { rooms });
@@ -188,7 +189,9 @@ export function setupRoomHandler(io, socket) {
       username: socket.username,
       elo: joinerUser?.elo || 1000,
       ready: false,
-      online: true
+      online: true,
+      isGuest: socket.isGuest,
+      isBot: false
     });
 
     setPhase(socket.userId, 'in-room', { roomId: room.id });
@@ -308,6 +311,35 @@ export function setupRoomHandler(io, socket) {
     broadcastRoomUpdate(io, room);
   });
 
+  // --- Call a bot into the room ---
+  socket.on('bot:join', async ({ roomId, difficulty }) => {
+    const room = gameRooms.get(roomId);
+    if (!room) return socket.emit('room:error', { error: 'Room not found' });
+    if (room.hostId !== socket.userId) return socket.emit('room:error', { error: 'Only the host can call a bot' });
+    if (room.status !== 'waiting') return socket.emit('room:error', { error: 'Game already started' });
+    if (room.players.length >= 2) return socket.emit('room:error', { error: 'Room is full' });
+
+    const botUser = await getBotUser(difficulty || 'medium');
+    if (!botUser) return socket.emit('room:error', { error: 'Bot not available' });
+
+    room.players.push({
+      userId: botUser.id,
+      username: botUser.username,
+      elo: botUser.elo,
+      ready: true, // bots are always ready
+      online: true,
+      isGuest: false,
+      isBot: true
+    });
+
+    broadcastRoomUpdate(io, room);
+
+    // If host is also ready, start the game immediately
+    if (room.players.length === 2 && room.players.every(p => p.ready)) {
+      startRoomGame(io, room);
+    }
+  });
+
   // --- Cleanup on disconnect ---
   // Disconnect timers are handled centrally by userState.
   // Here we only handle spectator removal and marking players offline.
@@ -358,7 +390,10 @@ async function startRoomGame(io, room) {
   const redUserId = isFirstRed ? room.players[0].userId : room.players[1].userId;
   const blackUserId = isFirstRed ? room.players[1].userId : room.players[0].userId;
 
-  const gameRoom = createGameDirect(io, redUserId, blackUserId, room.settings.buyIn > 0 ? 'RANKED' : 'FRIENDLY', room.settings.buyIn);
+  // Determine mode: FRIENDLY if any guest/bot, else RANKED
+  const hasGuest = room.players.some(p => p.isGuest || p.isBot);
+  const mode = hasGuest ? 'FRIENDLY' : 'RANKED';
+  const gameRoom = createGameDirect(io, redUserId, blackUserId, mode, room.settings.buyIn);
   room.gameId = gameRoom.id;
 
   // Spectators join the game room too
@@ -374,4 +409,51 @@ async function startRoomGame(io, room) {
   if (blackConn) emitSyncState(blackConn.socket, blackUserId);
 
   broadcastRoomUpdate(io, room);
+}
+
+/**
+ * Create a room from quick play matchmaking, add both players, auto-start.
+ * Called by the matchmaking loop when two players are paired.
+ */
+export async function createQuickPlayRoom(io, playerA, playerB, mode) {
+  const joinCode = genCode();
+  const room = {
+    id: nextRoomId++,
+    hostId: playerA.userId,
+    hostName: '',
+    joinCode,
+    settings: { buyIn: 0, turnTimer: TURN_TIME, isPrivate: false, allowSpectators: true },
+    players: [],
+    spectators: [],
+    status: 'waiting',
+    gameId: null,
+    createdAt: Date.now()
+  };
+
+  // Add both players — don't change phase here (they might be in 'matchmaking')
+  // Phase transitions to 'in-game' when startRoomGame calls createGameDirect
+  for (const p of [playerA, playerB]) {
+    const conn = connectedUsers.get(p.userId);
+    const session = getSession(p.userId);
+    room.players.push({
+      userId: p.userId,
+      username: conn?.username || session?.username || 'Player',
+      elo: p.elo,
+      ready: true,
+      online: true,
+      isGuest: p.isGuest,
+      isBot: false
+    });
+    if (conn) {
+      conn.socket.join(`room:${room.id}`);
+      conn.socket.join(`chat:room:${room.id}`);
+    }
+  }
+
+  room.hostName = room.players[0].username || 'Player';
+  gameRooms.set(room.id, room);
+  broadcastRoomUpdate(io, room);
+
+  // Auto-start since both are ready
+  await startRoomGame(io, room);
 }

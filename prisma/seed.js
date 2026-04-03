@@ -111,7 +111,37 @@ const emotes = [
   { slug: 'emote-oops', name: 'Oops', type: 'EMOTE', price: 10, data: { emoji: '😬', label: 'Oops' } }
 ];
 
+const bots = [
+  { username: 'Bot Easy', elo: 600 },
+  { username: 'Bot Medium', elo: 1000 },
+  { username: 'Bot Hard', elo: 1400 },
+];
+
+function generateFriendCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 async function seed() {
+  console.log('Seeding bot accounts...');
+  for (const bot of bots) {
+    await prisma.user.upsert({
+      where: { username: bot.username },
+      update: { elo: bot.elo, isBot: true },
+      create: {
+        username: bot.username,
+        isBot: true,
+        elo: bot.elo,
+        peakElo: bot.elo,
+        friendCode: generateFriendCode(),
+      }
+    });
+  }
+  const botCount = await prisma.user.count({ where: { isBot: true } });
+  console.log(`Seeded ${botCount} bot accounts`);
+
   console.log('Seeding shop items...');
 
   for (const theme of themes) {

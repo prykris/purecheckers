@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 router.get('/', async (req, res) => {
   try {
     const players = await prisma.user.findMany({
-      where: { gamesPlayed: { gt: 0 } },
+      where: { gamesPlayed: { gt: 0 }, isGuest: false, isBot: false },
       select: {
         id: true,
         username: true,

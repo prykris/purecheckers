@@ -1,4 +1,4 @@
-import { createServer } from 'http';
+  import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -6,6 +6,7 @@ import express from 'express';
 import { PORT } from './config.js';
 import app from './app.js';
 import { setupSocket } from './socket/index.js';
+import { startGuestCleanup } from './services/guestCleanup.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === 'production';
@@ -16,6 +17,7 @@ const io = new Server(httpServer, {
 });
 
 setupSocket(io);
+startGuestCleanup();
 
 // In production, serve the SvelteKit build
 if (isProduction) {

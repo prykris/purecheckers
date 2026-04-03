@@ -2,6 +2,7 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { JWT_SECRET } from '../config.js';
+import { generateFriendCode } from './auth.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -22,47 +23,59 @@ function generateGuestName() {
   return `${adj} ${noun} ${num}`;
 }
 
-// POST /api/guest — create a guest session
+function sanitizeUser(user) {
+  const { passwordHash, ...safe } = user;
+  return safe;
+}
+
+// POST /api/guest — create a guest account (real User row)
 router.post('/', async (req, res) => {
-  try {
-    let username = req.body.username?.trim();
-    if (!username || username.length < 2) {
-      username = generateGuestName();
+  const MAX_RETRIES = 3;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      let username = req.body.username?.trim();
+      if (!username || username.length < 2) {
+        username = generateGuestName();
+      }
+      if (username.length > 20) username = username.slice(0, 20);
+
+      // On retry, add more randomness to avoid collision
+      if (attempt > 0) {
+        username = `${username.split(' ').slice(0, 2).join(' ')} ${Math.floor(Math.random() * 10000)}`;
+      }
+
+      const friendCode = generateFriendCode();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+      const user = await prisma.user.create({
+        data: {
+          username,
+          isGuest: true,
+          guestExpiresAt: expiresAt,
+          friendCode,
+          coins: 0,
+          peakElo: 1000,
+        }
+      });
+
+      const token = jwt.sign(
+        { userId: user.id, username: user.username, isGuest: true },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      return res.status(201).json({ token, user: sanitizeUser(user) });
+    } catch (err) {
+      // Unique constraint violation on username or friendCode — retry
+      if (err.code === 'P2002') continue;
+      console.error('Guest error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-    if (username.length > 20) username = username.slice(0, 20);
-
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-
-    // Random nonce ensures unique tokens even if username + timestamp collide
-    const nonce = Math.random().toString(36).slice(2);
-    const token = jwt.sign(
-      { guestId: true, username, nonce },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    const session = await prisma.guestSession.create({
-      data: { username, token, expiresAt }
-    });
-
-    // Compute same hash used by socket auth for stable guest userId
-    let hash = 0;
-    for (let i = 0; i < token.length; i++) hash = ((hash << 5) - hash + token.charCodeAt(i)) | 0;
-    const guestUserId = -Math.abs(hash || 1);
-
-    res.status(201).json({
-      token,
-      guest: {
-        id: guestUserId,
-        username: session.username,
-        isGuest: true
-      },
-      suggestedName: generateGuestName()
-    });
-  } catch (err) {
-    console.error('Guest error:', err);
-    res.status(500).json({ error: 'Internal server error' });
   }
+
+  // All retries exhausted
+  res.status(409).json({ error: 'Username taken. Try a different name.' });
 });
 
 // GET /api/guest/name — just generate a name (no session)

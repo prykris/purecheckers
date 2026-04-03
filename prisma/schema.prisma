@@ -8,20 +8,23 @@ datasource db {
 }
 
 model User {
-  id            Int       @id @default(autoincrement())
-  username      String    @unique
-  email         String    @unique
-  passwordHash  String
-  elo           Int       @default(1000)
-  coins         Int       @default(0)
-  gamesPlayed   Int       @default(0)
-  wins          Int       @default(0)
-  losses        Int       @default(0)
-  friendCode    String    @unique
-  lastDailyWin  DateTime?
-  peakElo       Int       @default(1000)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             Int       @id @default(autoincrement())
+  username       String    @unique
+  email          String?   @unique
+  passwordHash   String?
+  isGuest        Boolean   @default(false)
+  isBot          Boolean   @default(false)
+  guestExpiresAt DateTime?
+  elo            Int       @default(1000)
+  coins          Int       @default(0)
+  gamesPlayed    Int       @default(0)
+  wins           Int       @default(0)
+  losses         Int       @default(0)
+  friendCode     String    @unique
+  lastDailyWin   DateTime?
+  peakElo        Int       @default(1000)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   gamesAsRed       Game[]            @relation("RedPlayer")
   gamesAsBlack     Game[]            @relation("BlackPlayer")
@@ -167,13 +170,6 @@ model VaultLog {
   createdAt DateTime @default(now())
 }
 
-model GuestSession {
-  id        Int      @id @default(autoincrement())
-  username  String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-}
 
 model ChatMessage {
   id         Int      @id @default(autoincrement())

@@ -11,7 +11,7 @@ export function verifyToken(req, res, next) {
     const payload = jwt.verify(token, JWT_SECRET);
     req.userId = payload.userId;
     req.username = payload.username;
-    req.isGuest = !!payload.guestId;
+    req.isGuest = !!payload.isGuest;
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid token' });

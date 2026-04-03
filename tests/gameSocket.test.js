@@ -97,11 +97,12 @@ describe('Game Socket Integration', () => {
   });
 
   it('validates and broadcasts moves', async () => {
-    // Find who is red (they move first)
-    // We need the game state from the start events above
-    // Let's get the gameId and find colors
+    // Leave previous game first
+    clientA.emit('game:leave', {});
+    clientB.emit('game:leave', {});
+    await new Promise(r => setTimeout(r, 200));
+
     const startA = await new Promise(resolve => {
-      // Re-join matchmaking to get a fresh game
       clientA.emit('matchmaking:join', { elo: 1000 });
       clientB.emit('matchmaking:join', { elo: 1010 });
       clientA.once('matchmaking:found', resolve);
@@ -123,7 +124,10 @@ describe('Game Socket Integration', () => {
   });
 
   it('rejects invalid moves', async () => {
-    // Need a new game
+    clientA.emit('game:leave', {});
+    clientB.emit('game:leave', {});
+    await new Promise(r => setTimeout(r, 200));
+
     clientA.emit('matchmaking:join', { elo: 1000 });
     clientB.emit('matchmaking:join', { elo: 1010 });
 
@@ -141,6 +145,10 @@ describe('Game Socket Integration', () => {
   });
 
   it('handles resign', async () => {
+    clientA.emit('game:leave', {});
+    clientB.emit('game:leave', {});
+    await new Promise(r => setTimeout(r, 200));
+
     clientA.emit('matchmaking:join', { elo: 1000 });
     clientB.emit('matchmaking:join', { elo: 1010 });
 

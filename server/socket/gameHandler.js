@@ -1,11 +1,12 @@
 import { CheckersGame } from '../../shared/game.js';
-import { TURN_TIME } from '../../shared/constants.js';
-import { rankedQueue } from '../services/matchmaking.js';
+import { quickPlayPool } from '../services/quickPlay.js';
+import { createQuickPlayRoom } from './roomHandler.js';
+import { isBotUser, chooseBotMove, getBotDifficulty } from '../services/botPlayer.js';
 import { connectedUsers, emitSyncState } from './index.js';
 import { getSession, setPhase, forceIdle } from './userState.js';
 import { calculateElo } from '../services/elo.js';
 import { awardCoins } from '../services/coins.js';
-import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME, SHOP_VAULT_RATE, SHOP_BURN_RATE } from '../../shared/constants.js';
+import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME } from '../../shared/constants.js';
 import { calculateRankedPayout, depositToVault, awardDailyBounty, checkMilestones, isValidWager } from '../services/vault.js';
 import { PrismaClient } from '@prisma/client';
 
@@ -214,15 +215,9 @@ class GameRoom {
       coinRewards
     });
 
-    // Update session phase (presence is derived from phase)
-    forceIdle(this.redUserId);
-    forceIdle(this.blackUserId);
-
-    // Emit sync:state to both players (they are now idle)
-    const redConn = connectedUsers.get(this.redUserId);
-    const blackConn = connectedUsers.get(this.blackUserId);
-    if (redConn) emitSyncState(redConn.socket, this.redUserId);
-    if (blackConn) emitSyncState(blackConn.socket, this.blackUserId);
+    // Phase stays 'in-game' — client shows game-over screen.
+    // Player emits 'game:leave' to dismiss, which triggers forceIdle + sync:state.
+    // 60-second cleanup timer (below) handles abandoned sessions.
 
     // Clean up game room reference
     const { gameRooms } = await import('./roomHandler.js');
@@ -236,9 +231,24 @@ class GameRoom {
       }
     }
 
-    // Clean up after a delay (allow rematch requests)
+    // Clean up after 60s — force idle for players who never dismissed
+    const redId = this.redUserId;
+    const blackId = this.blackUserId;
     setTimeout(() => {
       activeGames.delete(this.id);
+      // Force idle if still in-game (never dismissed game-over screen)
+      const rSession = getSession(redId);
+      if (rSession?.phase === 'in-game' && rSession.gameId === this.id) {
+        forceIdle(redId);
+        const rc = connectedUsers.get(redId);
+        if (rc) emitSyncState(rc.socket, redId);
+      }
+      const bSession = getSession(blackId);
+      if (bSession?.phase === 'in-game' && bSession.gameId === this.id) {
+        forceIdle(blackId);
+        const bc = connectedUsers.get(blackId);
+        if (bc) emitSyncState(bc.socket, blackId);
+      }
     }, 60000);
   }
 
@@ -269,12 +279,12 @@ export function findActiveGameForUser(userId) {
 let matchmakingInterval = null;
 
 export function setupGameHandler(io, socket) {
-  // Start matchmaking loop once
+  // Start quick play matchmaking loop once
   if (!matchmakingInterval) {
     matchmakingInterval = setInterval(() => {
-      const pairs = rankedQueue.tryMatch();
-      for (const [a, b] of pairs) {
-        createGame(io, a, b);
+      const pairs = quickPlayPool.tryMatch();
+      for (const { a, b, mode } of pairs) {
+        createQuickPlayRoom(io, a, b, mode);
       }
     }, 2000);
   }
@@ -313,23 +323,22 @@ export function setupGameHandler(io, socket) {
     }).catch(() => {});
   }
 
-  // --- Matchmaking ---
+  // --- Quick Play Matchmaking ---
   socket.on('matchmaking:join', (data) => {
-    // Phase check: must be idle
     const mmSession = getSession(socket.userId);
     if (!mmSession || mmSession.phase !== 'idle') {
       return socket.emit('matchmaking:error', { error: 'Cannot search while in a room or game' });
     }
     const elo = data?.elo || 1000;
     setPhase(socket.userId, 'matchmaking');
-    rankedQueue.add(socket.userId, elo, socket.id);
+    quickPlayPool.add(socket.userId, elo, socket.isGuest);
     socket.emit('matchmaking:joined');
     emitSyncState(socket, socket.userId);
   });
 
   socket.on('matchmaking:leave', () => {
     forceIdle(socket.userId);
-    rankedQueue.remove(socket.userId);
+    quickPlayPool.remove(socket.userId);
     socket.emit('matchmaking:left');
     emitSyncState(socket, socket.userId);
   });
@@ -383,6 +392,9 @@ export function setupGameHandler(io, socket) {
 
     if (room.game.gameOver) {
       room.endGame(io, room.game.winner);
+    } else {
+      // If next player is a bot, schedule their move
+      scheduleBotMoveIfNeeded(io, room);
     }
   });
 
@@ -398,6 +410,12 @@ export function setupGameHandler(io, socket) {
     room.game.gameOver = true;
     room.game.winner = winner;
     room.endGame(io, winner);
+  });
+
+  // --- Leave game (dismiss game-over screen) ---
+  socket.on('game:leave', ({ gameId }) => {
+    forceIdle(socket.userId);
+    emitSyncState(socket, socket.userId);
   });
 
   // --- Sync (reconnect) ---
@@ -453,7 +471,7 @@ export function setupGameHandler(io, socket) {
   // Disconnect timers are handled centrally by userState.
   // Here we only handle matchmaking cleanup and opponent notification.
   socket.on('disconnect', () => {
-    rankedQueue.removeBySocket(socket.id);
+    quickPlayPool.remove(socket.userId);
 
     // Notify opponent if in an active game
     for (const [gameId, room] of activeGames) {
@@ -476,29 +494,20 @@ export function setupGameHandler(io, socket) {
   });
 }
 
-function createGame(io, playerA, playerB) {
-  // Randomly assign colors
-  const isARed = Math.random() < 0.5;
-  const redUserId = isARed ? playerA.userId : playerB.userId;
-  const blackUserId = isARed ? playerB.userId : playerA.userId;
-
-  return createGameDirect(io, redUserId, blackUserId, 'RANKED');
-}
-
 function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
   const gameId = nextGameId++;
   const room = new GameRoom(gameId, redUserId, blackUserId, mode, buyIn);
   activeGames.set(gameId, room);
 
-  // Set phase for both players
-  forceIdle(redUserId);
-  setPhase(redUserId, 'in-game', { gameId, gameColor: 'red' });
-  forceIdle(blackUserId);
-  setPhase(blackUserId, 'in-game', { gameId, gameColor: 'black' });
-
-  // Join socket rooms
+  // Set phase for human players (bots have no session)
   const redConn = connectedUsers.get(redUserId);
   const blackConn = connectedUsers.get(blackUserId);
+  if (redConn) {
+    setPhase(redUserId, 'in-game', { gameId, gameColor: 'red' });
+  }
+  if (blackConn) {
+    setPhase(blackUserId, 'in-game', { gameId, gameColor: 'black' });
+  }
 
   if (redConn) {
     redConn.socket.join(`game:${gameId}`);
@@ -535,9 +544,61 @@ function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
       currentPlayer: room.game.currentPlayer
     });
     room.startTimer(io);
+    // If the first move belongs to a bot, schedule it
+    scheduleBotMoveIfNeeded(io, room);
   }, 4500); // matches wheel animation duration
 
   return room;
 }
 
-export { createGameDirect };
+/**
+ * If the current player in a game is a bot, schedule a bot move after a natural delay.
+ */
+async function scheduleBotMoveIfNeeded(io, gameRoom) {
+  if (gameRoom.game.gameOver) return;
+
+  const currentColor = gameRoom.game.currentPlayer;
+  const currentUserId = currentColor === 'red' ? gameRoom.redUserId : gameRoom.blackUserId;
+  const isBot = await isBotUser(currentUserId);
+  console.log(`[Bot] Check move: game #${gameRoom.id}, currentPlayer=${currentColor}, userId=${currentUserId}, isBot=${isBot}`);
+  if (!isBot) return;
+
+  const difficulty = await getBotDifficulty(currentUserId);
+  console.log(`[Bot] Scheduling move: difficulty=${difficulty}`);
+  if (!difficulty) return;
+
+  const delay = 400 + Math.random() * 600;
+  setTimeout(() => {
+    if (gameRoom.game.gameOver) return;
+
+    const move = chooseBotMove(gameRoom.game, difficulty);
+    console.log(`[Bot] Chose move:`, move ? `${move.fromRow},${move.fromCol} -> ${move.toRow},${move.toCol}` : 'null');
+    if (!move) return;
+
+    const result = gameRoom.game.makeMove(move.fromRow, move.fromCol, move.toRow, move.toCol);
+    if (!result) { console.log('[Bot] Move rejected by game engine'); return; }
+
+    io.to(`game:${gameRoom.id}`).emit('game:moved', {
+      fromRow: move.fromRow, fromCol: move.fromCol,
+      toRow: move.toRow, toCol: move.toCol,
+      captured: result.captured,
+      promoted: result.promoted,
+      chainContinues: result.chainContinues,
+      redTime: gameRoom.game.redTime,
+      blackTime: gameRoom.game.blackTime,
+      currentPlayer: gameRoom.game.currentPlayer
+    });
+
+    if (gameRoom.game.gameOver) {
+      gameRoom.endGame(io, gameRoom.game.winner);
+    } else if (result.chainContinues) {
+      // Bot has a chain jump — schedule the next move immediately
+      scheduleBotMoveIfNeeded(io, gameRoom);
+    } else {
+      // Check if the next player is also a bot (bot vs bot spectacle)
+      scheduleBotMoveIfNeeded(io, gameRoom);
+    }
+  }, delay);
+}
+
+export { createGameDirect, scheduleBotMoveIfNeeded };

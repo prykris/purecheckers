@@ -1,12 +1,12 @@
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config.js';
 import { setupPresence, getStats as getPresenceStats, broadcastStats } from './presenceHandler.js';
-import { setupGameHandler, activeGames, findActiveGameForUser } from './gameHandler.js';
+import { setupGameHandler, activeGames } from './gameHandler.js';
 import { setupChatHandler } from './chatHandler.js';
-import { setupRoomHandler, gameRooms, findRoomForUser, broadcastRoomUpdate } from './roomHandler.js';
+import { setupRoomHandler, gameRooms, broadcastRoomUpdate } from './roomHandler.js';
 import {
-  getSession, getOrCreateSession, setPhase, forceIdle, handleDisconnect,
-  handleReconnect, buildSyncPayload, getAllSessions, setDisconnectCallbacks,
+  getSession, getOrCreateSession, forceIdle, handleDisconnect,
+  handleReconnect, buildSyncPayload, setDisconnectCallbacks,
   setOnPhaseChange
 } from './userState.js';
 
@@ -60,24 +60,15 @@ export function setupSocket(io) {
     }
   });
 
-  // Authenticate sockets via JWT (supports both users and guests)
+  // Authenticate sockets via JWT — unified for guests and registered users
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('No token'));
     try {
       const payload = jwt.verify(token, JWT_SECRET);
-      if (payload.guestId) {
-        // Guest: deterministic negative ID from token hash (stable across reconnects)
-        let hash = 0;
-        for (let i = 0; i < token.length; i++) hash = ((hash << 5) - hash + token.charCodeAt(i)) | 0;
-        socket.userId = -Math.abs(hash || 1);
-        socket.username = payload.username;
-        socket.isGuest = true;
-      } else {
-        socket.userId = payload.userId;
-        socket.username = payload.username;
-        socket.isGuest = false;
-      }
+      socket.userId = payload.userId;
+      socket.username = payload.username;
+      socket.isGuest = !!payload.isGuest;
       next();
     } catch {
       next(new Error('Invalid token'));
@@ -92,7 +83,7 @@ export function setupSocket(io) {
 
     // Kick existing session for same user (one session per user)
     const existing = connectedUsers.get(socket.userId);
-    if (existing && existing.socketId !== socket.id && !socket.isGuest) {
+    if (existing && existing.socketId !== socket.id) {
       existing.socket.emit('session:kicked', { reason: 'Logged in from another device' });
       existing.socket.disconnect(true);
     }

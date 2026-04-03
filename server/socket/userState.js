@@ -20,7 +20,7 @@ function notifyPhaseChange() {
 
 // ---- Phase transition table ----
 const VALID_TRANSITIONS = {
-  'idle':         ['in-room', 'matchmaking', 'spectating'],
+  'idle':         ['in-room', 'matchmaking', 'in-game', 'spectating'],
   'in-room':      ['in-game', 'idle'],
   'matchmaking':  ['in-game', 'idle'],
   'in-game':      ['idle'],

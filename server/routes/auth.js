@@ -9,7 +9,7 @@ import { STARTER_COINS, ELO_START } from '../../shared/constants.js';
 const router = Router();
 const prisma = new PrismaClient();
 
-function generateFriendCode() {
+export function generateFriendCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
@@ -18,7 +18,7 @@ function generateFriendCode() {
 
 function signToken(user) {
   return jwt.sign(
-    { userId: user.id, username: user.username },
+    { userId: user.id, username: user.username, isGuest: user.isGuest || false },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
@@ -82,6 +82,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (user.isGuest) {
+      return res.status(400).json({ error: 'This is a guest account. Create a password first.' });
+    }
+
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -95,29 +99,9 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/auth/me
+// GET /api/auth/me — works for both guests and registered users
 router.get('/me', verifyToken, async (req, res) => {
   try {
-    // Guest users don't have a real User record
-    if (req.isGuest) {
-      // Compute same hash for consistent guest ID
-      const token = req.headers.authorization.slice(7);
-      let hash = 0;
-      for (let i = 0; i < token.length; i++) hash = ((hash << 5) - hash + token.charCodeAt(i)) | 0;
-      return res.json({
-        user: {
-          id: -Math.abs(hash || 1),
-          username: req.username,
-          isGuest: true,
-          elo: 1000,
-          coins: 0,
-          gamesPlayed: 0,
-          wins: 0,
-          losses: 0
-        }
-      });
-    }
-
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
       include: {
@@ -137,9 +121,8 @@ router.get('/me', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/auth/history — recent match history
+// GET /api/auth/history — works for both guests and registered users
 router.get('/history', verifyToken, async (req, res) => {
-  if (req.isGuest) return res.json({ games: [] });
   try {
     const games = await prisma.game.findMany({
       where: { OR: [{ redPlayerId: req.userId }, { blackPlayerId: req.userId }] },
@@ -175,7 +158,7 @@ router.get('/history', verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/auth/upgrade — convert guest to real account
+// POST /api/auth/upgrade — convert guest to registered account (in-place update)
 router.post('/upgrade', verifyToken, async (req, res) => {
   if (!req.isGuest) return res.status(400).json({ error: 'Already a registered user' });
 
@@ -187,8 +170,12 @@ router.post('/upgrade', verifyToken, async (req, res) => {
   if (name.length < 2) return res.status(400).json({ error: 'Username must be at least 2 characters' });
 
   try {
+    // Check conflicts (exclude the current user's own row)
     const existing = await prisma.user.findFirst({
-      where: { OR: [{ email }, { username: name }] }
+      where: {
+        OR: [{ email }, { username: name }],
+        NOT: { id: req.userId }
+      }
     });
     if (existing) {
       const field = existing.email === email ? 'Email' : 'Username';
@@ -196,18 +183,21 @@ router.post('/upgrade', verifyToken, async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const friendCode = generateFriendCode();
 
-    const user = await prisma.user.create({
-      data: { username: name, email, passwordHash, friendCode, coins: STARTER_COINS, peakElo: ELO_START }
+    // Update in-place — preserves game history, ELO, stats
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: {
+        username: name,
+        email,
+        passwordHash,
+        isGuest: false,
+        guestExpiresAt: null,
+        coins: { increment: STARTER_COINS },
+      }
     });
 
-    const token = jwt.sign(
-      { userId: user.id, username: user.username },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-
+    const token = signToken(user);
     res.json({ token, user: sanitizeUser(user) });
   } catch (err) {
     console.error('Upgrade error:', err);
@@ -218,4 +208,4 @@ router.post('/upgrade', verifyToken, async (req, res) => {
 export default router;
 
 // Export for testing
-export { prisma, generateFriendCode };
+export { prisma };
