@@ -45,10 +45,11 @@ export async function getBotUser(difficulty) {
 
 /**
  * Check if a userId belongs to a bot.
+ * Uses the isBot flag on the User model — no cache dependency.
  */
 export async function isBotUser(userId) {
-  const bots = await getBotUsers();
-  return Object.values(bots).some(b => b.id === userId);
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { isBot: true } });
+  return user?.isBot === true;
 }
 
 /**
