@@ -1,16 +1,41 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { gameState } from '$lib/stores/app.js';
   import { clearScreenOverride } from '$lib/stores/gameScreen.js';
-  import { getSocket } from '$lib/socket.js';
 
   let wheelEl;
   let result = '';
   let resultColor = '';
+  let skipped = false;
+  let gameStartReceived = false;
+  let pickedColor = 'red';
+
+  function skip() {
+    if (skipped) return;
+    skipped = true;
+    // Snap wheel to final position instantly
+    if (wheelEl) {
+      wheelEl.style.transition = 'none';
+    }
+    // Show result immediately
+    result = pickedColor === 'red' ? 'You are RED \u2014 you go first!' : 'You are BLACK';
+    resultColor = pickedColor === 'red' ? 'var(--accent)' : 'var(--text-dim)';
+    // If game:start already arrived, transition immediately
+    if (gameStartReceived) {
+      clearScreenOverride();
+    }
+    // Otherwise wait for game:start (bot mode has a short timeout)
+  }
+
+  function onKeyDown(e) {
+    if (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape') {
+      e.preventDefault();
+      skip();
+    }
+  }
 
   onMount(() => {
     const gs = $gameState;
-    let pickedColor;
     if (gs?.mode === 'bot') {
       pickedColor = Math.random() < 0.5 ? 'red' : 'black';
       $gameState = { ...gs, myColor: pickedColor };
@@ -31,18 +56,25 @@
       });
     });
 
+    // Show result after spin
     setTimeout(() => {
+      if (skipped) return;
       result = pickedColor === 'red' ? 'You are RED \u2014 you go first!' : 'You are BLACK';
       resultColor = pickedColor === 'red' ? 'var(--accent)' : 'var(--text-dim)';
     }, 3000);
 
-    const socket = getSocket();
-    if (socket && gs?.mode !== 'bot') {
-      socket.once('game:start', () => { setTimeout(() => { clearScreenOverride(); }, 500); });
-    }
-    if (gs?.mode === 'bot') {
-      setTimeout(() => { clearScreenOverride(); }, 4000);
-    }
+    // Game starts immediately on server — wheel is just visual.
+    // Auto-clear after animation finishes (3.5s for spin + 0.5s to read result)
+    gameStartReceived = true;
+    setTimeout(() => {
+      if (!skipped) clearScreenOverride();
+    }, 4000);
+
+    window.addEventListener('keydown', onKeyDown);
+  });
+
+  onDestroy(() => {
+    window.removeEventListener('keydown', onKeyDown);
   });
 </script>
 
@@ -56,9 +88,12 @@
         <span class="wl wl-black">BLACK</span>
       </div>
     </div>
-    {#if result}
-      <p class="result" style="color:{resultColor}">{result}</p>
-    {/if}
+    <!-- Always present to prevent layout shift, visibility controlled by opacity -->
+    <p class="result" style="color:{resultColor}; opacity:{result ? 1 : 0}">{result || '\u00a0'}</p>
+    <button class="skip-btn" on:click={skip} class:hidden={skipped}>
+      Skip
+      <span class="skip-hint">Space</span>
+    </button>
   </div>
 </div>
 
@@ -81,5 +116,18 @@
     border-top: 20px solid var(--text); z-index: 2;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
   }
-  .result { font-size: var(--fs-heading); font-weight: 700; min-height: 2em; }
+  .result { font-size: var(--fs-heading); font-weight: 700; min-height: 2em; transition: opacity 0.3s ease; text-align: center; }
+  .skip-btn {
+    display: flex; align-items: center; gap: var(--sp-xs);
+    background: none; border: 1px solid var(--surface2); color: var(--text-dim);
+    font-family: var(--font); font-size: var(--fs-caption);
+    padding: var(--sp-xs) var(--sp-md); border-radius: var(--radius-pill);
+    cursor: pointer; transition: color 0.15s, border-color 0.15s, opacity 0.2s;
+  }
+  .skip-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .skip-btn.hidden { opacity: 0; pointer-events: none; }
+  .skip-hint {
+    font-size: 0.55rem; color: var(--text-dim); background: var(--surface2);
+    padding: 1px 4px; border-radius: 3px;
+  }
 </style>

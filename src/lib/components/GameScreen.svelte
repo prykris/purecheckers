@@ -531,7 +531,7 @@
 
   <div class="moves">
     {#each moveLog.slice(-10) as m}
-      <div class="move-pill" class:rate-best={m.rating==='best'} class:rate-good={m.rating==='good'} class:rate-inaccuracy={m.rating==='inaccuracy'} class:rate-blunder={m.rating==='blunder'}><span class="mdot {m.color}"></span><span class="mtxt">{m.from}{m.capture?'\u00d7':'\u2192'}{m.to}</span></div>
+      <div class="move-pill" class:rate-best={m.rating==='best'} class:rate-good={m.rating==='good'} class:rate-inaccuracy={m.rating==='inaccuracy'} class:rate-blunder={m.rating==='blunder'} title={m.rating==='best'?'Best move':m.rating==='good'?'Good move':m.rating==='inaccuracy'?'Inaccuracy':m.rating==='blunder'?'Blunder':''}><span class="mdot {m.color}"></span><span class="mtxt">{m.from}{m.capture?'\u00d7':'\u2192'}{m.to}</span></div>
     {/each}
   </div>
 
@@ -668,7 +668,7 @@
   .move-pill.rate-best { border-left: 2px solid var(--gold); }
   .move-pill.rate-good { border-left: 2px solid var(--success); }
   .move-pill.rate-inaccuracy { border-left: 2px solid var(--warning); }
-  .move-pill.rate-blunder { border-left: 2px solid var(--accent); }
+  .move-pill.rate-blunder { border-left: 3px solid #ff2d2d; background: rgba(255,45,45,0.08); }
 
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 20; }
   .confirm { text-align: center; display: flex; flex-direction: column; gap: var(--sp-md); padding: var(--sp-lg); }

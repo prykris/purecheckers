@@ -448,7 +448,7 @@ export function setupGameHandler(io, socket) {
     // Async move analysis — don't block the move response
     setTimeout(() => {
       try {
-        const analysis = analyzeMoveQuality(preMoveClone, room.game, color);
+        const analysis = analyzeMoveQuality(preMoveClone, { fromRow, fromCol, toRow, toCol }, color);
         socket.emit('game:move-analysis', { rating: analysis.rating, scoreDiff: analysis.scoreDiff });
 
         // Check if opponent is a bot — trigger emote reaction to player's move
@@ -457,7 +457,8 @@ export function setupGameHandler(io, socket) {
           if (!isBot) return;
           getBotDifficulty(opponentId).then(diff => {
             if (!diff) return;
-            const triggers = getAnalysisTriggers(analysis);
+            const moveNum = room.game.moveHistory?.length || 0;
+            const triggers = getAnalysisTriggers(analysis, moveNum);
             for (const trigger of triggers) {
               const emote = shouldEmote(trigger, diff, gameId);
               if (emote) {
@@ -629,19 +630,21 @@ async function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
   if (redConn) emitSyncState(redConn.socket, redUserId);
   if (blackConn) emitSyncState(blackConn.socket, blackUserId);
 
-  // Start the game after a short delay (for wheel animation)
-  setTimeout(() => {
-    io.to(`game:${gameId}`).emit('game:start', {
-      gameId,
-      board: room.game.board,
-      redTime: room.game.redTime,
-      blackTime: room.game.blackTime,
-      currentPlayer: room.game.currentPlayer
-    });
-    room.startTimer(io);
-    // If the first move belongs to a bot, schedule it after client has time to mount
-    setTimeout(() => scheduleBotMoveIfNeeded(io, room), 1000);
-  }, 4500); // matches wheel animation duration
+  // Grace period for the first mover — they might still be watching the wheel
+  const WHEEL_GRACE = 5;
+  room.game.redTime += WHEEL_GRACE; // Red moves first, gets grace time
+
+  // Start immediately — wheel is purely cosmetic on client
+  io.to(`game:${gameId}`).emit('game:start', {
+    gameId,
+    board: room.game.board,
+    redTime: room.game.redTime,
+    blackTime: room.game.blackTime,
+    currentPlayer: room.game.currentPlayer
+  });
+  room.startTimer(io);
+  // Schedule first bot move with a small delay for client to mount
+  setTimeout(() => scheduleBotMoveIfNeeded(io, room), 500);
 
   return room;
 }

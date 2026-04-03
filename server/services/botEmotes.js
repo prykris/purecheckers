@@ -96,10 +96,19 @@ export function getMoveTriggers(moveResult, game, botColor) {
  * @param {{ rating: string, scoreDiff: number }} analysis
  * @returns {string[]}
  */
-export function getAnalysisTriggers(analysis) {
+/**
+ * Determine triggers from a player's move analysis.
+ * @param {{ rating: string, scoreDiff: number }} analysis
+ * @param {number} moveNumber - how many moves into the game (skip early moves)
+ * @returns {string[]}
+ */
+export function getAnalysisTriggers(analysis, moveNumber) {
   const triggers = [];
+  // Skip early game — opening moves are all similar, analysis is noise
+  if (moveNumber < 6) return triggers;
   if (analysis.rating === 'blunder' && analysis.scoreDiff >= 3) triggers.push('playerBlunder');
-  if (analysis.rating === 'best') triggers.push('playerBest');
+  // Only acknowledge "best" if the position was complex enough to matter
+  if (analysis.rating === 'best' && analysis.scoreDiff <= -0.5) triggers.push('playerBest');
   return triggers;
 }
 

@@ -28,13 +28,13 @@
   function applyTheme(theme) {
     activeTheme = theme.name;
     localStorage.setItem('checkers_theme', theme.name);
+    localStorage.setItem('checkers_theme_vars', JSON.stringify(theme.vars));
     const defaults = {
       '--bg':'#1c1917','--bg-subtle':'#231f1b','--surface':'#292524','--surface2':'#3d3530',
       '--accent':'#ef4444','--accent2':'#a855f7','--text':'#fafaf9','--text-dim':'#a8a29e',
       '--board-light':'#d4a76a','--board-dark':'#7c5e3c','--gold':'#fbbf24','--success':'#22c55e','--warning':'#f59e0b'
     };
     const vars = Object.keys(theme.vars).length > 0 ? theme.vars : defaults;
-    // Apply all defaults first to reset, then override with theme vars
     Object.entries(defaults).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
     Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
   }

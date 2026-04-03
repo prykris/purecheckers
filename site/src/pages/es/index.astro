@@ -1,0 +1,369 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const lang = 'es';
+const siteUrl = 'https://purecheckers.com';
+
+const alternateLanguages = [
+  { lang: 'en', href: `${siteUrl}/en/` },
+  { lang: 'es', href: `${siteUrl}/es/` },
+];
+---
+
+<Base
+  title="Damas Online — Juego de Damas Multijugador Gratis"
+  description="Juega damas online gratis contra amigos o jugadores de todo el mundo. Sin descargas, sin registro. Emparejamiento rapido, salas privadas y multijugador en tiempo real."
+  canonicalPath="/es/"
+  lang={lang}
+  alternateLanguages={alternateLanguages}
+>
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">100% Gratis</div>
+      <h1>Juega Damas Online<br /><span class="hero-highlight">Con Cualquiera, Donde Sea</span></h1>
+      <p class="hero-sub">
+        Empieza una partida de damas en segundos. Juega contra amigos o encuentra
+        rivales de todo el mundo. Sin descargas.
+      </p>
+      <div class="hero-actions">
+        <a href={"/"} class="btn btn-primary btn-lg">Jugar Ahora — Es Gratis</a>
+        <a href="#how-to-play" class="btn btn-ghost btn-lg">Aprende las Reglas</a>
+      </div>
+      <p class="hero-note">No necesitas cuenta para empezar a jugar</p>
+
+      <div class="hero-board" aria-hidden="true">
+        <div class="board-grid">
+          {Array.from({ length: 64 }).map((_, i) => {
+            const row = Math.floor(i / 8);
+            const col = i % 8;
+            const isDark = (row + col) % 2 === 1;
+            const showRed = isDark && row < 3 && Math.random() > 0.3;
+            const showBlack = isDark && row > 4 && Math.random() > 0.3;
+            return (
+              <div class={`board-cell ${isDark ? 'dark' : 'light'}`}>
+                {showRed && <div class="piece piece-red" />}
+                {showBlack && <div class="piece piece-black" />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SOCIAL PROOF ===== -->
+  <section class="social-proof">
+    <div class="proof-inner">
+      <div class="proof-stat">
+        <span class="proof-number">10K+</span>
+        <span class="proof-label">Partidas Jugadas</span>
+      </div>
+      <div class="proof-divider" aria-hidden="true"></div>
+      <div class="proof-stat">
+        <span class="proof-number">50+</span>
+        <span class="proof-label">Paises</span>
+      </div>
+      <div class="proof-divider" aria-hidden="true"></div>
+      <div class="proof-stat">
+        <span class="proof-number">&lt;5s</span>
+        <span class="proof-label">Para Encontrar Rival</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FEATURES ===== -->
+  <section class="features" id="features">
+    <div class="section-inner">
+      <h2 class="section-title">Por Que Nos Eligen</h2>
+      <p class="section-sub">Todo lo que necesitas para la experiencia perfecta de damas</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <h3>Emparejamiento Instantaneo</h3>
+          <p>Encuentra un rival en segundos. Sin esperas, sin lobbies — solo haz clic y juega.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <h3>Juega con Amigos</h3>
+          <p>Crea una sala privada y comparte el enlace. Desafia a tus amigos sin importar donde esten.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h3>Sin Registro</h3>
+          <p>Empieza a jugar inmediatamente como invitado. Crea una cuenta despues para seguir tus estadisticas.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+            </svg>
+          </div>
+          <h3>Disenado para Movil</h3>
+          <p>Disenado para telefonos y tablets. Juega donde quieras con una experiencia tactil optimizada.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <h3>Chat en el Juego</h3>
+          <p>Chatea con tu rival durante la partida. Envia mensajes, reacciones y diviertete mientras juegas.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+            </svg>
+          </div>
+          <h3>Ranking ELO</h3>
+          <p>Gana puntos ELO con cada victoria. Sube en la clasificacion y demuestra que eres el mejor.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HOW TO PLAY ===== -->
+  <section class="how-to-play" id="how-to-play">
+    <div class="section-inner">
+      <h2 class="section-title">Como Jugar Damas</h2>
+      <p class="section-sub">Aprende lo basico en 2 minutos — o empieza a jugar directamente</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-number" aria-hidden="true">1</div>
+          <div class="step-content">
+            <h3>Prepara el Tablero</h3>
+            <p>
+              Las damas se juegan en las casillas oscuras de un tablero 8x8. Cada jugador
+              empieza con 12 fichas en las tres filas mas cercanas. Las rojas siempre mueven primero.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number" aria-hidden="true">2</div>
+          <div class="step-content">
+            <h3>Mueve en Diagonal</h3>
+            <p>
+              Las fichas normales se mueven una casilla en diagonal hacia adelante. Cuando
+              tu ficha llega al extremo opuesto del tablero, se convierte en <strong>dama</strong> y
+              puede moverse en ambas direcciones.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number" aria-hidden="true">3</div>
+          <div class="step-content">
+            <h3>Salta para Capturar</h3>
+            <p>
+              Captura las fichas de tu rival saltando sobre ellas en diagonal. Si hay un salto
+              disponible, <strong>debes</strong> tomarlo. Encadena multiples saltos en un solo turno.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number" aria-hidden="true">4</div>
+          <div class="step-content">
+            <h3>Gana la Partida</h3>
+            <p>
+              Gana capturando todas las fichas de tu rival o bloqueandolo para que no pueda
+              mover. Estrategia, posicionamiento y paciencia son la clave.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="steps-cta">
+        <a href={"/"} class="btn btn-primary btn-lg">Empieza Tu Primera Partida</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FINAL CTA ===== -->
+  <section class="final-cta">
+    <div class="section-inner">
+      <h2>Listo para Jugar?</h2>
+      <p>Unete a miles de jugadores disfrutando damas online. Sin descargas, sin registro — solo diversion.</p>
+      <a href={"/"} class="btn btn-primary btn-xl">Jugar Damas Ahora</a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* Shares styles with en/index.astro — extracted to keep pages self-contained */
+  .hero {
+    padding: calc(56px + var(--space-3xl)) var(--space-md) var(--space-2xl);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(239, 68, 68, 0.08) 0%, transparent 60%),
+      var(--bg);
+  }
+
+  .hero-inner {
+    max-width: 640px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-badge {
+    display: inline-block;
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--success);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 4px 14px;
+    border-radius: var(--radius-pill);
+    margin-bottom: var(--space-lg);
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--space-md);
+  }
+
+  .hero-highlight { color: var(--accent); }
+
+  .hero-sub {
+    color: var(--text-dim);
+    font-size: 1rem;
+    max-width: 480px;
+    margin: 0 auto var(--space-xl);
+    line-height: 1.6;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    align-items: center;
+    margin-bottom: var(--space-md);
+  }
+
+  .hero-note {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+
+  .hero-board {
+    margin-top: var(--space-2xl);
+    display: flex;
+    justify-content: center;
+    opacity: 0.6;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+  }
+
+  .board-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    width: 280px;
+    height: 280px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+  }
+
+  .board-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+  .board-cell.light { background: var(--board-light); }
+  .board-cell.dark { background: var(--board-dark); }
+  .piece { width: 65%; height: 65%; border-radius: 50%; }
+  .piece-red { background: radial-gradient(circle at 35% 35%, #f87171, #dc2626); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+  .piece-black { background: radial-gradient(circle at 35% 35%, #44403c, #1c1917); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+
+  .social-proof {
+    border-top: 1px solid var(--surface2);
+    border-bottom: 1px solid var(--surface2);
+    background: var(--surface);
+    padding: var(--space-xl) var(--space-md);
+  }
+
+  .proof-inner {
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-xl);
+  }
+
+  .proof-number { display: block; font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+  .proof-label { font-size: 0.78rem; color: var(--text-dim); }
+  .proof-divider { width: 1px; height: 32px; background: var(--surface2); }
+
+  .section-inner { max-width: 900px; margin: 0 auto; padding: var(--space-3xl) var(--space-md); }
+  .section-title { font-size: 1.6rem; font-weight: 700; text-align: center; margin-bottom: var(--space-sm); }
+  .section-sub { text-align: center; color: var(--text-dim); font-size: 0.95rem; margin-bottom: var(--space-2xl); }
+
+  .features { background: var(--bg); }
+  .features-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-md); }
+  .feature-card { background: var(--surface); border: 1px solid var(--surface2); border-radius: var(--radius-lg); padding: var(--space-lg); transition: border-color 0.2s, box-shadow 0.2s; }
+  .feature-card:hover { border-color: var(--accent); box-shadow: 0 0 16px rgba(239,68,68,0.08); }
+  .feature-icon { color: var(--accent); margin-bottom: var(--space-md); }
+  .feature-card h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: var(--space-xs); }
+  .feature-card p { color: var(--text-dim); font-size: 0.88rem; line-height: 1.5; }
+
+  .how-to-play { background: var(--bg-subtle); }
+  .steps { display: flex; flex-direction: column; gap: var(--space-lg); max-width: 640px; margin: 0 auto; }
+  .step { display: flex; gap: var(--space-md); align-items: flex-start; }
+  .step-number { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: #fff; font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
+  .step-content h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: var(--space-xs); }
+  .step-content p { color: var(--text-dim); font-size: 0.9rem; line-height: 1.6; }
+  .steps-cta { text-align: center; margin-top: var(--space-xl); }
+
+  .final-cta { text-align: center; background: radial-gradient(ellipse at 50% 100%, rgba(239,68,68,0.1) 0%, transparent 60%), var(--bg); }
+  .final-cta h2 { font-size: 1.8rem; font-weight: 700; margin-bottom: var(--space-sm); }
+  .final-cta p { color: var(--text-dim); font-size: 1rem; margin-bottom: var(--space-xl); max-width: 480px; margin-left: auto; margin-right: auto; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font); font-weight: 600; border-radius: var(--radius-sm); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; border: none; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: #fff; box-shadow: 0 4px 16px rgba(239,68,68,0.25); }
+  .btn-primary:hover { box-shadow: 0 6px 24px rgba(239,68,68,0.35); }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--surface2); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+  .btn-lg { padding: 12px 28px; font-size: 1rem; }
+  .btn-xl { padding: 16px 36px; font-size: 1.1rem; }
+
+  @media (min-width: 600px) {
+    h1 { font-size: 2.6rem; }
+    .hero-sub { font-size: 1.1rem; }
+    .hero-actions { flex-direction: row; justify-content: center; }
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+    .board-grid { width: 340px; height: 340px; }
+    .proof-number { font-size: 1.8rem; }
+  }
+
+  @media (min-width: 900px) {
+    h1 { font-size: 3rem; }
+    .features-grid { grid-template-columns: repeat(3, 1fr); }
+    .section-title { font-size: 2rem; }
+    .final-cta h2 { font-size: 2.2rem; }
+  }
+</style>

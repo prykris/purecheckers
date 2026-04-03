@@ -1,54 +1,52 @@
 /**
  * Move quality analysis.
  *
- * Compares a player's move against the best move found by minimax.
- * Used to rate moves (best/good/inaccuracy/blunder) and drive bot emotes.
+ * Compares a player's move against all possible moves using minimax.
+ * The player's move is scored the same way as all alternatives — apples to apples.
  */
 
-const DEPTH = 4; // Analysis depth — fast enough (~50ms) to run inline
+const DEPTH = 6; // Same as hard bot — accurate analysis
 
 /**
  * Analyze how good a move was.
- * @param {object} preMovGame - Clone of the game BEFORE the move was made
- * @param {object} postMoveGame - The game AFTER the move was made
+ * @param {object} preMoveGame - Clone of the game BEFORE the move was made
+ * @param {{ fromRow, fromCol, toRow, toCol }} playedMove - The move the player made
  * @param {string} playerColor - Color of the player who moved
  * @returns {{ rating: string, scoreDiff: number }}
  */
-export function analyzeMoveQuality(preMoveGame, postMoveGame, playerColor) {
-  // Score the position after the played move (from opponent's perspective, inverted)
-  const opponentColor = playerColor === 'red' ? 'black' : 'red';
-  const actualScore = postMoveGame.evaluate(playerColor);
+export function analyzeMoveQuality(preMoveGame, playedMove, playerColor) {
+  const moves = preMoveGame.getAllValidMoves();
+  if (moves.length <= 1) return { rating: 'best', scoreDiff: 0 }; // Only one legal move
 
-  // Find the best possible score from the pre-move position
-  const bestScore = findBestScore(preMoveGame, playerColor);
+  let bestScore = -Infinity;
+  let playedScore = -Infinity;
 
-  const scoreDiff = bestScore - actualScore;
+  for (const move of moves) {
+    const sim = preMoveGame.clone();
+    sim.makeMove(move.fromRow, move.fromCol, move.toRow, move.toCol);
+    finishChain(sim);
+
+    // Evaluate from opponent's perspective (minimizing), same as minimax would
+    const score = minimax(sim, DEPTH - 1, -Infinity, Infinity, false, playerColor);
+
+    if (score > bestScore) bestScore = score;
+
+    // Check if this is the move the player actually made
+    if (move.fromRow === playedMove.fromRow && move.fromCol === playedMove.fromCol &&
+        move.toRow === playedMove.toRow && move.toCol === playedMove.toCol) {
+      playedScore = score;
+    }
+  }
+
+  const scoreDiff = bestScore - playedScore;
 
   let rating;
-  if (scoreDiff <= 0) rating = 'best';
+  if (scoreDiff <= 0.1) rating = 'best';
   else if (scoreDiff < 0.5) rating = 'good';
   else if (scoreDiff < 2) rating = 'inaccuracy';
   else rating = 'blunder';
 
   return { rating, scoreDiff };
-}
-
-/**
- * Find the best achievable score from this position using minimax.
- */
-function findBestScore(game, color) {
-  const moves = game.getAllValidMoves();
-  if (moves.length === 0) return game.evaluate(color);
-
-  let bestScore = -Infinity;
-  for (const move of moves) {
-    const sim = game.clone();
-    sim.makeMove(move.fromRow, move.fromCol, move.toRow, move.toCol);
-    finishChain(sim);
-    const score = minimax(sim, DEPTH - 1, -Infinity, Infinity, false, color);
-    if (score > bestScore) bestScore = score;
-  }
-  return bestScore;
 }
 
 function finishChain(game) {

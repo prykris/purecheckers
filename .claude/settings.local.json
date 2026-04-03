@@ -2,7 +2,17 @@
   "permissions": {
     "allow": [
       "Bash(find /c/Users/kdriv/checkers-p2p -type f -exec ls -lh {})",
-      "Read(//c/Users/kdriv/checkers-p2p/**)"
+      "Read(//c/Users/kdriv/checkers-p2p/**)",
+      "Bash(npm test:*)",
+      "Bash(cp client/src/lib/api.js src/lib/api.js)",
+      "Bash(cp client/src/lib/socket.js src/lib/socket.js)",
+      "Bash(cp client/src/lib/socketService.js src/lib/socketService.js)",
+      "Bash(cp client/src/stores/user.js src/lib/stores/user.js)",
+      "Bash(cp client/src/components/*.svelte src/lib/components/)",
+      "Bash(cp client/src/components/lobby/*.svelte src/lib/components/lobby/)",
+      "Bash(cp client/src/components/panels/*.svelte src/lib/components/panels/)",
+      "Bash(cp -r client/src/components/chat/* src/lib/components/chat/)",
+      "Bash(xargs grep:*)"
     ]
   }
 }
