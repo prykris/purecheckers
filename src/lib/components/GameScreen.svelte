@@ -33,6 +33,11 @@
     game.gameOver = rs.gameOver;
     game.winner = rs.winner;
     game.moveHistory = rs.moveHistory || [];
+    // If game was already over, show the game-over screen immediately
+    if (rs.gameOver) {
+      gameOverData = { winner: rs.winner, eloChanges: { red: 0, black: 0 }, coinRewards: { red: 0, black: 0 } };
+      $gameOverVisible = true;
+    }
   }
   let lastMove = null;
   let hoveredCell = null;
@@ -324,7 +329,7 @@
   <div class="player-bar opponent">
     <div class="pinfo" class:active={currentPlayer === topColor}>
       <div class="dot {topColor}"></div>
-      <span class="pname">{myColor==='red'?opponentName:$user?.username}</span>
+      <span class="pname">{opponentName}</span>
       <span class="timer" class:low={topTime<=15} class:critical={topTime<=7}>{fmtTime(topTime)}</span>
       <div class="tbar-track"><div class="tbar-fill" class:low={topTime<=15} class:critical={topTime<=7} style="width:{topTime/TURN_TIME*100}%"></div></div>
     </div>
@@ -361,7 +366,7 @@
     <div class="pinfo" class:active={currentPlayer === myColor}>
       <div class="tbar-track"><div class="tbar-fill" class:low={bottomTime<=15} class:critical={bottomTime<=7} style="width:{bottomTime/TURN_TIME*100}%"></div></div>
       <div class="dot {myColor}"></div>
-      <span class="pname">{myColor==='red'?$user?.username:opponentName}</span>
+      <span class="pname">{$user?.username}</span>
       <span class="timer" class:low={bottomTime<=15} class:critical={bottomTime<=7}>{fmtTime(bottomTime)}</span>
     </div>
   </div>

@@ -269,6 +269,7 @@ export function setupRoomHandler(io, socket) {
       room.spectators.push({ userId: socket.userId, username: socket.username });
     }
 
+    console.log(`[Spectate] ${socket.username} joining room #${room.id}, gameId=${room.gameId}, status=${room.status}`);
     setPhase(socket.userId, 'spectating', { spectatingRoomId: room.id, spectatingGameId: room.gameId || null });
     socket.join(`room:${room.id}`);
     socket.join(`chat:room:${room.id}`);
@@ -286,6 +287,7 @@ export function setupRoomHandler(io, socket) {
     }
 
     socket.emit('room:joined', { room: sanitizeRoom(room), spectating: true });
+    emitSyncState(socket, socket.userId);
     broadcastRoomUpdate(io, room);
   });
 
@@ -393,7 +395,7 @@ async function startRoomGame(io, room) {
   // Determine mode: FRIENDLY if any guest/bot, else RANKED
   const hasGuest = room.players.some(p => p.isGuest || p.isBot);
   const mode = hasGuest ? 'FRIENDLY' : 'RANKED';
-  const gameRoom = createGameDirect(io, redUserId, blackUserId, mode, room.settings.buyIn);
+  const gameRoom = await createGameDirect(io, redUserId, blackUserId, mode, room.settings.buyIn);
   room.gameId = gameRoom.id;
 
   // Spectators join the game room too

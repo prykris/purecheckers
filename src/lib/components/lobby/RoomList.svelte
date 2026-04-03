@@ -1,8 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { gameState, activeRoom } from '$lib/stores/app.js';
   import { setScreenOverride } from '$lib/stores/gameScreen.js';
-  import { setActiveChannel } from '$lib/socketService.js';
   import { user } from '$lib/stores/user.js';
   import { getSocket } from '$lib/socket.js';
   import RoomCreate from './RoomCreate.svelte';
@@ -40,40 +38,9 @@
     if (idx >= 0) rooms[idx] = room; else if (!room.settings?.isPrivate) rooms = [room, ...rooms];
     rooms = rooms;
   }
-  function onJoined({ room, spectating }) {
-    if (spectating && room.gameId) {
-      // Spectator joins an active game
-      const redPlayer = room.players[0]?.username || 'Red';
-      const blackPlayer = room.players[1]?.username || 'Black';
-      $gameState = {
-        gameId: room.gameId,
-        roomId: room.id,
-        mode: 'spectator',
-        myColor: 'red', // spectator sees from red's perspective
-        opponentName: blackPlayer,
-        spectatorRedName: redPlayer,
-        spectatorBlackName: blackPlayer
-      };
-      setActiveChannel(`game:${room.gameId}`);
-      // Use pre-captured sync state (registered before emit), or wait for it
-      if (pendingSyncState) {
-        $gameState = { ...$gameState, reconnectState: pendingSyncState };
-        pendingSyncState = null;
-        setScreenOverride('game');
-      } else {
-        const sock = getSocket();
-        sock?.once('game:sync', (state) => {
-          $gameState = { ...$gameState, reconnectState: state };
-          setScreenOverride('game');
-        });
-      }
-      return;
-    } else {
-      $gameState = { roomId: room.id, mode: 'room', roomData: room };
-      $activeRoom = room;
-      setActiveChannel(`room:${room.id}`);
-      setScreenOverride('room-waiting');
-    }
+  function onJoined({ spectating }) {
+    if (spectating) return; // Handled by sync:state → phase='spectating'
+    setScreenOverride('room-waiting');
   }
   function onError({ error }) { joinError = error; setTimeout(() => joinError = '', 3000); }
 
@@ -88,14 +55,9 @@
 
   function spectateRoom(room) {
     if (!socket) return;
-    // Listen for game:sync BEFORE emitting, since server sends sync before room:joined
-    socket.once('game:sync', (state) => {
-      pendingSyncState = state;
-    });
-    pendingSyncState = null;
+    // Server handles everything via sync:state → phase='spectating' → gameScreen='game'
     socket.emit('room:spectate', { roomId: room.id });
   }
-  let pendingSyncState = null;
 
   function onCreated() {
     showCreate = false;

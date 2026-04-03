@@ -166,7 +166,7 @@ function applySync(payload) {
         opponentId: payload.game.opponentId,
         opponentOnline: payload.game.opponentOnline,
         mode: 'online',
-        reconnectState: payload.game.gameOver ? null : {
+        reconnectState: {
           board: payload.game.board,
           currentPlayer: payload.game.currentPlayer,
           redTime: payload.game.redTime,
@@ -186,6 +186,9 @@ function applySync(payload) {
         mode: 'spectator',
         roomId: payload.spectate?.roomId,
         gameId: payload.spectate?.gameId,
+        spectatorRedName: payload.spectate?.redName || 'Red',
+        spectatorBlackName: payload.spectate?.blackName || 'Black',
+        reconnectState: payload.spectate?.gameState || null,
       });
       break;
   }

@@ -494,7 +494,7 @@ export function setupGameHandler(io, socket) {
   });
 }
 
-function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
+async function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
   const gameId = nextGameId++;
   const room = new GameRoom(gameId, redUserId, blackUserId, mode, buyIn);
   activeGames.set(gameId, room);
@@ -509,13 +509,25 @@ function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
     setPhase(blackUserId, 'in-game', { gameId, gameColor: 'black' });
   }
 
+  // Look up usernames — bots have no connection or session, fall back to DB
+  let redName = redConn?.username || getSession(redUserId)?.username;
+  let blackName = blackConn?.username || getSession(blackUserId)?.username;
+  if (!redName) {
+    const u = await prisma.user.findUnique({ where: { id: redUserId }, select: { username: true } });
+    redName = u?.username || 'Opponent';
+  }
+  if (!blackName) {
+    const u = await prisma.user.findUnique({ where: { id: blackUserId }, select: { username: true } });
+    blackName = u?.username || 'Opponent';
+  }
+
   if (redConn) {
     redConn.socket.join(`game:${gameId}`);
     redConn.socket.join(`chat:game:${gameId}`);
     redConn.socket.emit('matchmaking:found', {
       gameId,
       yourColor: 'red',
-      opponent: { id: blackUserId, username: blackConn?.username || 'Opponent' }
+      opponent: { id: blackUserId, username: blackName }
     });
   }
   if (blackConn) {
@@ -524,7 +536,7 @@ function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
     blackConn.socket.emit('matchmaking:found', {
       gameId,
       yourColor: 'black',
-      opponent: { id: redUserId, username: redConn?.username || 'Opponent' }
+      opponent: { id: redUserId, username: redName }
     });
   }
 
@@ -544,8 +556,8 @@ function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
       currentPlayer: room.game.currentPlayer
     });
     room.startTimer(io);
-    // If the first move belongs to a bot, schedule it
-    scheduleBotMoveIfNeeded(io, room);
+    // If the first move belongs to a bot, schedule it after client has time to mount
+    setTimeout(() => scheduleBotMoveIfNeeded(io, room), 1000);
   }, 4500); // matches wheel animation duration
 
   return room;

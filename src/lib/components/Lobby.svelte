@@ -4,7 +4,6 @@
   import { user, token } from '$lib/stores/user.js';
   import { disconnectSocket } from '$lib/socket.js';
   import { api } from '$lib/api.js';
-  import { disconnectSocket } from '$lib/socket.js';
 
   import PlayTabs from './lobby/PlayTabs.svelte';
 

@@ -172,10 +172,22 @@ export function buildSyncPayload(userId, { gameRooms, activeGames, connectedUser
       if (gameRoom) {
         const opponentId = gameRoom.getOpponentId(userId);
         const opponentSession = sessions.get(opponentId);
+        // Look up opponent name — check session, then scan room players for bots
+        let opponentName = opponentSession?.username;
+        if (!opponentName) {
+          // Bot or disconnected player — find name from the room that started this game
+          for (const room of gameRooms.values()) {
+            if (room.gameId === gameRoom.id) {
+              const p = room.players.find(pl => pl.userId === opponentId);
+              if (p) opponentName = p.username;
+              break;
+            }
+          }
+        }
         payload.game = {
           gameId: gameRoom.id,
           yourColor: session.gameColor,
-          opponentName: opponentSession?.username || 'Opponent',
+          opponentName: opponentName || 'Opponent',
           opponentId,
           opponentOnline: opponentSession?.socket != null,
           ...gameRoom.getState(),
@@ -192,11 +204,21 @@ export function buildSyncPayload(userId, { gameRooms, activeGames, connectedUser
     case 'spectating': {
       const room = gameRooms.get(session.spectatingRoomId);
       const gameRoom = session.spectatingGameId ? activeGames.get(session.spectatingGameId) : null;
+      // Get player names for spectator display
+      let redName = 'Red', blackName = 'Black';
+      if (gameRoom && room) {
+        const redPlayer = room.players.find(p => p.userId === gameRoom.redUserId);
+        const blackPlayer = room.players.find(p => p.userId === gameRoom.blackUserId);
+        if (redPlayer) redName = redPlayer.username;
+        if (blackPlayer) blackName = blackPlayer.username;
+      }
       payload.spectate = {
         roomId: session.spectatingRoomId,
         gameId: session.spectatingGameId,
         room: room ? sanitizeRoomForSync(room) : null,
         gameState: gameRoom ? gameRoom.getState() : null,
+        redName,
+        blackName,
       };
       if (session.spectatingGameId) {
         payload.chatChannelId = `game:${session.spectatingGameId}`;
