@@ -1,12 +1,20 @@
 <script>
-  import { screen, searching, presenceStats } from '../stores/app.js';
+  import { screen, searching, phase, presenceStats } from '../stores/app.js';
   import { getSocket } from '../lib/socket.js';
 
   $: others = $presenceStats.lookingToPlay - 1;
 
+  let cancelling = false;
+
   function cancel() {
+    cancelling = true;
     getSocket()?.emit('matchmaking:leave');
-    $searching = false;
+    // Server will confirm via sync:state -> phase becomes 'idle', searching becomes false
+  }
+
+  // When server confirms cancel, navigate to lobby
+  $: if ($phase === 'idle' && cancelling) {
+    cancelling = false;
     $screen = 'lobby';
   }
 

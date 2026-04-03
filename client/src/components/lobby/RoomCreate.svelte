@@ -1,7 +1,6 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { screen, gameState, activeRoom } from '../../stores/app.js';
-  import { setActiveChannel } from '../../lib/socketService.js';
+  import { phase } from '../../stores/app.js';
   import { getSocket } from '../../lib/socket.js';
 
   const dispatch = createEventDispatcher();
@@ -13,35 +12,33 @@
   let isPrivate = defaultPrivate;
   let allowSpectators = true;
   let error = '';
+  let creating = false;
   let socket;
 
   onMount(() => {
     socket = getSocket();
     if (socket) {
-      socket.on('room:created', onCreated);
       socket.on('room:error', onError);
     }
   });
 
   onDestroy(() => {
     if (socket) {
-      socket.off('room:created', onCreated);
       socket.off('room:error', onError);
     }
   });
 
-  function onCreated({ room }) {
-    $gameState = { roomId: room.id, mode: 'room', roomCode: room.joinCode, roomData: room };
-    $activeRoom = room;
-    setActiveChannel(`room:${room.id}`);
-    $screen = 'room-waiting';
+  // When server confirms we're in a room via sync:state, close the modal
+  $: if ($phase === 'in-room' && creating) {
+    creating = false;
     dispatch('close');
   }
 
-  function onError({ error: e }) { error = e; }
+  function onError({ error: e }) { error = e; creating = false; }
 
   function create() {
     error = '';
+    creating = true;
     socket?.emit('room:create', { buyIn, turnTimer, isPrivate, allowSpectators });
   }
 </script>

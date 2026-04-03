@@ -17,6 +17,7 @@
   let myColor = $gameState?.myColor || 'red';
   let mode = $gameState?.mode || 'online';
   let opponentName = $gameState?.opponentName || 'Opponent';
+  const gameId = $gameState?.gameId;
   let selectedPiece = null;
   let validMoves = [];
 
@@ -71,7 +72,7 @@
 
     if (mode === 'online') {
       socket = getSocket();
-      if ($gameState?.gameId) setActiveChannel(`game:${$gameState.gameId}`);
+      if (gameId) setActiveChannel(`game:${gameId}`);
       socket.on('game:moved', onServerMove);
       socket.on('game:tick', onTick);
       socket.on('game:over', onGameOver);
@@ -268,7 +269,7 @@
   function onMouseMove(e) { if(game.gameOver||animating||botThinking){canvasEl.style.cursor='default';return;} const rect=canvasEl.getBoundingClientRect(),flip=myColor==='black'; let col=Math.floor((e.clientX-rect.left)/CELL),row=Math.floor((e.clientY-rect.top)/CELL); if(col<0||col>7||row<0||row>7)return; if(flip){row=7-row;col=7-col;} const piece=game.at(row,col),isTarget=validMoves.some(m=>m.toRow===row&&m.toCol===col); canvasEl.style.cursor=(piece?.color===myColor&&game.currentPlayer===myColor)||isTarget?'pointer':'default'; const nh=(piece?.color===myColor)?{row,col}:null; if(hoveredCell?.row!==nh?.row||hoveredCell?.col!==nh?.col){hoveredCell=nh;if(!animating)drawBoard();} }
 
   // ---- Move execution ----
-  async function executeMove(fr,fc,tr,tc) { if(mode==='online')socket.emit('game:move',{gameId:$gameState.gameId,fromRow:fr,fromCol:fc,toRow:tr,toCol:tc}); const result=await performAnimatedMove(fr,fc,tr,tc); if(!result)return; if(result.chainContinues){selectedPiece={row:tr,col:tc};validMoves=game.getValidMovesFor(tr,tc);}else{selectedPiece=null;validMoves=[];} drawBoard(); if(game.gameOver){handleGameOver();return;} if(mode==='bot'&&game.currentPlayer!==myColor)botTurn(); }
+  async function executeMove(fr,fc,tr,tc) { if(mode==='online')socket.emit('game:move',{gameId:gameId,fromRow:fr,fromCol:fc,toRow:tr,toCol:tc}); const result=await performAnimatedMove(fr,fc,tr,tc); if(!result)return; if(result.chainContinues){selectedPiece={row:tr,col:tc};validMoves=game.getValidMovesFor(tr,tc);}else{selectedPiece=null;validMoves=[];} drawBoard(); if(game.gameOver){handleGameOver();return;} if(mode==='bot'&&game.currentPlayer!==myColor)botTurn(); }
 
   async function onServerMove(data) { if(data.fromRow===undefined)return; const isMyMove=game.currentPlayer===myColor; if(!isMyMove){const result=await performAnimatedMove(data.fromRow,data.fromCol,data.toRow,data.toCol);if(result){selectedPiece=null;validMoves=[];drawBoard();}} game.redTime=data.redTime;game.blackTime=data.blackTime; }
   function onTick(data) { game.redTime=data.redTime; game.blackTime=data.blackTime; syncTimers(); }
@@ -279,12 +280,12 @@
   function startTimer() { timerInterval=setInterval(()=>{if(game.gameOver){clearInterval(timerInterval);return;}game.tickTime(1);syncTimers();if(game.gameOver)handleGameOver();},1000); }
   function handleGameOver() { clearInterval(timerInterval); if(!gameOverData)gameOverData={winner:game.winner,eloChanges:{red:0,black:0},coinRewards:{red:0,black:0}}; }
 
-  function resign() { showResignConfirm=false; game.gameOver=true; game.winner=myColor==='red'?'black':'red'; if(mode==='online')socket.emit('game:resign',{gameId:$gameState.gameId}); handleGameOver(); }
+  function resign() { showResignConfirm=false; game.gameOver=true; game.winner=myColor==='red'?'black':'red'; if(mode==='online')socket.emit('game:resign',{gameId:gameId}); handleGameOver(); }
   function goToLobby() { gameOverData=null; $gameState=null; $screen='lobby'; }
 
   function onEmoteShow(data) { activeEmote={emoji:data.emote.emoji,label:data.emote.label,username:data.username}; clearTimeout(emoteTimeout); emoteTimeout=setTimeout(()=>{activeEmote=null;},2500); }
   function sendEmote(emote) {
-    socket?.emit('emote:send',{gameId:$gameState?.gameId,emote:{emoji:emote.data.emoji,label:emote.data.label}});
+    socket?.emit('emote:send',{gameId:gameId,emote:{emoji:emote.data.emoji,label:emote.data.label}});
     // Only hide on mobile (desktop keeps it open in left panel)
     if (window.innerWidth < 1100) showEmoteBar=false;
   }
@@ -412,7 +413,7 @@
     {#if mode === 'online'}
       {#if showChat || desktopChat}
         <div class="game-chat card" class:minimized={!showChat && !desktopChat}>
-          <RoomChat channelId={$gameState?.gameId ? `game:${$gameState.gameId}` : null} closeable={true} readOnly={mode === 'spectator'} on:close={() => { showChat = false; desktopChat = false; }} />
+          <RoomChat channelId={gameId ? `game:${gameId}` : null} closeable={true} readOnly={mode === 'spectator'} on:close={() => { showChat = false; desktopChat = false; }} />
         </div>
       {/if}
     {/if}

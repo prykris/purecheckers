@@ -1,8 +1,8 @@
 import { CheckersGame } from '../../shared/game.js';
 import { TURN_TIME } from '../../shared/constants.js';
 import { rankedQueue } from '../services/matchmaking.js';
-import { connectedUsers } from './index.js';
-import { setUserStatus, broadcastStats } from './presenceHandler.js';
+import { connectedUsers, emitSyncState } from './index.js';
+import { getSession, setPhase, forceIdle } from './userState.js';
 import { calculateElo } from '../services/elo.js';
 import { awardCoins } from '../services/coins.js';
 import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME, SHOP_VAULT_RATE, SHOP_BURN_RATE } from '../../shared/constants.js';
@@ -214,9 +214,15 @@ class GameRoom {
       coinRewards
     });
 
-    // Update presence
-    setUserStatus(this.redUserId, 'online');
-    setUserStatus(this.blackUserId, 'online');
+    // Update session phase (presence is derived from phase)
+    forceIdle(this.redUserId);
+    forceIdle(this.blackUserId);
+
+    // Emit sync:state to both players (they are now idle)
+    const redConn = connectedUsers.get(this.redUserId);
+    const blackConn = connectedUsers.get(this.blackUserId);
+    if (redConn) emitSyncState(redConn.socket, this.redUserId);
+    if (blackConn) emitSyncState(blackConn.socket, this.blackUserId);
 
     // Clean up game room reference
     const { gameRooms } = await import('./roomHandler.js');
@@ -274,13 +280,16 @@ export function setupGameHandler(io, socket) {
   }
 
   // --- Check for active game on reconnect ---
+  // (Phase/routing is handled by sync:state in index.js)
   const activeGame = findActiveGameForUser(socket.userId);
   if (activeGame) {
     const { gameId, room, color } = activeGame;
-    const opponentId = room.getOpponentId(socket.userId);
-    const opponentConn = connectedUsers.get(opponentId);
-    socket.join(`game:${gameId}`);
-    socket.join(`chat:game:${gameId}`);
+    // Sync session phase if needed
+    const session = getSession(socket.userId);
+    if (session && session.phase !== 'in-game') {
+      forceIdle(socket.userId);
+      setPhase(socket.userId, 'in-game', { gameId, gameColor: color });
+    }
 
     // Clear disconnect timer
     if (room.disconnectTimers.has(socket.userId)) {
@@ -288,42 +297,41 @@ export function setupGameHandler(io, socket) {
       room.disconnectTimers.delete(socket.userId);
     }
 
-    // Notify opponent + persist system message
+    // Notify opponent
+    const opponentId = room.getOpponentId(socket.userId);
+    const opponentConn = connectedUsers.get(opponentId);
     if (opponentConn) {
       opponentConn.socket.emit('game:opponent-reconnected', { gameId });
     }
+
+    // System message
     const channelId = `game:${gameId}`;
     prisma.chatMessage.create({
       data: { channelId, senderId: 0, username: 'System', content: `${socket.username} reconnected.` }
     }).then(msg => {
       io.to(`chat:${channelId}`).emit('chat:message', { id: msg.id, channelId, senderId: 0, username: 'System', content: msg.content, createdAt: msg.createdAt, system: true });
     }).catch(() => {});
-
-    // Delay slightly so client has time to register listener
-    setTimeout(() => {
-      socket.emit('game:reconnect', {
-        gameId,
-        yourColor: color,
-        opponentName: opponentConn?.username || 'Opponent',
-        opponentId,
-        opponentOnline: connectedUsers.has(opponentId),
-        state: room.getState()
-      });
-    }, 500);
   }
 
   // --- Matchmaking ---
   socket.on('matchmaking:join', (data) => {
+    // Phase check: must be idle
+    const mmSession = getSession(socket.userId);
+    if (!mmSession || mmSession.phase !== 'idle') {
+      return socket.emit('matchmaking:error', { error: 'Cannot search while in a room or game' });
+    }
     const elo = data?.elo || 1000;
+    setPhase(socket.userId, 'matchmaking');
     rankedQueue.add(socket.userId, elo, socket.id);
     socket.emit('matchmaking:joined');
-    broadcastStats(io);
+    emitSyncState(socket, socket.userId);
   });
 
   socket.on('matchmaking:leave', () => {
+    forceIdle(socket.userId);
     rankedQueue.remove(socket.userId);
     socket.emit('matchmaking:left');
-    broadcastStats(io);
+    emitSyncState(socket, socket.userId);
   });
 
   // --- Emotes ---
@@ -357,7 +365,10 @@ export function setupGameHandler(io, socket) {
 
     const result = room.game.makeMove(fromRow, fromCol, toRow, toCol);
     if (!result) {
-      return socket.emit('game:move-rejected', { reason: 'Invalid move' });
+      socket.emit('game:move-rejected', { reason: 'Invalid move' });
+      // Send full board state so client can recover from any drift
+      socket.emit('game:sync', room.getState());
+      return;
     }
 
     io.to(`game:${gameId}`).emit('game:moved', {
@@ -439,27 +450,17 @@ export function setupGameHandler(io, socket) {
   });
 
   // --- Handle disconnect during game ---
+  // Disconnect timers are handled centrally by userState.
+  // Here we only handle matchmaking cleanup and opponent notification.
   socket.on('disconnect', () => {
     rankedQueue.removeBySocket(socket.id);
 
-    // Find any active game for this user
+    // Notify opponent if in an active game
     for (const [gameId, room] of activeGames) {
       if (room.game.gameOver) continue;
       const color = room.getPlayerColor(socket.userId);
       if (!color) continue;
 
-      // Give 30 seconds to reconnect
-      const timer = setTimeout(() => {
-        if (room.game.gameOver) return;
-        const winner = color === 'red' ? 'black' : 'red';
-        room.game.gameOver = true;
-        room.game.winner = winner;
-        room.endGame(io, winner);
-      }, 30000);
-
-      room.disconnectTimers.set(socket.userId, timer);
-
-      // Notify opponent + persist system message
       const opponentId = room.getOpponentId(socket.userId);
       const opponentConn = connectedUsers.get(opponentId);
       if (opponentConn) {
@@ -489,6 +490,12 @@ function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
   const room = new GameRoom(gameId, redUserId, blackUserId, mode, buyIn);
   activeGames.set(gameId, room);
 
+  // Set phase for both players
+  forceIdle(redUserId);
+  setPhase(redUserId, 'in-game', { gameId, gameColor: 'red' });
+  forceIdle(blackUserId);
+  setPhase(blackUserId, 'in-game', { gameId, gameColor: 'black' });
+
   // Join socket rooms
   const redConn = connectedUsers.get(redUserId);
   const blackConn = connectedUsers.get(blackUserId);
@@ -512,9 +519,11 @@ function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
     });
   }
 
-  // Update presence
-  setUserStatus(redUserId, 'in-game');
-  setUserStatus(blackUserId, 'in-game');
+  // Presence is derived from session phase (already set to 'in-game' above)
+
+  // Emit sync:state to both players
+  if (redConn) emitSyncState(redConn.socket, redUserId);
+  if (blackConn) emitSyncState(blackConn.socket, blackUserId);
 
   // Start the game after a short delay (for wheel animation)
   setTimeout(() => {

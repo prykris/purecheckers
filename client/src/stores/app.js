@@ -1,14 +1,15 @@
 import { writable } from 'svelte/store';
 
-// Valid screens
-const SCREENS = new Set([
-  'auth', 'lobby', 'search', 'wheel', 'game',
-  'shop', 'profile', 'friends', 'treasury', 'room-waiting'
+// Screens navigable via URL hash (safe to restore without server state)
+const SAFE_HASH_SCREENS = new Set([
+  'auth', 'lobby', 'shop', 'profile', 'friends', 'treasury'
 ]);
 
 function screenFromHash() {
   const hash = window.location.hash.replace(/^#\/?/, '');
-  return SCREENS.has(hash) ? hash : null;
+  // Only allow safe screens via hash — phase-gated screens (room-waiting, game, search, wheel)
+  // must be entered via sync:state, not URL navigation
+  return SAFE_HASH_SCREENS.has(hash) ? hash : null;
 }
 
 function createScreenStore() {
@@ -31,6 +32,9 @@ function createScreenStore() {
 }
 
 export const screen = createScreenStore();
+
+// Server-authoritative phase: 'idle' | 'in-room' | 'matchmaking' | 'in-game' | 'spectating'
+export const phase = writable('idle');
 
 // Active game state
 export const gameState = writable(null);

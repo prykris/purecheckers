@@ -1,16 +1,20 @@
 <script>
-  import { screen, activeRoom, roomChatMessages, roomUnreadChat } from '../stores/app.js';
+  import { screen, activeRoom } from '../stores/app.js';
   import { getSocket } from '../lib/socket.js';
+
+  let leaving = false;
 
   function goToRoom() { $screen = 'room-waiting'; }
 
   function leaveRoom(e) {
     e.stopPropagation();
+    leaving = true;
     getSocket()?.emit('room:leave', { roomId: $activeRoom?.id });
-    $activeRoom = null;
-    $roomChatMessages = [];
-    $roomUnreadChat = 0;
+    // Server will confirm via sync:state -> activeRoom becomes null
   }
+
+  // Reset leaving state when room is cleared
+  $: if (!$activeRoom) leaving = false;
 
   $: playerCount = $activeRoom?.players?.length || 0;
   $: hasOpponent = playerCount >= 2;
@@ -20,7 +24,7 @@
 
   $: dotClass = allReady ? 'ready' : hasOpponent ? 'joined' : 'waiting';
   $: label = allReady ? 'Ready!' : hasOpponent ? (opponentOnline ? opponentName : `${opponentName} (away)`) : 'Waiting...';
-  $: show = $activeRoom && $screen !== 'room-waiting' && $screen !== 'game' && $screen !== 'wheel' && $screen !== 'auth';
+  $: show = $activeRoom && !leaving && $screen !== 'room-waiting' && $screen !== 'game' && $screen !== 'wheel' && $screen !== 'auth';
 </script>
 
 {#if show}

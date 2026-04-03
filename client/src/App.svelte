@@ -1,10 +1,10 @@
 <script>
   import { onMount } from 'svelte';
-  import { screen, gameState, activeRoom } from './stores/app.js';
+  import { screen, phase, gameState, activeRoom } from './stores/app.js';
   import { user, token } from './stores/user.js';
   import { api } from './lib/api.js';
-  import { connectSocket, getSocket } from './lib/socket.js';
-  import { attachSocketListeners } from './lib/socketService.js';
+  import { getSocket } from './lib/socket.js';
+  import { initSocket as doInitSocket } from './lib/socketService.js';
 
   import AuthScreen from './components/AuthScreen.svelte';
   import Lobby from './components/Lobby.svelte';
@@ -24,20 +24,43 @@
   import GlobalChat from './components/panels/GlobalChat.svelte';
   import LeaderboardPanel from './components/panels/LeaderboardPanel.svelte';
 
-  const VALID_SCREENS = new Set(['lobby', 'shop', 'friends', 'profile', 'treasury', 'room-waiting']);
-  function getHashScreen() {
+  // Screens that can be restored from URL hash
+  const HASH_SCREENS = new Set(['lobby', 'shop', 'friends', 'profile', 'treasury']);
+  // Screens that require a specific phase to be valid
+  const PHASE_SCREENS = { 'room-waiting': 'in-room', 'search': 'matchmaking', 'game': 'in-game' };
+
+  function getHashScreen(currentPhase) {
     const hash = window.location.hash.replace(/^#\/?/, '');
-    return VALID_SCREENS.has(hash) ? hash : null;
+    // Phase-gated screens: only allow if phase matches
+    if (PHASE_SCREENS[hash]) {
+      return PHASE_SCREENS[hash] === currentPhase ? hash : null;
+    }
+    return HASH_SCREENS.has(hash) ? hash : null;
   }
 
   const tabScreens = ['lobby', 'shop', 'friends', 'profile'];
   $: showTabs = tabScreens.includes($screen);
   $: showPanelToggles = $screen !== 'auth' && $screen !== 'game' && !loading;
 
+  // When token is set from AuthScreen (fresh login), connect socket
+  let socketInitialized = false;
+  $: if ($token && $user && !socketInitialized && $screen === 'auth') {
+    socketInitialized = true;
+    initSocket().then(() => { loading = false; });
+  }
+
   // When screen becomes lobby and there's a pending join code, auto-join
   $: if ($screen === 'lobby' && pendingJoinCode) {
     const sock = getSocket();
     if (sock) tryJoinFromUrl(sock);
+  }
+
+  // When QR join succeeds (phase becomes in-room while on lobby), show the room
+  let wasJoining = false;
+  $: if (pendingJoinCode || wasJoining) wasJoining = true;
+  $: if (wasJoining && $phase === 'in-room' && $screen === 'lobby') {
+    wasJoining = false;
+    screen.set('room-waiting');
   }
 
   let chatOpen = false;
@@ -49,15 +72,7 @@
     if (!pendingJoinCode) return;
     const code = pendingJoinCode;
     pendingJoinCode = null;
-    // Try to join the room by code
     sock.emit('room:join', { roomId: null, code });
-    sock.once('room:joined', ({ room }) => {
-      gameState.set({ roomId: room.id, mode: 'room', roomData: room });
-      screen.set('room-waiting');
-    });
-    sock.once('room:error', () => {
-      // Room not found or full — just stay on lobby
-    });
   }
 
   // Check for join code in URL: /join/CODE or #/join/CODE
@@ -70,6 +85,47 @@
     window.history.replaceState(null, '', '/#/lobby');
   }
 
+  /**
+   * Connect socket, wait for sync:state, route to correct screen.
+   * Single code path for both fresh login and page reload.
+   */
+  async function initSocket() {
+    loading = true;
+    const payload = await doInitSocket();
+    const sock = getSocket();
+    if (sock) sock.on('session:kicked', () => { kicked = true; });
+
+    if (payload) {
+      switch (payload.phase) {
+        case 'in-game':
+          screen.set('game');
+          break;
+        case 'in-room': {
+          const hashScreen = getHashScreen(payload.phase);
+          screen.set(hashScreen || 'lobby');
+          break;
+        }
+        case 'matchmaking':
+          screen.set('search');
+          break;
+        case 'spectating':
+          screen.set('game');
+          break;
+        default: {
+          const hashScreen = getHashScreen(payload.phase);
+          screen.set((hashScreen && hashScreen !== 'auth') ? hashScreen : 'lobby');
+          if (sock) tryJoinFromUrl(sock);
+          break;
+        }
+      }
+    } else {
+      const hashScreen = getHashScreen();
+      screen.set(hashScreen || 'lobby');
+      if (sock) tryJoinFromUrl(sock);
+    }
+    loading = false;
+  }
+
   onMount(async () => {
     if (!$token) {
       $screen = 'auth';
@@ -80,60 +136,14 @@
     try {
       const data = await api.get('/auth/me');
       $user = data.user;
-      const sock = connectSocket();
-      attachSocketListeners();
-
-      if (sock) {
-        sock.on('session:kicked', () => { kicked = true; });
-        // Wait for game:reconnect, room:reconnect, or timeout
-        // (socketService handles store updates, we just need to know which screen)
-        const resolved = await Promise.race([
-          new Promise(resolve => {
-            sock.on('game:reconnect', (data) => {
-              gameState.set({
-                gameId: data.gameId,
-                myColor: data.yourColor,
-                opponentName: data.opponentName,
-                opponentId: data.opponentId,
-                mode: 'online',
-                reconnectState: data.state,
-                opponentOnline: data.opponentOnline
-              });
-              // Load game chat history
-              sock.emit('chat:history', { type: 'game', targetId: data.gameId });
-              resolve('game');
-            });
-            sock.on('room:reconnect', () => resolve('room'));
-          }),
-          new Promise(resolve => setTimeout(() => resolve('lobby'), 1500))
-        ]);
-
-        if (resolved === 'game') {
-          screen.set('game');
-        } else if (resolved === 'room') {
-          // Restore hash screen or default to lobby (banner shows the room)
-          const hashScreen = getHashScreen();
-          screen.set(hashScreen || 'lobby');
-        } else {
-          const hashScreen = getHashScreen();
-          if (hashScreen && hashScreen !== 'auth') {
-            screen.set(hashScreen);
-          } else {
-            screen.set('lobby');
-          }
-          tryJoinFromUrl(sock);
-        }
-      } else {
-        $screen = 'lobby';
-      }
+      socketInitialized = true;
+      await initSocket(); // sets loading = false internally
     } catch {
       $token = null;
       $user = null;
       $screen = 'auth';
+      loading = false;
     }
-
-    // Fade out splash
-    loading = false;
   });
 </script>
 

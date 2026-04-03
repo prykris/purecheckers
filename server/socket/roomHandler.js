@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import QRCode from 'qrcode';
-import { connectedUsers } from './index.js';
+import { connectedUsers, emitSyncState } from './index.js';
 import { createGameDirect } from './gameHandler.js';
-import { broadcastStats } from './presenceHandler.js';
 import { TURN_TIME } from '../../shared/constants.js';
 import { SITE_URL } from '../config.js';
+import { getSession, setPhase, forceIdle } from './userState.js';
 
 const prisma = new PrismaClient();
 
@@ -58,35 +58,37 @@ function sanitizeRoom(room, includeCode = false) {
   return result;
 }
 
-function broadcastRoomUpdate(io, room) {
+export function broadcastRoomUpdate(io, room) {
   // Broadcast globally — RoomBanner and RoomList filter by room ID
   io.emit('room:updated', { room: sanitizeRoom(room) });
   // Also broadcast to the lobby so room lists update
   io.emit('room:list-update', { room: sanitizeRoom(room) });
-  broadcastStats(io);
+  // Stats are auto-broadcast on phase changes via userState
 }
 
 export function setupRoomHandler(io, socket) {
 
-  // --- Reconnect: check if user is already in a room ---
+  // --- Reconnect: mark player online if they're in a room ---
+  // (Phase/routing is handled by sync:state in index.js)
   const existingRoom = findRoomForUser(socket.userId);
   if (existingRoom) {
-    console.log(`[Room] Reconnect: ${socket.username} (${socket.userId}) -> room #${existingRoom.id}`);
-    socket.join(`room:${existingRoom.id}`);
-    socket.join(`chat:room:${existingRoom.id}`);
     const player = existingRoom.players.find(p => p.userId === socket.userId);
     if (player) player.online = true;
+    // Sync session phase if needed
+    const session = getSession(socket.userId);
+    if (session && session.phase !== 'in-room' && session.phase !== 'in-game') {
+      forceIdle(socket.userId);
+      setPhase(socket.userId, 'in-room', { roomId: existingRoom.id });
+    }
     broadcastRoomUpdate(io, existingRoom);
-    setTimeout(() => {
-      socket.emit('room:reconnect', { room: sanitizeRoom(existingRoom) });
-    }, 600);
   }
 
   // --- Create room ---
   socket.on('room:create', async ({ buyIn = 0, turnTimer = 60, isPrivate = false, allowSpectators = true }) => {
-    // One room per user
-    if (findRoomForUser(socket.userId)) {
-      return socket.emit('room:error', { error: 'You are already in a room' });
+    // Phase check: must be idle
+    const session = getSession(socket.userId);
+    if (!session || session.phase !== 'idle') {
+      return socket.emit('room:error', { error: 'You are already in a room or game' });
     }
 
     // Validate
@@ -120,6 +122,7 @@ export function setupRoomHandler(io, socket) {
     if (hostUser) room.players[0].elo = hostUser.elo;
 
     gameRooms.set(room.id, room);
+    setPhase(socket.userId, 'in-room', { roomId: room.id });
     socket.join(`room:${room.id}`);
     socket.join(`chat:room:${room.id}`);
     console.log(`[Room] Created: room #${room.id} by ${socket.username} (${socket.userId}), code=${joinCode}, buyIn=${buyIn}`);
@@ -132,6 +135,7 @@ export function setupRoomHandler(io, socket) {
     const roomData = sanitizeRoom(room);
     roomData.qrDataUrl = qrDataUrl;
     socket.emit('room:created', { room: roomData });
+    emitSyncState(socket, socket.userId);
     io.emit('room:list-update', { room: sanitizeRoom(room) });
   });
 
@@ -156,9 +160,11 @@ export function setupRoomHandler(io, socket) {
 
   // --- Join room ---
   socket.on('room:join', async ({ roomId, code }) => {
-    // One room per user
-    const alreadyIn = findRoomForUser(socket.userId);
-    if (alreadyIn) return socket.emit('room:error', { error: 'Leave your current room first' });
+    // Phase check: must be idle
+    const joinSession = getSession(socket.userId);
+    if (!joinSession || joinSession.phase !== 'idle') {
+      return socket.emit('room:error', { error: 'Leave your current room or game first' });
+    }
 
     // Look up by roomId or by joinCode
     let room = roomId ? gameRooms.get(roomId) : null;
@@ -185,10 +191,12 @@ export function setupRoomHandler(io, socket) {
       online: true
     });
 
+    setPhase(socket.userId, 'in-room', { roomId: room.id });
     socket.join(`room:${room.id}`);
     socket.join(`chat:room:${room.id}`);
     console.log(`[Room] Joined: ${socket.username} (${socket.userId}) -> room #${room.id}, players: ${room.players.map(p => p.username).join(', ')}`);
     socket.emit('room:joined', { room: sanitizeRoom(room) });
+    emitSyncState(socket, socket.userId);
     broadcastRoomUpdate(io, room);
   });
 
@@ -198,6 +206,8 @@ export function setupRoomHandler(io, socket) {
     if (!room) return;
     console.log(`[Room] Leave: ${socket.username} (${socket.userId}) from room #${room.id}`);
 
+    forceIdle(socket.userId);
+    emitSyncState(socket, socket.userId);
     socket.leave(`room:${room.id}`);
     room.players = room.players.filter(p => p.userId !== socket.userId);
     room.spectators = room.spectators.filter(s => s.userId !== socket.userId);
@@ -256,6 +266,7 @@ export function setupRoomHandler(io, socket) {
       room.spectators.push({ userId: socket.userId, username: socket.username });
     }
 
+    setPhase(socket.userId, 'spectating', { spectatingRoomId: room.id, spectatingGameId: room.gameId || null });
     socket.join(`room:${room.id}`);
     socket.join(`chat:room:${room.id}`);
 
@@ -286,18 +297,20 @@ export function setupRoomHandler(io, socket) {
     room.spectators = room.spectators.filter(s => s.userId !== userId);
 
     // Notify kicked user
+    forceIdle(userId);
     const kicked = connectedUsers.get(userId);
     if (kicked) {
       kicked.socket.leave(`room:${room.id}`);
       kicked.socket.emit('room:kicked', { roomId });
+      emitSyncState(kicked.socket, userId);
     }
 
     broadcastRoomUpdate(io, room);
   });
 
   // --- Cleanup on disconnect ---
-  // Don't remove from room on disconnect (they might be refreshing).
-  // Rooms are only destroyed by explicit room:leave or timeout.
+  // Disconnect timers are handled centrally by userState.
+  // Here we only handle spectator removal and marking players offline.
   socket.on('disconnect', () => {
     for (const [roomId, room] of gameRooms) {
       // Remove spectators immediately on disconnect
@@ -309,34 +322,9 @@ export function setupRoomHandler(io, socket) {
       if (room.status === 'playing') continue;
       const player = room.players.find(p => p.userId === socket.userId);
       if (player) {
-        console.log(`[Room] Disconnect: ${socket.username} (${socket.userId}) from room #${roomId}, marking offline (2min timeout)`);
+        console.log(`[Room] Disconnect: ${socket.username} (${socket.userId}) from room #${roomId}, marking offline`);
         player.online = false;
         broadcastRoomUpdate(io, room);
-        // Auto-destroy after 2 minutes if they don't reconnect
-        setTimeout(() => {
-          const current = gameRooms.get(roomId);
-          if (!current) return;
-          const p = current.players.find(pp => pp.userId === socket.userId);
-          if (p && p.online === false) {
-            // Still disconnected after 2min — remove them
-            console.log(`[Room] Timeout: ${socket.username} (${socket.userId}) removed from room #${roomId}`);
-            current.players = current.players.filter(pp => pp.userId !== socket.userId);
-            if (current.players.length === 0) {
-              console.log(`[Room] Timeout destroy: room #${roomId} (empty)`);
-              gameRooms.delete(roomId);
-              io.emit('room:updated', { room: { id: roomId }, closed: true });
-              io.emit('room:list-update', { room: { id: roomId, closed: true } });
-            } else {
-              if (current.hostId === socket.userId) {
-                current.hostId = current.players[0].userId;
-                current.hostName = current.players[0].username;
-                console.log(`[Room] Timeout host transfer: room #${roomId} -> ${current.hostName}`);
-              }
-              current.players.forEach(p => p.ready = false);
-              broadcastRoomUpdate(io, current);
-            }
-          }
-        }, 120000); // 2 minutes
       }
     }
   });
@@ -378,6 +366,12 @@ async function startRoomGame(io, room) {
     const specConn = connectedUsers.get(spec.userId);
     if (specConn) specConn.socket.join(`game:${gameRoom.id}`);
   }
+
+  // Emit sync:state to both players (they are now in-game)
+  const redConn = connectedUsers.get(redUserId);
+  const blackConn = connectedUsers.get(blackUserId);
+  if (redConn) emitSyncState(redConn.socket, redUserId);
+  if (blackConn) emitSyncState(blackConn.socket, blackUserId);
 
   broadcastRoomUpdate(io, room);
 }

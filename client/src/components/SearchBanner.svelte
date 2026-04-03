@@ -7,7 +7,7 @@
   function cancel(e) {
     e.stopPropagation();
     getSocket()?.emit('matchmaking:leave');
-    $searching = false;
+    // Server will confirm via sync:state -> searching becomes false
   }
 
   $: show = $searching && $screen !== 'search' && $screen !== 'wheel' && $screen !== 'game' && $screen !== 'auth';

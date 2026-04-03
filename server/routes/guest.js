@@ -33,8 +33,10 @@ router.post('/', async (req, res) => {
 
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
+    // Random nonce ensures unique tokens even if username + timestamp collide
+    const nonce = Math.random().toString(36).slice(2);
     const token = jwt.sign(
-      { guestId: true, username },
+      { guestId: true, username, nonce },
       JWT_SECRET,
       { expiresIn: '24h' }
     );

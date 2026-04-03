@@ -1,5 +1,5 @@
 <script>
-  import { screen, gameState, searching } from '../../stores/app.js';
+  import { screen, searching, phase } from '../../stores/app.js';
   import { user } from '../../stores/user.js';
   import { getSocket } from '../../lib/socket.js';
   import RoomCreate from './RoomCreate.svelte';
@@ -8,7 +8,12 @@
 
   function findOpponent() {
     getSocket()?.emit('matchmaking:join', { elo: $user?.elo || 1000 });
-    $searching = true;
+    // Server will confirm via sync:state -> phase becomes 'matchmaking'
+    // searching store is set by applySync, screen is set reactively below
+  }
+
+  // When server confirms matchmaking, navigate to search screen
+  $: if ($phase === 'matchmaking') {
     $screen = 'search';
   }
 </script>

@@ -3,7 +3,7 @@
   import { screen, presenceStats } from '../stores/app.js';
   import { user, token } from '../stores/user.js';
   import { api } from '../lib/api.js';
-  import { getSocket, connectSocket, disconnectSocket } from '../lib/socket.js';
+  import { disconnectSocket } from '../lib/socket.js';
 
   import PlayTabs from './lobby/PlayTabs.svelte';
 
@@ -48,7 +48,7 @@
       $user = data.user;
     } catch {}
 
-    getSocket() || connectSocket();
+    // Socket is already connected via App.svelte initSocket()
   });
 
   function logout() {

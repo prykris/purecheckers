@@ -1,27 +1,23 @@
-import { connectedUsers } from './index.js';
-import { rankedQueue } from '../services/matchmaking.js';
-import { gameRooms } from './roomHandler.js';
+/**
+ * Presence — derived entirely from userState sessions.
+ * No separate Maps, no manual status tracking.
+ */
+import { getAllSessions } from './userState.js';
 
-// status: 'online' | 'in-game'
-const userStatus = new Map();
+export function getStats() {
+  const sessions = getAllSessions();
+  let online = 0;
+  let lookingToPlay = 0;
 
-export function setUserStatus(userId, status) {
-  userStatus.set(userId, status);
-}
-
-export function getUserStatus(userId) {
-  if (!connectedUsers.has(userId)) return 'offline';
-  return userStatus.get(userId) || 'online';
-}
-
-function getStats() {
-  let lookingToPlay = rankedQueue.size();
-  for (const room of gameRooms.values()) {
-    if (room.status === 'waiting') {
-      lookingToPlay += room.players.filter(p => p.online !== false).length;
+  for (const session of sessions.values()) {
+    if (session.socket) {
+      online++;
+      if (session.phase === 'matchmaking' || session.phase === 'in-room') {
+        lookingToPlay++;
+      }
     }
   }
-  return { online: connectedUsers.size, lookingToPlay };
+  return { online, lookingToPlay };
 }
 
 export function broadcastStats(io) {
@@ -31,28 +27,22 @@ export function broadcastStats(io) {
 let statsInterval = null;
 
 export function setupPresence(io, socket) {
-  setUserStatus(socket.userId, 'online');
-
-  // Broadcast presence to all connected users (friends-only filtering in Phase 6)
+  // Broadcast presence update to all
   io.emit('presence:update', {
     userId: socket.userId,
     username: socket.username,
     status: 'online'
   });
 
-  // Send stats to the newly connected user immediately
-  socket.emit('presence:stats', getStats());
-
-  // Start periodic stats broadcast (once)
+  // Start periodic stats broadcast (once) as a safety net
   if (!statsInterval) {
     statsInterval = setInterval(() => broadcastStats(io), 10000);
   }
 
-  // Broadcast updated stats on connect/disconnect
+  // Broadcast on connect
   broadcastStats(io);
 
   socket.on('disconnect', () => {
-    userStatus.delete(socket.userId);
     io.emit('presence:update', {
       userId: socket.userId,
       username: socket.username,

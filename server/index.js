@@ -17,15 +17,19 @@ const io = new Server(httpServer, {
 
 setupSocket(io);
 
-// In production, serve the built client from /dist
+// In production, serve the SvelteKit build
 if (isProduction) {
-  const distPath = resolve(__dirname, '..', 'dist');
-  app.use(express.static(distPath));
-  app.get('/{*splat}', (req, res) => {
-    if (!req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
-      res.sendFile(resolve(distPath, 'index.html'));
-    }
-  });
+  const buildPath = resolve(__dirname, '..', 'build');
+
+  // Serve prerendered pages (static HTML for /en/, /es/, etc.)
+  app.use(express.static(resolve(buildPath, 'prerendered')));
+
+  // Serve client assets (JS, CSS, images from /_app/)
+  app.use(express.static(resolve(buildPath, 'client')));
+
+  // SvelteKit handler for everything else
+  const { handler } = await import(resolve(buildPath, 'handler.js'));
+  app.use(handler);
 }
 
 httpServer.listen(PORT, () => {

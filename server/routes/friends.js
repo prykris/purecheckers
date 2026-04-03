@@ -1,7 +1,14 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { verifyToken } from '../middleware/auth.js';
-import { getUserStatus } from '../socket/presenceHandler.js';
+import { getSession } from '../socket/userState.js';
+
+function getUserStatus(userId) {
+  const session = getSession(userId);
+  if (!session || !session.socket) return 'offline';
+  if (session.phase === 'in-game') return 'in-game';
+  return 'online';
+}
 
 const router = Router();
 const prisma = new PrismaClient();

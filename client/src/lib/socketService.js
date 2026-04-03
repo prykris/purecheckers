@@ -3,13 +3,22 @@
  * UI components just read from stores.
  */
 import { get } from 'svelte/store';
-import { screen, gameState, activeRoom, roomChatMessages, roomUnreadChat, searching, presenceStats } from '../stores/app.js';
+import { screen, phase, gameState, activeRoom, roomChatMessages, roomUnreadChat, searching, presenceStats } from '../stores/app.js';
 import { user } from '../stores/user.js';
-import { getSocket } from './socket.js';
+import { connectSocket, disconnectSocket, getSocket } from './socket.js';
 
 let attached = false;
 let retryTimer = null;
 let activeChannelId = null; // the channel the user is currently viewing
+
+// Resolve function for sync:state promise (used by App.svelte on init)
+let syncResolve = null;
+export function waitForSync() {
+  return new Promise(resolve => {
+    // If we already have a phase set from sync, resolve immediately
+    syncResolve = resolve;
+  });
+}
 
 export function attachSocketListeners() {
   if (attached) return;
@@ -21,17 +30,29 @@ export function attachSocketListeners() {
   }
   attached = true;
 
+  // ---- Server-authoritative sync ----
+  socket.on('sync:state', (payload) => {
+    applySync(payload);
+    // Resolve the init promise if waiting
+    if (syncResolve) {
+      syncResolve(payload);
+      syncResolve = null;
+    }
+  });
+
   // ---- Presence stats ----
   socket.on('presence:stats', (data) => {
     presenceStats.set(data);
   });
 
-  // ---- Room updates ----
+  // ---- Room updates (incremental) ----
   socket.on('room:updated', ({ room, closed }) => {
     const ar = get(activeRoom);
     if (!ar) return;
     if (closed && room?.id === ar.id) {
       activeRoom.set(null);
+      gameState.set(null);
+      phase.set('idle');
       roomChatMessages.set([]);
       roomUnreadChat.set(0);
       activeChannelId = null;
@@ -46,6 +67,8 @@ export function attachSocketListeners() {
     const ar = get(activeRoom);
     if (ar?.id === roomId) {
       activeRoom.set(null);
+      gameState.set(null);
+      phase.set('idle');
       roomChatMessages.set([]);
       roomUnreadChat.set(0);
       activeChannelId = null;
@@ -59,12 +82,12 @@ export function attachSocketListeners() {
     // Clean up whatever the user was doing
     const gs = get(gameState);
     if (gs?.mode === 'spectator' && gs?.roomId) {
-      // Leave spectated room
       socket.emit('room:leave', { roomId: gs.roomId });
     }
 
     roomUnreadChat.set(0);
     activeChannelId = `game:${data.gameId}`;
+    phase.set('in-game');
     gameState.set({
       gameId: data.gameId,
       myColor: data.yourColor,
@@ -77,10 +100,8 @@ export function attachSocketListeners() {
 
   // ---- Chat messages (unified channel system) ----
   socket.on('chat:message', (msg) => {
-    // Only add to room chat if it's for the active channel
     if (msg.channelId !== activeChannelId) return;
     const u = get(user);
-    // Skip own messages (already added optimistically)
     if (msg.senderId === u?.id) return;
     roomChatMessages.update(msgs => [...msgs, msg]);
     roomUnreadChat.update(n => n + 1);
@@ -92,7 +113,6 @@ export function attachSocketListeners() {
     if (!messages || messages.length === 0) return;
     roomChatMessages.set(messages);
 
-    // Compute unread from lastSeenId
     const lastSeenId = parseInt(localStorage.getItem(`chat_seen_${channelId}`) || '0');
     if (lastSeenId > 0) {
       const unread = messages.filter(m => m.id > lastSeenId).length;
@@ -100,14 +120,82 @@ export function attachSocketListeners() {
     }
   });
 
-  // ---- Room reconnect ----
-  socket.on('room:reconnect', ({ room }) => {
-    activeRoom.set(room);
-    gameState.set({ roomId: room.id, mode: 'room', roomData: room });
-    setActiveChannel(`room:${room.id}`);
-  });
-
   console.log('[SocketService] Listeners attached');
+}
+
+/**
+ * Apply a sync:state payload from the server.
+ * Atomically sets all stores to match server reality.
+ */
+function applySync(payload) {
+  phase.set(payload.phase);
+
+  switch (payload.phase) {
+    case 'idle':
+      activeRoom.set(null);
+      gameState.set(null);
+      searching.set(false);
+      break;
+
+    case 'in-room':
+      activeRoom.set(payload.room);
+      gameState.set({ roomId: payload.room.id, mode: 'room', roomData: payload.room });
+      searching.set(false);
+      break;
+
+    case 'matchmaking':
+      activeRoom.set(null);
+      gameState.set(null);
+      searching.set(true);
+      break;
+
+    case 'in-game':
+      activeRoom.set(null);
+      searching.set(false);
+      gameState.set({
+        gameId: payload.game.gameId,
+        myColor: payload.game.yourColor,
+        opponentName: payload.game.opponentName,
+        opponentId: payload.game.opponentId,
+        opponentOnline: payload.game.opponentOnline,
+        mode: 'online',
+        reconnectState: payload.game.gameOver ? null : {
+          board: payload.game.board,
+          currentPlayer: payload.game.currentPlayer,
+          redTime: payload.game.redTime,
+          blackTime: payload.game.blackTime,
+          chainPiece: payload.game.chainPiece,
+          gameOver: payload.game.gameOver,
+          winner: payload.game.winner,
+          moveHistory: payload.game.moveHistory,
+        },
+      });
+      break;
+
+    case 'spectating':
+      activeRoom.set(payload.spectate?.room || null);
+      searching.set(false);
+      gameState.set({
+        mode: 'spectator',
+        roomId: payload.spectate?.roomId,
+        gameId: payload.spectate?.gameId,
+      });
+      break;
+  }
+
+  // Set presence stats if included
+  if (payload.presenceStats) {
+    presenceStats.set(payload.presenceStats);
+  }
+
+  // Set chat channel from server
+  if (payload.chatChannelId && payload.chatChannelId !== activeChannelId) {
+    setActiveChannel(payload.chatChannelId);
+  } else if (!payload.chatChannelId && activeChannelId) {
+    activeChannelId = null;
+    roomChatMessages.set([]);
+    roomUnreadChat.set(0);
+  }
 }
 
 /**
@@ -121,10 +209,6 @@ export function setActiveChannel(channelId) {
     const socket = getSocket();
     if (socket) {
       socket.emit('chat:join', { channelId });
-      // Load last seen ID from localStorage
-      const lastSeenId = parseInt(localStorage.getItem(`chat_seen_${channelId}`) || '0');
-      socket.emit('chat:history', { channelId, afterId: lastSeenId > 0 ? undefined : undefined });
-      // Always load full history for now — unread tracking via lastSeenId
       socket.emit('chat:history', { channelId });
     }
   }
@@ -153,14 +237,41 @@ export function getActiveChannelId() {
 export function detachSocketListeners() {
   const socket = getSocket();
   if (socket && attached) {
+    socket.off('sync:state');
     socket.off('presence:stats');
     socket.off('room:updated');
     socket.off('room:kicked');
     socket.off('matchmaking:found');
     socket.off('chat:message');
     socket.off('chat:history');
-    socket.off('room:reconnect');
   }
   attached = false;
   clearTimeout(retryTimer);
+}
+
+/**
+ * Single entry point: connect socket, attach listeners, wait for sync:state.
+ * Returns the sync payload (or null on timeout).
+ * Called from App.svelte on both fresh login and page reload.
+ */
+export async function initSocket() {
+  const sock = connectSocket();
+  attachSocketListeners();
+  if (!sock) return null;
+
+  const payload = await Promise.race([
+    waitForSync(),
+    new Promise(resolve => setTimeout(() => resolve(null), 3000))
+  ]);
+  return payload;
+}
+
+/**
+ * Tear down and reconnect (e.g., after guest upgrade).
+ * Returns the new sync payload.
+ */
+export async function reconnectSocket() {
+  detachSocketListeners();
+  disconnectSocket();
+  return initSocket();
 }

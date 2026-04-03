@@ -3,8 +3,7 @@
   import { screen } from '../stores/app.js';
   import { user, token } from '../stores/user.js';
   import { api } from '../lib/api.js';
-  import { disconnectSocket, connectSocket } from '../lib/socket.js';
-  import { attachSocketListeners } from '../lib/socketService.js';
+  import { reconnectSocket } from '../lib/socketService.js';
 
   let games = [];
   let loading = true;
@@ -30,10 +29,8 @@
       $token = data.token;
       $user = data.user;
       upgradeError = '';
-      // Reconnect socket with new identity
-      disconnectSocket();
-      connectSocket();
-      attachSocketListeners();
+      // Reconnect socket with new identity — sync:state resets all stores
+      await reconnectSocket();
     } catch (err) {
       upgradeError = err?.message || 'Something went wrong';
     }
