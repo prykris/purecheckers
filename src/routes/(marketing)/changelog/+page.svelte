@@ -1,3 +1,41 @@
+<script>
+  // Release dates — each date gets a dot on the activity grid
+  const releases = [
+    '2026-04-06', '2026-04-06', // Navigation + SEO
+    '2026-04-05', '2026-04-05', '2026-04-05', '2026-04-05', '2026-04-05', // Game intelligence, bots, guests, state, polish
+    '2026-03-28', // Launch
+  ];
+
+  // Count releases per day
+  const activity = {};
+  for (const d of releases) activity[d] = (activity[d] || 0) + 1;
+  const maxActivity = Math.max(1, ...Object.values(activity));
+
+  // Build grid: 52 weeks x 7 days going back from today
+  function buildGrid() {
+    const grid = [];
+    const today = new Date();
+    const dow = today.getDay();
+    const start = new Date(today);
+    start.setDate(start.getDate() - dow - 52 * 7);
+
+    for (let w = 0; w < 53; w++) {
+      const col = [];
+      for (let d = 0; d < 7; d++) {
+        const dt = new Date(start);
+        dt.setDate(dt.getDate() + w * 7 + d);
+        const key = dt.toISOString().slice(0, 10);
+        const count = activity[key] || 0;
+        const future = dt > today;
+        col.push({ key, count, future });
+      }
+      grid.push(col);
+    }
+    return grid;
+  }
+  const grid = buildGrid();
+</script>
+
 <svelte:head>
   <title>Changelog — Pure Checkers</title>
   <meta name="description" content="See what's new in Pure Checkers. Feature updates, improvements, and what we're building next." />
@@ -10,6 +48,40 @@
 <section class="changelog">
   <h1 class="page-title">What's New</h1>
   <p class="page-sub">Latest updates to Pure Checkers</p>
+
+  <div class="activity-section">
+    <div class="activity-grid">
+      {#each grid as week}
+        <div class="activity-col">
+          {#each week as day}
+            <div
+              class="activity-cell"
+              class:future={day.future}
+              style="opacity: {day.future ? 0.05 : day.count === 0 ? 0.1 : 0.3 + 0.7 * (day.count / maxActivity)};
+                     background: {day.count > 0 ? 'var(--accent)' : 'var(--text-dim)'};"
+              title="{day.key}: {day.count} update{day.count !== 1 ? 's' : ''}"
+            ></div>
+          {/each}
+        </div>
+      {/each}
+    </div>
+  </div>
+
+  <article class="release">
+    <div class="release-header">
+      <h2>Navigation, Profiles & Replays</h2>
+      <time>6 April 2026</time>
+    </div>
+    <ul>
+      <li><strong>Mobile Navigation</strong> — floating hamburger menu on all marketing pages. No more dead ends on mobile.</li>
+      <li><strong>Breadcrumbs</strong> — player profiles and game replays now show a breadcrumb trail (Home / Page) for easy navigation back.</li>
+      <li><strong>Game Replay Outcome</strong> — when you reach the last move, a card shows who won and why (forfeit, all pieces captured, no valid moves).</li>
+      <li><strong>Replay Links Everywhere</strong> — hover over any game in the game log or player profile to reveal a replay button.</li>
+      <li><strong>Bot Profiles</strong> — bot player pages show a purple "Bot" badge and "AI Opponent" label. Their game history is viewable.</li>
+      <li><strong>Activity Heatmap</strong> — player profiles now show a GitHub-style activity grid of games played per day over the last year.</li>
+      <li><strong>Footer Links</strong> — added Strategy, Home, and language switcher (English / Español) to the footer.</li>
+    </ul>
+  </article>
 
   <article class="release">
     <div class="release-header">
@@ -143,4 +215,15 @@
     background: var(--accent);
   }
   li strong { color: var(--text); }
+
+  .activity-section { margin-bottom: var(--sp-xl); }
+  .activity-grid {
+    display: flex; gap: 2px; overflow-x: auto;
+    padding: var(--sp-sm) 0;
+    scrollbar-width: none;
+  }
+  .activity-grid::-webkit-scrollbar { display: none; }
+  .activity-col { display: flex; flex-direction: column; gap: 2px; }
+  .activity-cell { width: 10px; height: 10px; border-radius: 2px; }
+  .activity-cell.future { visibility: hidden; }
 </style>

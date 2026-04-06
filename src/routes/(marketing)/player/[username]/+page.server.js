@@ -5,5 +5,5 @@ export async function load({ params, fetch }) {
   const res = await fetch(`/api/leaderboard/player/${params.username}`);
   if (!res.ok) throw error(404, 'Player not found');
   const data = await res.json();
-  return { player: data.player, games: data.games };
+  return { player: data.player, games: data.games, activity: data.activity || {} };
 }

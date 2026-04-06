@@ -38,7 +38,7 @@ router.get('/player/:username', async (req, res) => {
         isGuest: true, isBot: true, createdAt: true
       }
     });
-    if (!player || player.isBot) return res.status(404).json({ error: 'Player not found' });
+    if (!player) return res.status(404).json({ error: 'Player not found' });
 
     const games = await prisma.game.findMany({
       where: { OR: [{ redPlayerId: player.id }, { blackPlayerId: player.id }] },
@@ -62,7 +62,23 @@ router.get('/player/:username', async (req, res) => {
       };
     });
 
-    res.json({ player, games: history });
+    // Activity heatmap: games per day for last 365 days
+    const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const allGames = await prisma.game.findMany({
+      where: {
+        OR: [{ redPlayerId: player.id }, { blackPlayerId: player.id }],
+        startedAt: { gte: yearAgo }
+      },
+      select: { startedAt: true },
+      orderBy: { startedAt: 'asc' }
+    });
+    const activity = {};
+    for (const g of allGames) {
+      const day = g.startedAt.toISOString().slice(0, 10);
+      activity[day] = (activity[day] || 0) + 1;
+    }
+
+    res.json({ player, games: history, activity });
   } catch (err) {
     console.error('Player profile error:', err);
     res.status(500).json({ error: 'Internal server error' });

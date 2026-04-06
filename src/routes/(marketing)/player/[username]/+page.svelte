@@ -1,9 +1,35 @@
 <script>
   let { data } = $props();
   // svelte-ignore state_referenced_locally
-  const { player, games } = data;
+  const { player, games, activity } = data;
 
   const winRate = player.gamesPlayed > 0 ? Math.round((player.wins / player.gamesPlayed) * 100) : 0;
+
+  // Build activity grid — 52 weeks x 7 days, starting from today going back
+  function buildActivityGrid() {
+    const grid = [];
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun
+    // Start from the first Sunday, 52 weeks ago
+    const start = new Date(today);
+    start.setDate(start.getDate() - dayOfWeek - (52 * 7));
+
+    for (let week = 0; week < 53; week++) {
+      const col = [];
+      for (let day = 0; day < 7; day++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + week * 7 + day);
+        const key = d.toISOString().slice(0, 10);
+        const count = activity[key] || 0;
+        const future = d > today;
+        col.push({ key, count, future });
+      }
+      grid.push(col);
+    }
+    return grid;
+  }
+  const activityGrid = buildActivityGrid();
+  const maxActivity = Math.max(1, ...Object.values(activity));
   const initials = (player.username || '?').slice(0, 2).toUpperCase();
   const avatarHue = player.username.split('').reduce((h, c) => h + c.charCodeAt(0), 0) % 360;
   const memberSince = new Date(player.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -93,6 +119,25 @@
     </div>
   </div>
 
+  <div class="activity-section">
+    <h2 class="section-heading">Activity</h2>
+    <div class="activity-grid">
+      {#each activityGrid as week}
+        <div class="activity-col">
+          {#each week as day}
+            <div
+              class="activity-cell"
+              class:future={day.future}
+              style="opacity: {day.future ? 0.05 : day.count === 0 ? 0.1 : 0.2 + 0.8 * (day.count / maxActivity)};
+                     background: {day.count > 0 ? 'var(--success)' : 'var(--text-dim)'};"
+              title="{day.key}: {day.count} game{day.count !== 1 ? 's' : ''}"
+            ></div>
+          {/each}
+        </div>
+      {/each}
+    </div>
+  </div>
+
   {#if games.length > 0}
     <h2 class="section-heading">Recent Games</h2>
     <div class="game-list">
@@ -160,6 +205,19 @@
   .stat-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
 
   .section-heading { font-size: var(--fs-body); font-weight: 600; margin-bottom: var(--sp-sm); color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+  .activity-section { width: 100%; margin-bottom: var(--sp-xl); }
+  .activity-grid {
+    display: flex; gap: 2px; overflow-x: auto;
+    padding: var(--sp-sm) 0;
+    scrollbar-width: none;
+  }
+  .activity-grid::-webkit-scrollbar { display: none; }
+  .activity-col { display: flex; flex-direction: column; gap: 2px; }
+  .activity-cell {
+    width: 10px; height: 10px; border-radius: 2px;
+  }
+  .activity-cell.future { visibility: hidden; }
 
   .game-list {
     display: flex; flex-direction: column; gap: 1px;

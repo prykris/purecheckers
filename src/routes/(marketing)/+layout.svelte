@@ -19,9 +19,8 @@
   <link rel="alternate" hreflang="x-default" href="{siteUrl}/" />
 </svelte:head>
 
-<!-- Mobile header -->
+<!-- Mobile hamburger (floating top-right) -->
 <header class="mobile-header">
-  <a href="/" class="mobile-logo"><span class="shimmer">Pure</span> Checkers</a>
   <button
     class="hamburger"
     onclick={() => (menuOpen = !menuOpen)}
@@ -263,34 +262,27 @@
 <style>
   /* Mobile header */
   .mobile-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--sp-sm) var(--sp-md);
-    padding-top: max(var(--sp-sm), env(safe-area-inset-top));
-    background: var(--surface);
-    border-bottom: 1px solid var(--surface2);
-    position: sticky;
-    top: 0;
+    position: fixed;
+    top: max(var(--sp-sm), env(safe-area-inset-top));
+    right: var(--sp-sm);
     z-index: 60;
-  }
-  .mobile-logo {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text);
-    text-decoration: none;
   }
   .hamburger {
     background: none;
     border: none;
     color: var(--text-dim);
     cursor: pointer;
-    padding: var(--sp-xs);
+    padding: var(--sp-sm);
     display: flex;
     align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--surface2);
+    border-radius: var(--radius-md);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
   .hamburger:hover {
     color: var(--text);
+    background: var(--surface2);
   }
 
   @media (min-width: 900px) {
