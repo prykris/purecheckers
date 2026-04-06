@@ -1,0 +1,17 @@
+{
+  "name": "Pure Checkers",
+  "short_name": "Checkers",
+  "description": "Free online checkers. No ads, no paywalls.",
+  "start_url": "/auth",
+  "display": "standalone",
+  "background_color": "#1c1917",
+  "theme_color": "#1c1917",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
