@@ -626,13 +626,13 @@ async function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
 
   // Presence is derived from session phase (already set to 'in-game' above)
 
-  // Emit sync:state to both players
+  // Grace period for the first mover — added before sync so client sees correct time
+  const WHEEL_GRACE = 5;
+  room.game.redTime += WHEEL_GRACE;
+
+  // Emit sync:state to both players (with grace time included)
   if (redConn) emitSyncState(redConn.socket, redUserId);
   if (blackConn) emitSyncState(blackConn.socket, blackUserId);
-
-  // Grace period for the first mover — they might still be watching the wheel
-  const WHEEL_GRACE = 5;
-  room.game.redTime += WHEEL_GRACE; // Red moves first, gets grace time
 
   // Start immediately — wheel is purely cosmetic on client
   io.to(`game:${gameId}`).emit('game:start', {

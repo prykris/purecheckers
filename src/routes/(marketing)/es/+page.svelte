@@ -13,6 +13,11 @@
 <svelte:head>
   <title>Pure Checkers — Damas Online Gratis, Sin Anuncios</title>
   <meta name="description" content="Juega damas online gratis. Sin anuncios, sin barras de energia, sin compras. Crea salas, juega con amigos, gana ELO y disfruta damas como debe ser." />
+  <link rel="canonical" href="https://purecheckers.com/es/" />
+  <meta property="og:title" content="Pure Checkers — Damas Online Gratis" />
+  <meta property="og:description" content="Juega damas online gratis. Sin anuncios, sin compras. Crea salas, juega con amigos, gana ELO." />
+  <meta property="og:url" content="https://purecheckers.com/es/" />
+  <meta property="og:locale" content="es_ES" />
 </svelte:head>
 
 <section class="hero" id="top">

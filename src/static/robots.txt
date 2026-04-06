@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /auth
+Disallow: /lobby
+Disallow: /game
+Disallow: /shop
+Disallow: /friends
+Disallow: /profile
+
+Sitemap: https://purecheckers.com/sitemap.xml

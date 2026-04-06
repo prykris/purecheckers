@@ -1,6 +1,10 @@
 <svelte:head>
   <title>Changelog — Pure Checkers</title>
   <meta name="description" content="See what's new in Pure Checkers. Feature updates, improvements, and what we're building next." />
+  <link rel="canonical" href="https://purecheckers.com/changelog" />
+  <meta property="og:title" content="Changelog — Pure Checkers" />
+  <meta property="og:description" content="See what's new in Pure Checkers. Feature updates and improvements." />
+  <meta property="og:url" content="https://purecheckers.com/changelog" />
 </svelte:head>
 
 <section class="changelog">
@@ -101,7 +105,7 @@
   .page-title { font-size: var(--fs-title); font-weight: 700; text-align: center; margin-bottom: var(--sp-xs); }
   .page-sub { text-align: center; color: var(--text-dim); font-size: var(--fs-body); margin-bottom: var(--sp-3xl); }
 
-  .release { margin-bottom: var(--sp-3xl); }
+  .release { margin-bottom: var(--sp-3xl); padding-top: var(--sp-xl); }
   .release-header {
     display: flex; justify-content: space-between; align-items: baseline;
     margin-bottom: var(--sp-md);

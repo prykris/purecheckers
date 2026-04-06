@@ -1,6 +1,10 @@
 <svelte:head>
   <title>Blog & News — Pure Checkers</title>
   <meta name="description" content="Latest news, updates, and articles from Pure Checkers." />
+  <link rel="canonical" href="https://purecheckers.com/blog" />
+  <meta property="og:title" content="Blog & News — Pure Checkers" />
+  <meta property="og:description" content="Latest news, updates, and articles from Pure Checkers." />
+  <meta property="og:url" content="https://purecheckers.com/blog" />
 </svelte:head>
 
 <section class="section">

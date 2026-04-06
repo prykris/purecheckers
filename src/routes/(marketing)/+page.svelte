@@ -13,6 +13,12 @@
 <svelte:head>
   <title>Pure Checkers — Free Online Checkers, No Ads, No Paywalls</title>
   <meta name="description" content="Play checkers online for free. No ads, no energy bars, no in-app purchases. Create rooms, play with friends, earn ELO, and enjoy checkers the way it should be." />
+  <link rel="canonical" href="https://purecheckers.com/" />
+  <meta property="og:title" content="Pure Checkers — Free Online Checkers" />
+  <meta property="og:description" content="Play checkers online for free. No ads, no paywalls. Create rooms, play with friends, earn ELO." />
+  <meta property="og:url" content="https://purecheckers.com/" />
+  <meta name="twitter:title" content="Pure Checkers — Free Online Checkers" />
+  <meta name="twitter:description" content="Play checkers online for free. No ads, no paywalls. Create rooms, play with friends, earn ELO." />
   <script type="application/ld+json">
   {JSON.stringify({
     "@context": "https://schema.org",
@@ -21,7 +27,9 @@
     "url": "https://purecheckers.com",
     "applicationCategory": "GameApplication",
     "operatingSystem": "Any",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "Free online checkers. No ads, no paywalls. Play with friends or strangers worldwide.",
+    "screenshot": "https://purecheckers.com/og-image.png"
   })}
   </script>
 </svelte:head>

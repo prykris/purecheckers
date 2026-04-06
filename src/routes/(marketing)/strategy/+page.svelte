@@ -1,6 +1,10 @@
 <svelte:head>
   <title>Strategy Guides — Pure Checkers</title>
   <meta name="description" content="Improve your checkers game with strategy guides, opening moves, and tips from experienced players." />
+  <link rel="canonical" href="https://purecheckers.com/strategy" />
+  <meta property="og:title" content="Strategy Guides — Pure Checkers" />
+  <meta property="og:description" content="Improve your checkers game with strategy guides, opening moves, and tips." />
+  <meta property="og:url" content="https://purecheckers.com/strategy" />
 </svelte:head>
 
 <section class="section">

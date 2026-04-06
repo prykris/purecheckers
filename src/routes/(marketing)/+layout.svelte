@@ -4,7 +4,22 @@
 </script>
 
 <svelte:head>
+  <!-- Global OG defaults (pages override title/description/url) -->
   <meta property="og:site_name" content="Pure Checkers" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="{siteUrl}/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- Twitter Card defaults -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="{siteUrl}/og-image.png" />
+
+  <!-- Theme color -->
+  <meta name="theme-color" content="#1c1917" />
+
+  <!-- hreflang -->
   <link rel="alternate" hreflang="en" href="{siteUrl}/" />
   <link rel="alternate" hreflang="es" href="{siteUrl}/es/" />
   <link rel="alternate" hreflang="x-default" href="{siteUrl}/" />

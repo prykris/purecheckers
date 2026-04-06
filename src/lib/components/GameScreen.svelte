@@ -79,6 +79,12 @@
     if (mode === 'online') {
       socket = getSocket();
       if (gameId) setActiveChannel(`game:${gameId}`);
+      socket.on('game:start', (data) => {
+        game.redTime = data.redTime;
+        game.blackTime = data.blackTime;
+        game.currentPlayer = data.currentPlayer;
+        syncTimers();
+      });
       socket.on('game:moved', onServerMove);
       socket.on('game:tick', onTick);
       socket.on('game:over', onGameOver);
@@ -132,6 +138,7 @@
     clearInterval(timerInterval);
     clearTimeout(emoteTimeout);
     if (socket) {
+      socket.off('game:start');
       socket.off('game:moved', onServerMove);
       socket.off('game:tick', onTick);
       socket.off('game:over', onGameOver);
