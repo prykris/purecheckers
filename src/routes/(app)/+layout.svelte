@@ -6,6 +6,7 @@
   import { api } from '$lib/api.js';
   import { getSocket } from '$lib/socket.js';
   import { initSocket } from '$lib/socketService.js';
+  import { muted, toggleMute, preloadAll } from '$lib/sounds.js';
 
   // Game layer components
   import GameScreen from '$lib/components/GameScreen.svelte';
@@ -202,6 +203,13 @@
     <button class="edge-toggle right" onclick={() => lbOpen = !lbOpen} title="Leaderboard">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
     </button>
+    <button class="sound-toggle" class:muted={$muted} onclick={() => { preloadAll(); toggleMute(); }} title="{$muted ? 'Unmute' : 'Mute'}">
+      {#if $muted}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      {:else}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+      {/if}
+    </button>
   {/if}
 
   <SlidePanel bind:open={chatOpen} side="left" title="Global Chat">
@@ -280,4 +288,17 @@
   }
   .conn-retry:hover { background: rgba(255,255,255,0.3); }
   @keyframes conn-slide-in { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+
+  .sound-toggle {
+    position: fixed; bottom: calc(var(--tab-height) + var(--sp-sm) + env(safe-area-inset-bottom, 0px));
+    right: var(--sp-sm); z-index: 55;
+    background: var(--surface); border: 1px solid var(--surface2);
+    color: var(--text-dim); cursor: pointer;
+    padding: var(--sp-xs); border-radius: 50%;
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    transition: color 0.15s, background 0.15s;
+  }
+  .sound-toggle:hover { color: var(--text); background: var(--surface2); }
+  .sound-toggle.muted { opacity: 0.5; }
 </style>

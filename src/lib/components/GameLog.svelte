@@ -155,9 +155,9 @@
   }
   .log-list {
     display: flex; flex-direction: column; gap: 1px;
-    background: var(--surface2); border-radius: var(--radius-md);
+    background: transparent; border-radius: var(--radius-md);
     overflow-y: auto; overflow-x: hidden;
-    flex: 1; min-height: 0;
+    flex: 1; min-height: 0; max-height: 400px;
     scrollbar-width: thin; scrollbar-color: var(--surface2) transparent;
   }
   .log-list::-webkit-scrollbar { width: 4px; }
@@ -167,8 +167,9 @@
   .log-row {
     display: flex; justify-content: space-between; align-items: center;
     padding: var(--sp-sm) var(--sp-md);
-    background: var(--surface);
+    border-bottom: 1px solid var(--surface2);
   }
+  .log-row:last-child { border-bottom: none; }
   .log-time { transition: opacity 0.15s; }
   .log-replay {
     display: none; align-items: center; gap: 3px;

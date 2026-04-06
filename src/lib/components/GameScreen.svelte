@@ -6,6 +6,7 @@
   import { getSocket } from '$lib/socket.js';
   import { api } from '$lib/api.js';
   import RoomChat from './chat/RoomChat.svelte';
+  import { play as sfx } from '$lib/sounds.js';
   import { setActiveChannel } from '$lib/socketService.js';
   import { CheckersGame, ColonelBot } from '../../../shared/game.js';
   import { TURN_TIME } from '../../../shared/constants.js';
@@ -84,6 +85,7 @@
         game.blackTime = data.blackTime;
         game.currentPlayer = data.currentPlayer;
         syncTimers();
+        sfx('gameStart');
       });
       socket.on('game:moved', onServerMove);
       socket.on('game:tick', onTick);
@@ -280,6 +282,11 @@
 
   async function performAnimatedMove(fr,fc,tr,tc) {
     const info=gatherAnimInfo(fr,fc,tr,tc); const result=game.makeMove(fr,fc,tr,tc); if(!result)return null;
+    // Sound — chain captures pitch up
+    if(result.captured.length>0) { chainCount++; sfx('capture', { rate: 1 + (chainCount - 1) * 0.1 }); }
+    else { chainCount = 0; sfx('place'); }
+    if(!result.chainContinues) chainCount = 0;
+    if(result.promoted) sfx('king');
     lastMove={fromRow:fr,fromCol:fc,toRow:tr,toCol:tc};
     lastMoveCaptured = info?.captured?.map(c => ({row:c.row, col:c.col})) || [];
     if(info?.captured.length>0){for(const cap of info.captured)capturedPieces[info.pieceColor].push({color:cap.color,queen:cap.queen});capturedPieces=capturedPieces;}
@@ -295,6 +302,7 @@
   let dragging = null; // { row, col, piece, x, y } — canvas-space coords of dragged piece
   let dragStarted = false; // true once pointer moves — drag vs click
   let pendingChainMove = null; // { toRow, toCol } — queued during animation for instant chain
+  let chainCount = 0; // tracks consecutive captures for pitch escalation
 
   function getCell(clientX, clientY) {
     const rect = canvasEl.getBoundingClientRect();
@@ -419,7 +427,7 @@
   function botTurn() { botThinking=true; setTimeout(async()=>{const move=bot.chooseMove(game);if(!move){botThinking=false;return;}const result=await performAnimatedMove(move.fromRow,move.fromCol,move.toRow,move.toCol);if(!result){botThinking=false;return;}selectedPiece=null;validMoves=[];drawBoard();if(game.gameOver){botThinking=false;handleGameOver();return;}if(result.chainContinues)setTimeout(()=>botTurn(),300);else botThinking=false;},400+Math.random()*600); }
 
   function startTimer() { timerInterval=setInterval(()=>{if(game.gameOver){clearInterval(timerInterval);return;}game.tickTime(1);syncTimers();if(game.gameOver)handleGameOver();},1000); }
-  function handleGameOver() { clearInterval(timerInterval); if(!gameOverData)gameOverData={winner:game.winner,eloChanges:{red:0,black:0},coinRewards:{red:0,black:0}}; $gameOverVisible=true; }
+  function handleGameOver() { clearInterval(timerInterval); if(!gameOverData)gameOverData={winner:game.winner,eloChanges:{red:0,black:0},coinRewards:{red:0,black:0}}; $gameOverVisible=true; sfx(game.winner===myColor?'victory':'defeat'); }
 
   function resign() { showResignConfirm=false; game.gameOver=true; game.winner=myColor==='red'?'black':'red'; if(mode==='online')socket.emit('game:resign',{gameId:gameId}); handleGameOver(); }
   function goToLobby() {
@@ -430,7 +438,7 @@
     getSocket()?.emit('game:leave', { gameId });
   }
 
-  function onEmoteShow(data) { activeEmote={emoji:data.emote.emoji,label:data.emote.label,username:data.username}; clearTimeout(emoteTimeout); emoteTimeout=setTimeout(()=>{activeEmote=null;},2500); }
+  function onEmoteShow(data) { activeEmote={emoji:data.emote.emoji,label:data.emote.label,username:data.username}; clearTimeout(emoteTimeout); emoteTimeout=setTimeout(()=>{activeEmote=null;},2500); sfx('emote'); }
   function sendEmote(emote) {
     socket?.emit('emote:send',{gameId:gameId,emote:{emoji:emote.data.emoji,label:emote.data.label}});
     // Only hide on mobile (desktop keeps it open in left panel)
@@ -442,12 +450,21 @@
   let currentPlayer = game.currentPlayer;
 
   // Sync reactive time vars from game state
-  function syncTimers() { redTime = game.redTime; blackTime = game.blackTime; currentPlayer = game.currentPlayer; }
+  function syncTimers() {
+    redTime = game.redTime; blackTime = game.blackTime; currentPlayer = game.currentPlayer;
+    // Tick sound when MY timer is low
+    const myTime = myColor === 'red' ? redTime : blackTime;
+    if (currentPlayer === myColor && myTime <= 10 && myTime > 0 && !game.gameOver) {
+      sfx('tick', { volume: Math.min(1, 0.3 + (10 - myTime) * 0.07) });
+    }
+  }
 
   $: topColor = myColor === 'red' ? 'black' : 'red';
   $: topTime = topColor === 'red' ? redTime : blackTime;
   $: bottomTime = myColor === 'red' ? redTime : blackTime;
   $: isMyTurn = currentPlayer === myColor && !game.gameOver;
+  $: myTime = myColor === 'red' ? redTime : blackTime;
+  $: urgency = (isMyTurn && myTime <= 10 && myTime > 0 && !game.gameOver) ? (10 - myTime) / 10 : 0;
   $: statusText = game.gameOver ? (game.winner===myColor?'Victory!':'Defeat') : isMyTurn ? 'Your turn' : (mode==='bot'?'The Colonel is thinking...':"Opponent's turn");
   $: spectatorCount = $activeRoom?.spectators?.length || 0;
   function fmtTime(s) { const sec=Math.ceil(s); return `0:${sec.toString().padStart(2,'0')}`; }
@@ -474,7 +491,7 @@
   </div>
 
   <!-- Center: board -->
-  <div class="board-wrap">
+  <div class="board-wrap" class:urgent={urgency > 0} style="--urgency: {urgency}">
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <canvas bind:this={canvasEl} width="480" height="480"
       on:click={onClick}
@@ -609,7 +626,15 @@
   .cap.red { background: var(--red-piece); }
   .cap.black { background: var(--black-piece); border: 1px solid #555; }
 
-  .board-wrap { position: relative; touch-action: none; }
+  .board-wrap { position: relative; touch-action: none; border-radius: var(--radius-md); }
+  .board-wrap.urgent {
+    box-shadow: inset 0 0 calc(20px + 30px * var(--urgency)) rgba(239, 68, 68, calc(0.15 + 0.35 * var(--urgency)));
+    animation: urgentPulse 1s ease-in-out infinite;
+  }
+  @keyframes urgentPulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(calc(1 - 0.08 * var(--urgency))); }
+  }
   canvas {
     display: block; border-radius: var(--radius-sm); cursor: pointer; box-shadow: var(--shadow-board);
     -webkit-tap-highlight-color: transparent;

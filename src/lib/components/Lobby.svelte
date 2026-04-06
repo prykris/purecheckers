@@ -101,6 +101,7 @@
     flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
     gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md);
     padding-top: max(var(--sp-sm), env(safe-area-inset-top));
+    max-width: 520px; width: 100%; margin: 0 auto;
   }
   .header-row {
     display: flex; align-items: center; justify-content: space-between; width: 100%;
