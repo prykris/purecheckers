@@ -160,9 +160,13 @@
   .lobby-center {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; gap: var(--sp-md); padding: var(--sp-sm) var(--sp-md);
-    overflow: hidden; min-height: 0;
+    overflow-y: auto; overflow-x: hidden; min-height: 0;
     max-width: 520px; width: 100%; margin: 0 auto;
+    scrollbar-width: thin; scrollbar-color: var(--surface2) transparent;
   }
+  .lobby-center::-webkit-scrollbar { width: 4px; }
+  .lobby-center::-webkit-scrollbar-track { background: transparent; }
+  .lobby-center::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
 
   .friend-code { font-size: var(--fs-caption); color: var(--text-dim); }
   .friend-code strong { color: var(--accent); letter-spacing: 2px; font-family: var(--font-mono); }
