@@ -2,9 +2,12 @@
   import { CheckersGame } from '$lib/game.js';
   import { onMount, onDestroy } from 'svelte';
 
-  export let gameData; // { id, redPlayer, blackPlayer, result, mode, moveHistory, date }
+  const props = $props();
 
-  const moves = gameData.moveHistory || [];
+  // Static data — doesn't change after mount
+  // svelte-ignore state_referenced_locally
+  const g = props.gameData;
+  const moves = g.moveHistory || [];
   let moveIndex = $state(0);
   let checkers = $state(new CheckersGame());
 
@@ -29,14 +32,14 @@
     else if (e.key === 'End') { e.preventDefault(); toEnd(); }
   }
 
-  const winner = gameData.result === 'RED_WIN' ? gameData.redPlayer : gameData.result === 'BLACK_WIN' ? gameData.blackPlayer : null;
-  const loser = gameData.result === 'RED_WIN' ? gameData.blackPlayer : gameData.result === 'BLACK_WIN' ? gameData.redPlayer : null;
+  const winner = g.result === 'RED_WIN' ? g.redPlayer : g.result === 'BLACK_WIN' ? g.blackPlayer : null;
+  const loser = g.result === 'RED_WIN' ? g.blackPlayer : g.result === 'BLACK_WIN' ? g.redPlayer : null;
   const resultText = winner ? `${winner} wins` : 'Draw';
 
   function getEndReason() {
     const final = new CheckersGame();
     for (const m of moves) final.makeMove(m.fromRow, m.fromCol, m.toRow, m.toCol);
-    const loserColor = gameData.result === 'RED_WIN' ? 'black' : 'red';
+    const loserColor = g.result === 'RED_WIN' ? 'black' : 'red';
     let loserPieces = 0;
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
       const p = final.at(r, c);
@@ -47,7 +50,7 @@
     if (loserMoves.length === 0) return `${loser} has no valid moves`;
     return `${loser} forfeited`;
   }
-  const endReason = gameData.result === 'DRAW' ? 'Game drawn' : getEndReason();
+  const endReason = g.result === 'DRAW' ? 'Game drawn' : getEndReason();
 
   onMount(() => window.addEventListener('keydown', onKeyDown));
   onDestroy(() => window.removeEventListener('keydown', onKeyDown));
@@ -55,9 +58,9 @@
 
 <div class="replay-board">
   <div class="replay-header">
-    <span class="rp-name red">{gameData.redPlayer}</span>
+    <span class="rp-name red">{g.redPlayer}</span>
     <span class="rp-vs">vs</span>
-    <span class="rp-name black">{gameData.blackPlayer}</span>
+    <span class="rp-name black">{g.blackPlayer}</span>
   </div>
 
   <div class="board">
@@ -85,7 +88,7 @@
   </div>
 
   {#if moveIndex >= moves.length}
-    <div class="outcome" class:win={gameData.result !== 'DRAW'}>
+    <div class="outcome" class:win={g.result !== 'DRAW'}>
       <span class="outcome-result">{resultText}</span>
       <span class="outcome-reason">{endReason}</span>
     </div>
