@@ -367,8 +367,7 @@
   /* Layout */
   .marketing-layout {
     display: flex;
-    height: 100dvh;
-    overflow: hidden;
+    min-height: 100dvh;
   }
 
   /* Desktop sidebar */
@@ -378,7 +377,8 @@
 
   @media (min-width: 900px) {
     .marketing-layout {
-      height: calc(100dvh);
+      height: 100dvh;
+      overflow: hidden;
     }
     .sidebar {
       display: flex;
@@ -493,6 +493,7 @@
       height: auto;
       min-height: 100dvh;
       flex-direction: column;
+      overflow: visible;
     }
     .marketing-main {
       overflow: visible;

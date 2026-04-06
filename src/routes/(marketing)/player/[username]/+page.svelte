@@ -9,20 +9,22 @@
   function buildActivityGrid() {
     const grid = [];
     const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=Sun
-    // Start from the first Sunday, 52 weeks ago
-    const start = new Date(today);
-    start.setDate(start.getDate() - dayOfWeek - (52 * 7));
+    const year = today.getFullYear();
+    const jan1 = new Date(year, 0, 1);
+    const dec31 = new Date(year, 11, 31);
+    const start = new Date(jan1);
+    start.setDate(start.getDate() - start.getDay());
 
-    for (let week = 0; week < 53; week++) {
+    let d = new Date(start);
+    while (d <= dec31 || d.getDay() !== 0) {
       const col = [];
       for (let day = 0; day < 7; day++) {
-        const d = new Date(start);
-        d.setDate(d.getDate() + week * 7 + day);
         const key = d.toISOString().slice(0, 10);
         const count = activity[key] || 0;
+        const inYear = d.getFullYear() === year;
         const future = d > today;
-        col.push({ key, count, future });
+        col.push({ key, count, future, outOfRange: !inYear });
+        d = new Date(d); d.setDate(d.getDate() + 1);
       }
       grid.push(col);
     }
@@ -127,10 +129,10 @@
           {#each week as day}
             <div
               class="activity-cell"
-              class:future={day.future}
-              style="opacity: {day.future ? 0.05 : day.count === 0 ? 0.1 : 0.2 + 0.8 * (day.count / maxActivity)};
-                     background: {day.count > 0 ? 'var(--success)' : 'var(--text-dim)'};"
-              title="{day.key}: {day.count} game{day.count !== 1 ? 's' : ''}"
+              class:out={day.outOfRange}
+              style="opacity: {day.outOfRange ? 0 : day.count === 0 ? 0.1 : 0.2 + 0.8 * (day.count / maxActivity)};
+                     background: {day.count > 0 ? 'var(--success)' : day.future ? 'var(--surface2)' : 'var(--text-dim)'};"
+              title="{day.outOfRange ? '' : `${day.key}: ${day.count} game${day.count !== 1 ? 's' : ''}`}"
             ></div>
           {/each}
         </div>
@@ -217,7 +219,7 @@
   .activity-cell {
     width: 10px; height: 10px; border-radius: 2px;
   }
-  .activity-cell.future { visibility: hidden; }
+  .activity-cell.out { visibility: hidden; }
 
   .game-list {
     display: flex; flex-direction: column; gap: 1px;

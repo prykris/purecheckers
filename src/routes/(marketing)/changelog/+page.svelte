@@ -11,23 +11,27 @@
   for (const d of releases) activity[d] = (activity[d] || 0) + 1;
   const maxActivity = Math.max(1, ...Object.values(activity));
 
-  // Build grid: 52 weeks x 7 days going back from today
+  // Build grid: Jan 1 → Dec 31 of current year
   function buildGrid() {
     const grid = [];
+    const year = new Date().getFullYear();
     const today = new Date();
-    const dow = today.getDay();
-    const start = new Date(today);
-    start.setDate(start.getDate() - dow - 52 * 7);
+    const jan1 = new Date(year, 0, 1);
+    const dec31 = new Date(year, 11, 31);
+    // Start from the Sunday on or before Jan 1
+    const start = new Date(jan1);
+    start.setDate(start.getDate() - start.getDay());
 
-    for (let w = 0; w < 53; w++) {
+    let d = new Date(start);
+    while (d <= dec31 || d.getDay() !== 0) {
       const col = [];
-      for (let d = 0; d < 7; d++) {
-        const dt = new Date(start);
-        dt.setDate(dt.getDate() + w * 7 + d);
-        const key = dt.toISOString().slice(0, 10);
+      for (let day = 0; day < 7; day++) {
+        const key = d.toISOString().slice(0, 10);
         const count = activity[key] || 0;
-        const future = dt > today;
-        col.push({ key, count, future });
+        const inYear = d.getFullYear() === year;
+        const future = d > today;
+        col.push({ key, count, future, outOfRange: !inYear });
+        d = new Date(d); d.setDate(d.getDate() + 1);
       }
       grid.push(col);
     }
@@ -56,10 +60,10 @@
           {#each week as day}
             <div
               class="activity-cell"
-              class:future={day.future}
-              style="opacity: {day.future ? 0.05 : day.count === 0 ? 0.1 : 0.3 + 0.7 * (day.count / maxActivity)};
-                     background: {day.count > 0 ? 'var(--accent)' : 'var(--text-dim)'};"
-              title="{day.key}: {day.count} update{day.count !== 1 ? 's' : ''}"
+              class:out={day.outOfRange}
+              style="opacity: {day.outOfRange ? 0 : day.count === 0 ? 0.1 : 0.3 + 0.7 * (day.count / maxActivity)};
+                     background: {day.count > 0 ? 'var(--accent)' : day.future ? 'var(--surface2)' : 'var(--text-dim)'};"
+              title="{day.outOfRange ? '' : `${day.key}: ${day.count} update${day.count !== 1 ? 's' : ''}`}"
             ></div>
           {/each}
         </div>
@@ -225,5 +229,5 @@
   .activity-grid::-webkit-scrollbar { display: none; }
   .activity-col { display: flex; flex-direction: column; gap: 2px; }
   .activity-cell { width: 10px; height: 10px; border-radius: 2px; }
-  .activity-cell.future { visibility: hidden; }
+  .activity-cell.out { visibility: hidden; }
 </style>

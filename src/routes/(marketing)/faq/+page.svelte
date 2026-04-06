@@ -1,4 +1,10 @@
 <script>
+  let openIndex = $state(0);
+
+  function toggle(i) {
+    openIndex = openIndex === i ? -1 : i;
+  }
+
   const faqs = [
     {
       q: "Is Pure Checkers really free?",
@@ -72,10 +78,12 @@
 
   <div class="faq-list">
     {#each faqs as faq, i}
-      <details class="faq-item" open={i === 0}>
-        <summary class="faq-q">{faq.q}</summary>
-        <p class="faq-a">{faq.a}</p>
-      </details>
+      <div class="faq-item" class:open={openIndex === i}>
+        <button class="faq-q" onclick={() => toggle(i)}>{faq.q}<span class="faq-icon">{openIndex === i ? '−' : '+'}</span></button>
+        {#if openIndex === i}
+          <p class="faq-a">{faq.a}</p>
+        {/if}
+      </div>
     {/each}
   </div>
 </section>
@@ -86,7 +94,7 @@
     padding: 64px var(--sp-md) 120px;
   }
   .page-title { font-size: var(--fs-title); font-weight: 700; text-align: center; margin-bottom: var(--sp-xs); }
-  .page-sub { text-align: center; color: var(--text-dim); font-size: var(--fs-body); margin-bottom: var(--sp-3xl); }
+  .page-sub { text-align: center; color: var(--text-dim); font-size: var(--fs-body); margin-bottom: 48px; }
 
   .faq-list { display: flex; flex-direction: column; gap: var(--sp-sm); }
 
@@ -94,23 +102,20 @@
     background: var(--surface); border: 1px solid var(--surface2);
     border-radius: var(--radius-md); overflow: hidden;
   }
-  .faq-item[open] { border-color: var(--accent); }
+  .faq-item.open { border-color: var(--accent); }
 
   .faq-q {
+    width: 100%;
     padding: var(--sp-md) var(--sp-lg);
     font-size: var(--fs-body); font-weight: 600; color: var(--text);
-    cursor: pointer; list-style: none;
+    cursor: pointer; background: none; border: none; font-family: var(--font);
     display: flex; align-items: center; justify-content: space-between;
+    text-align: left;
     transition: color 0.15s;
   }
-  .faq-q::-webkit-details-marker { display: none; }
-  .faq-q::after {
-    content: '+'; font-size: 1.2rem; color: var(--text-dim);
-    flex-shrink: 0; margin-left: var(--sp-md);
-    transition: transform 0.2s;
-  }
-  .faq-item[open] .faq-q::after { content: '−'; color: var(--accent); }
   .faq-q:hover { color: var(--accent); }
+  .faq-icon { font-size: 1.2rem; color: var(--text-dim); flex-shrink: 0; margin-left: var(--sp-md); }
+  .faq-item.open .faq-icon { color: var(--accent); }
 
   .faq-a {
     padding: 0 var(--sp-lg) var(--sp-md);
