@@ -10,13 +10,41 @@
   const moves = g.moveHistory || [];
   let moveIndex = $state(0);
   let checkers = $state(new CheckersGame());
+  let lastMove = $state(null); // { fromRow, fromCol, toRow, toCol }
+  let animating = $state(null); // { fromRow, fromCol, toRow, toCol, color, queen } during slide
 
   function replayTo(index) {
+    const stepping = Math.abs(index - moveIndex) === 1;
+    const stepMove = stepping && index > 0 ? moves[index - 1] : null;
+
     checkers = new CheckersGame();
-    for (let i = 0; i < index && i < moves.length; i++) {
-      const m = moves[i];
-      checkers.makeMove(m.fromRow, m.fromCol, m.toRow, m.toCol);
+    // Replay to one step before to capture the moving piece
+    const target = stepping && stepMove ? index - 1 : index;
+    for (let i = 0; i < target && i < moves.length; i++) {
+      checkers.makeMove(moves[i].fromRow, moves[i].fromCol, moves[i].toRow, moves[i].toCol);
     }
+
+    if (stepping && stepMove) {
+      // Capture piece info before the move
+      const piece = checkers.at(stepMove.fromRow, stepMove.fromCol);
+      if (piece) {
+        animating = { ...stepMove, color: piece.color, queen: piece.queen };
+        // Apply the move after a frame so the animation starts from the old position
+        requestAnimationFrame(() => {
+          checkers.makeMove(stepMove.fromRow, stepMove.fromCol, stepMove.toRow, stepMove.toCol);
+          checkers = checkers; // trigger reactivity
+          lastMove = stepMove;
+          setTimeout(() => { animating = null; }, 250);
+        });
+      } else {
+        checkers.makeMove(stepMove.fromRow, stepMove.fromCol, stepMove.toRow, stepMove.toCol);
+        lastMove = stepMove;
+      }
+    } else {
+      lastMove = null;
+      animating = null;
+    }
+
     moveIndex = index;
   }
 
@@ -70,8 +98,11 @@
       {#each { length: 8 } as _, c}
         {@const isDark = (r + c) % 2 === 1}
         {@const piece = checkers.at(r, c)}
-        <div class="cell" class:dark={isDark} class:light={!isDark}>
-          {#if piece}
+        {@const isFrom = lastMove && lastMove.fromRow === r && lastMove.fromCol === c}
+        {@const isTo = lastMove && lastMove.toRow === r && lastMove.toCol === c}
+        {@const isAnimatingFrom = animating && animating.fromRow === r && animating.fromCol === c}
+        <div class="cell" class:dark={isDark} class:light={!isDark} class:highlight-from={isFrom} class:highlight-to={isTo}>
+          {#if piece && !isAnimatingFrom}
             <div class="piece" class:red={piece.color === 'red'} class:black={piece.color === 'black'}>
               {#if piece.queen}<span class="crown">♛</span>{/if}
             </div>
@@ -79,6 +110,13 @@
         </div>
       {/each}
     {/each}
+    {#if animating}
+      <div class="sliding-piece"
+        class:red={animating.color === 'red'} class:black={animating.color === 'black'}
+        style="--from-col:{animating.fromCol};--from-row:{animating.fromRow};--to-col:{animating.toCol};--to-row:{animating.toRow}">
+        {#if animating.queen}<span class="crown">♛</span>{/if}
+      </div>
+    {/if}
   </div>
 
   <div class="controls">
@@ -116,8 +154,33 @@
     width: 100%; max-width: 400px; aspect-ratio: 1;
     border-radius: var(--radius-md); overflow: hidden;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    position: relative;
   }
-  .cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+  .cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+  .cell.highlight-from { box-shadow: inset 0 0 0 2px rgba(100,180,255,0.4); }
+  .cell.highlight-to { box-shadow: inset 0 0 0 2px rgba(100,180,255,0.6); }
+
+  .sliding-piece {
+    position: absolute;
+    width: 12.5%; height: 12.5%;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2;
+    animation: slide-move 0.2s ease-out forwards;
+    left: calc(var(--to-col) * 12.5%);
+    top: calc(var(--to-row) * 12.5%);
+    padding: 15%;
+  }
+  .sliding-piece::before {
+    content: ''; position: absolute; inset: 15%;
+    border-radius: 50%;
+  }
+  .sliding-piece.red::before { background: radial-gradient(circle at 35% 35%, #f87171, #dc2626); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+  .sliding-piece.black::before { background: radial-gradient(circle at 35% 35%, #44403c, #1c1917); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+  @keyframes slide-move {
+    from { left: calc(var(--from-col) * 12.5%); top: calc(var(--from-row) * 12.5%); }
+    to { left: calc(var(--to-col) * 12.5%); top: calc(var(--to-row) * 12.5%); }
+  }
   .cell.light { background: var(--board-light); }
   .cell.dark { background: var(--board-dark); }
 
