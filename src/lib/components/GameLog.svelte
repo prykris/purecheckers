@@ -183,10 +183,13 @@
   .log-time { transition: opacity 0.15s; }
   .log-replay {
     display: none; align-items: center; gap: 3px;
-    color: var(--accent); text-decoration: none;
-    font-size: 0.6rem; font-weight: 600;
+    color: var(--accent); background: none; border: none;
+    font-family: var(--font); font-size: 0.6rem; font-weight: 600;
+    cursor: pointer; padding: 0;
   }
-  .log-row:hover .log-time { display: none; }
+  .log-replay:hover { color: var(--text); }
+  .log-row:hover .log-time,
+  .log-row:hover .log-mode { display: none; }
   .log-row:hover .log-replay { display: flex; }
   .log-row.my-win { border-left: 2px solid var(--success); }
   .log-row.my-loss { border-left: 2px solid var(--accent); }
