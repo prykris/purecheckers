@@ -1,6 +1,6 @@
 <script>
   import { CheckersGame } from '$lib/game.js';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
 
   const props = $props();
 
@@ -52,8 +52,10 @@
   }
   const endReason = g.result === 'DRAW' ? 'Game drawn' : getEndReason();
 
-  onMount(() => window.addEventListener('keydown', onKeyDown));
-  onDestroy(() => window.removeEventListener('keydown', onKeyDown));
+  onMount(() => {
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
 </script>
 
 <div class="replay-board">
