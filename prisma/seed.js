@@ -170,6 +170,20 @@ async function seed() {
 
   const count = await prisma.shopItem.count();
   console.log(`Seeded ${count} shop items`);
+
+  // Promote admin user if ADMIN_USERNAME is set
+  const adminName = process.env.ADMIN_USERNAME;
+  if (adminName) {
+    const admin = await prisma.user.findUnique({ where: { username: adminName } });
+    if (admin && !admin.isAdmin) {
+      await prisma.user.update({ where: { id: admin.id }, data: { isAdmin: true } });
+      console.log(`Promoted ${adminName} to admin`);
+    } else if (admin?.isAdmin) {
+      console.log(`${adminName} is already admin`);
+    } else {
+      console.log(`Admin user '${adminName}' not found (will be promoted on next seed after registration)`);
+    }
+  }
 }
 
 seed()

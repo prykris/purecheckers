@@ -37,7 +37,7 @@
 <GameLog />
 
 <style>
-  .quick { display: flex; flex-direction: column; align-items: center; gap: var(--sp-lg); padding: var(--sp-lg) 0; }
+  .quick { display: flex; flex-direction: column; align-items: center; gap: var(--sp-lg); padding: var(--sp-lg) 0; flex-shrink: 0; }
 
   .elo-display { display: flex; flex-direction: column; align-items: center; gap: var(--sp-xs); }
   .elo-label { font-size: var(--fs-caption); color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; }

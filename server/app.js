@@ -7,6 +7,7 @@ import friendsRoutes from './routes/friends.js';
 import coinsRoutes from './routes/coins.js';
 import guestRoutes from './routes/guest.js';
 import treasuryRoutes from './routes/treasury.js';
+import adminRoutes from './routes/admin.js';
 
 const app = express();
 
@@ -24,5 +25,6 @@ app.use('/api/friends', friendsRoutes);
 app.use('/api/coins', coinsRoutes);
 app.use('/api/guest', guestRoutes);
 app.use('/api/treasury', treasuryRoutes);
+app.use('/api/admin', adminRoutes);
 
 export default app;

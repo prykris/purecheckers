@@ -160,7 +160,7 @@
   .lobby-center {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; gap: var(--sp-md); padding: var(--sp-sm) var(--sp-md);
-    overflow-y: auto;
+    overflow: hidden; min-height: 0;
     max-width: 520px; width: 100%; margin: 0 auto;
   }
 

@@ -112,6 +112,7 @@
   .game-log {
     width: 100%;
     display: flex; flex-direction: column; gap: var(--sp-sm);
+    min-height: 0; flex: 1;
   }
   .log-header {
     display: flex; justify-content: space-between; align-items: center;
@@ -150,8 +151,15 @@
   }
   .log-list {
     display: flex; flex-direction: column; gap: 1px;
-    background: var(--surface2); border-radius: var(--radius-md); overflow: hidden;
+    background: var(--surface2); border-radius: var(--radius-md);
+    overflow-y: auto; overflow-x: hidden;
+    flex: 1; min-height: 0;
+    scrollbar-width: thin; scrollbar-color: var(--surface2) transparent;
   }
+  .log-list::-webkit-scrollbar { width: 4px; }
+  .log-list::-webkit-scrollbar-track { background: transparent; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
+  .log-list::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
   .log-row {
     display: flex; justify-content: space-between; align-items: center;
     padding: var(--sp-sm) var(--sp-md);

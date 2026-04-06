@@ -21,6 +21,9 @@ export const browseTab = writable('lobby');
 // Game over modal visible (prevents phase change from dismissing game screen)
 export const gameOverVisible = writable(false);
 
+// Connection status: 'connected' | 'reconnecting' | 'disconnected'
+export const connectionStatus = writable('connected');
+
 // Room/game chat (separate from global chat)
 export const roomChatMessages = writable([]);
 export const roomUnreadChat = writable(0);

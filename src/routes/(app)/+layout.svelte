@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { phase, gameState, browseTab, gameOverVisible } from '$lib/stores/app.js';
+  import { phase, gameState, browseTab, gameOverVisible, connectionStatus } from '$lib/stores/app.js';
   import { gameScreen, recompute } from '$lib/stores/gameScreen.js';
   import { user, token } from '$lib/stores/user.js';
   import { api } from '$lib/api.js';
@@ -23,6 +23,7 @@
   import TreasuryScreen from '$lib/components/TreasuryScreen.svelte';
 
   // Chrome
+  import DevPanel from '$lib/components/DevPanel.svelte';
   import BottomNav from '$lib/components/BottomNav.svelte';
   import RoomBanner from '$lib/components/RoomBanner.svelte';
   import SearchBanner from '$lib/components/SearchBanner.svelte';
@@ -127,6 +128,20 @@
       <p>You logged in from another device or tab.</p>
       <button class="btn btn-primary" onclick={() => window.location.reload()}>Reconnect</button>
     </div>
+  </div>
+{/if}
+
+<DevPanel />
+
+{#if $connectionStatus !== 'connected' && $user && !loading}
+  <div class="connection-bar" class:disconnected={$connectionStatus === 'disconnected'}>
+    {#if $connectionStatus === 'reconnecting'}
+      <div class="conn-spinner"></div>
+      <span>Reconnecting...</span>
+    {:else}
+      <span>Connection lost</span>
+      <button class="conn-retry" onclick={() => window.location.reload()}>Retry</button>
+    {/if}
   </div>
 {/if}
 
@@ -243,4 +258,26 @@
     .edge-toggle { padding: var(--sp-xs) 3px; }
     .edge-toggle :global(svg) { width: 14px; height: 14px; }
   }
+
+  .connection-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+    display: flex; align-items: center; justify-content: center; gap: var(--sp-sm);
+    padding: var(--sp-xs) var(--sp-md);
+    background: var(--warning); color: #000;
+    font-size: var(--fs-caption); font-weight: 600;
+    animation: conn-slide-in 0.3s ease-out;
+  }
+  .connection-bar.disconnected { background: var(--accent); color: #fff; }
+  .conn-spinner {
+    width: 12px; height: 12px;
+    border: 2px solid rgba(0,0,0,0.3); border-top-color: #000;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  .conn-retry {
+    background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+    color: #fff; font-family: var(--font); font-size: 0.6rem; font-weight: 600;
+    padding: 2px 8px; border-radius: var(--radius-pill); cursor: pointer;
+  }
+  .conn-retry:hover { background: rgba(255,255,255,0.3); }
+  @keyframes conn-slide-in { from { transform: translateY(-100%); } to { transform: translateY(0); } }
 </style>

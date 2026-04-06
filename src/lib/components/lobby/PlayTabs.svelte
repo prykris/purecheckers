@@ -51,7 +51,7 @@
 </div>
 
 <style>
-  .play-tabs { width: 100%; display: flex; flex-direction: column; }
+  .play-tabs { width: 100%; display: flex; flex-direction: column; flex: 1; min-height: 0; }
   .tab-row { display: flex; border-bottom: 1px solid var(--surface2); gap: 0; }
   .tab {
     flex: 1; padding: var(--sp-sm) var(--sp-md);
@@ -73,5 +73,5 @@
     margin-left: var(--sp-xs);
     line-height: 1;
   }
-  .tab-content { padding: var(--sp-sm) 0; }
+  .tab-content { padding: var(--sp-sm) 0; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 </style>
