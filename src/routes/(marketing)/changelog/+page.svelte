@@ -13,14 +13,30 @@
 
   <article class="release">
     <div class="release-header">
+      <h2>SEO, Analytics & Public Pages</h2>
+      <time>6 April 2026</time>
+    </div>
+    <ul>
+      <li><strong>Player Profiles</strong> — every player now has a public profile page at <code>/player/username</code> showing their ELO, win rate, and recent games.</li>
+      <li><strong>Game Replays</strong> — watch any finished game move-by-move at <code>/game/id</code> with keyboard navigation. Share replays with friends.</li>
+      <li><strong>FAQ Page</strong> — frequently asked questions with structured data for Google rich snippets.</li>
+      <li><strong>Self-Hosted Fonts</strong> — Poppins is now served locally instead of from Google Fonts. Faster page loads, no third-party requests.</li>
+      <li><strong>Google Analytics</strong> — tracking enabled to understand how players use the site.</li>
+      <li><strong>Open Graph & Twitter Cards</strong> — proper social sharing previews when links are posted on social media.</li>
+      <li><strong>Sitemap & Robots</strong> — search engines can now discover and index all public pages.</li>
+    </ul>
+  </article>
+
+  <article class="release">
+    <div class="release-header">
       <h2>Developer Tools & Quality of Life</h2>
       <time>6 April 2026</time>
     </div>
     <ul>
       <li><strong>Connection Status</strong> — a warning bar appears when your connection drops, showing reconnection progress. No more silent disconnects.</li>
-      <li><strong>Dev Panel</strong> — press F2 to inspect live game state, socket events, and stores. Copy a full diagnostic report with one click. Admin users get economy tools (give coins, set ELO).</li>
+      <li><strong>Dev Panel</strong> — press F2 to inspect live game state, socket events, and stores. Copy a full diagnostic report with one click. Admin users get economy tools.</li>
       <li><strong>Admin System</strong> — designated admin accounts can manage the game economy directly from the dev panel.</li>
-      <li><strong>Scrollable Game Log</strong> — the game log in the Quick Play tab now scrolls within its own container with a clean, thin scrollbar instead of overflowing the page.</li>
+      <li><strong>Scrollable Game Log</strong> — the game log in the Quick Play tab now scrolls within its own container with a styled scrollbar.</li>
     </ul>
   </article>
 
@@ -105,7 +121,7 @@
   .page-title { font-size: var(--fs-title); font-weight: 700; text-align: center; margin-bottom: var(--sp-xs); }
   .page-sub { text-align: center; color: var(--text-dim); font-size: var(--fs-body); margin-bottom: var(--sp-3xl); }
 
-  .release { margin-bottom: var(--sp-3xl); padding-top: var(--sp-xl); }
+  .release { margin-bottom: 64px; padding-top: 48px; }
   .release-header {
     display: flex; justify-content: space-between; align-items: baseline;
     margin-bottom: var(--sp-md);
