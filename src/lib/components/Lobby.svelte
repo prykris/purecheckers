@@ -1,8 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { presenceStats } from '$lib/stores/app.js';
-  import { user, token } from '$lib/stores/user.js';
-  import { disconnectSocket } from '$lib/socket.js';
+  import { user } from '$lib/stores/user.js';
   import { api } from '$lib/api.js';
 
   import PlayTabs from './lobby/PlayTabs.svelte';
@@ -50,33 +49,26 @@
 
   });
 
-  function logout() {
-    disconnectSocket();
-    disconnectSocket(); $token = null; $user = null;
-  }
 </script>
 
 <div class="lobby-layout">
   <div class="top-header">
-    <h1 class="title"><span>Pure</span> Checkers</h1>
-    <div class="presence-stats">
-      <span class="stat-pill online"><span class="pulse-dot"></span>{$presenceStats.online} online</span>
-      {#if $presenceStats.lookingToPlay > 0}
-        <span class="stat-pill looking">{$presenceStats.lookingToPlay} looking to play</span>
-      {/if}
-    </div>
-    <div class="card user-bar">
-      <div class="user-info">
-        <strong>{$user?.username}</strong>
-        <span class="stat">ELO {$user?.elo || 1000}</span>
-        <span class="stat gold">{$user?.coins || 0} coins</span>
-      </div>
-      <div class="header-actions">
+    <div class="header-row">
+      <h1 class="title"><span>Pure</span> Checkers</h1>
+      <div class="header-right">
+        <span class="stat-pill online"><span class="pulse-dot"></span>{$presenceStats.online}</span>
         <button class="icon-btn" on:click={() => showThemes = !showThemes} title="Theme">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         </button>
-        <button class="btn btn-dark btn-small" on:click={logout}>Logout</button>
       </div>
+    </div>
+    <div class="user-row">
+      <strong>{$user?.username}</strong>
+      <span class="stat">ELO {$user?.elo || 1000}</span>
+      <span class="stat gold">{$user?.coins || 0}c</span>
+      {#if $presenceStats.lookingToPlay > 0}
+        <span class="stat looking">{$presenceStats.lookingToPlay} searching</span>
+      {/if}
     </div>
 
     {#if showThemes}
@@ -95,11 +87,6 @@
 
   <div class="lobby-center">
     <PlayTabs />
-
-    {#if $user?.friendCode}
-      <p class="friend-code">Your code: <strong>{$user.friendCode}</strong></p>
-    {/if}
-
   </div>
 </div>
 
@@ -115,29 +102,36 @@
     gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md);
     padding-top: max(var(--sp-sm), env(safe-area-inset-top));
   }
-  .title { font-size: var(--fs-title); letter-spacing: 2px; color: var(--accent); text-align: center; }
+  .header-row {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+  }
+  .header-right { display: flex; align-items: center; gap: var(--sp-sm); }
+  .title { font-size: var(--fs-heading); letter-spacing: 1px; color: var(--accent); }
   .title span { color: var(--text); font-weight: 300; }
 
-  .presence-stats { display: flex; gap: var(--sp-sm); align-items: center; justify-content: center; }
+  .user-row {
+    display: flex; align-items: center; gap: var(--sp-sm); flex-wrap: wrap;
+    width: 100%;
+  }
+  .user-row strong { font-size: var(--fs-caption); }
+  .stat {
+    font-size: 0.6rem; color: var(--text-dim);
+    background: var(--surface2); padding: 1px var(--sp-sm); border-radius: var(--radius-sm);
+  }
+  .gold { color: var(--gold); }
+  .looking { color: var(--gold); }
+
   .stat-pill {
-    display: flex; align-items: center; gap: 5px;
+    display: flex; align-items: center; gap: 4px;
     font-size: 0.65rem; font-weight: 600; color: var(--text-dim);
-    padding: 2px 10px; border-radius: var(--radius-pill);
+    padding: 2px 8px; border-radius: var(--radius-pill);
     background: var(--surface); border: 1px solid var(--surface2);
   }
-  .stat-pill.looking { color: var(--gold); }
   .pulse-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--success);
+    width: 5px; height: 5px; border-radius: 50%; background: var(--success);
     animation: pulse 2s ease-in-out infinite;
   }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-  .user-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-sm); width: 100%; max-width: 520px; }
-  .user-info { display: flex; flex-wrap: wrap; gap: var(--sp-sm); align-items: center; }
-  .user-info strong { font-size: var(--fs-body); }
-  .stat { font-size: var(--fs-caption); color: var(--text-dim); background: var(--surface2); padding: 2px var(--sp-sm); border-radius: var(--radius-sm); }
-  .gold { color: var(--gold); }
-  .header-actions { display: flex; gap: var(--sp-sm); align-items: center; }
 
   .icon-btn {
     background: none; border: none; color: var(--text-dim); cursor: pointer;
@@ -168,7 +162,6 @@
   .lobby-center::-webkit-scrollbar-track { background: transparent; }
   .lobby-center::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
 
-  .friend-code { font-size: var(--fs-caption); color: var(--text-dim); }
   .friend-code strong { color: var(--accent); letter-spacing: 2px; font-family: var(--font-mono); }
 
 </style>
