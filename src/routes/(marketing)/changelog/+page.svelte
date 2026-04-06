@@ -1,7 +1,7 @@
 <script>
   // Release dates — each date gets a dot on the activity grid
   const releases = [
-    '2026-04-06', '2026-04-06', // Navigation + SEO
+    '2026-04-06', '2026-04-06', '2026-04-06', '2026-04-06', // Sound, replays, navigation, SEO
     '2026-04-05', '2026-04-05', '2026-04-05', '2026-04-05', '2026-04-05', // Game intelligence, bots, guests, state, polish
     '2026-03-28', // Launch
   ];
@@ -70,6 +70,23 @@
       {/each}
     </div>
   </div>
+
+  <article class="release">
+    <div class="release-header">
+      <h2>Sound, Replays & Polish</h2>
+      <time>6 April 2026</time>
+    </div>
+    <ul>
+      <li><strong>Sound Effects</strong> — piece placement, captures, king promotion, victory, defeat, emotes, and UI clicks all have audio feedback. Mute toggle in the bottom-right corner.</li>
+      <li><strong>Chain Capture Pitch</strong> — consecutive captures play at increasing pitch for a satisfying combo feel.</li>
+      <li><strong>Timer Urgency</strong> — when your time drops below 10 seconds, a warning beep plays each second and the board pulses with a red glow that intensifies as time runs out.</li>
+      <li><strong>In-App Game Replays</strong> — watch any game replay without leaving the app. Click the replay button in the game log and it opens as an overlay.</li>
+      <li><strong>Replay Animations</strong> — stepping through moves shows pieces sliding between squares. Works forwards and backwards.</li>
+      <li><strong>Compact Lobby</strong> — header condensed to a single row. More space for gameplay.</li>
+      <li><strong>PWA Support</strong> — add Pure Checkers to your phone's home screen and it launches like a native app.</li>
+      <li><strong>Cleaner Auth</strong> — redesigned login screen with separate guest/login/register views. No more cramming everything on one page.</li>
+    </ul>
+  </article>
 
   <article class="release">
     <div class="release-header">

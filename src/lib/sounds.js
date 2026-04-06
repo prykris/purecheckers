@@ -36,19 +36,19 @@ volume.subscribe(val => {
 // Add .mp3 files to src/static/sounds/ matching these names
 const SOUNDS = {
   // Gameplay
-  place:          { src: '/sounds/piece-moved.wav', pool: 3, vary: 0.15 },
-  capture:        { src: '/sounds/piece-stumped.wav', pool: 4, vary: 0.12 },
-  king:           { src: '/sounds/king-ding.wav', pool: 1 },
-  gameStart:      { src: '/sounds/pieces-land-on-board.wav', pool: 1 },
-  victory:        { src: '/sounds/victory-jingle.wav', pool: 1 },
-  defeat:         { src: '/sounds/defeat.mp3', pool: 1 },
-  tick:           { src: '/sounds/time-beep-warning.wav', pool: 1 },
+  place: { src: '/sounds/piece-moved.wav', pool: 3, vary: 0.15 },
+  capture: { src: '/sounds/piece-stumped.wav', pool: 4, vary: 0.12 },
+  king: { src: '/sounds/king-ding.wav', pool: 1 },
+  gameStart: { src: '/sounds/pieces-land-on-board.wav', pool: 1 },
+  victory: { src: '/sounds/victory-jingle.wav', pool: 1 },
+  defeat: { src: '/sounds/defeat.mp3', pool: 1 },
+  tick: { src: '/sounds/time-beep-warning.wav', pool: 1 },
   // UI
-  click:          { src: '/sounds/ui-button-click.wav', pool: 2, vary: 0.06 },
-  emote:          { src: '/sounds/move-swoosh.wav', pool: 2, vary: 0.1 },
-  error:          { src: '/sounds/error.wav', pool: 1 },
-  disconnect:     { src: '/sounds/disconnected.mp3', pool: 1 },
-  reconnect:      { src: '/sounds/connected.mp3', pool: 1 },
+  click: { src: '/sounds/ui-button-click.wav', pool: 2, vary: 0.06 },
+  emote: { src: '/sounds/move-swoosh.wav', pool: 2, vary: 0.1 },
+  error: { src: '/sounds/error.wav', pool: 1 },
+  disconnect: { src: '/sounds/disconnected.mp3', pool: 1 },
+  reconnect: { src: '/sounds/connected.mp3', pool: 1 },
 };
 
 // ---- Audio pool ----
@@ -102,7 +102,7 @@ export function play(name, opts = {}) {
 
   // Browsers require a user gesture before playing audio.
   // The first play() call might be rejected silently — that's fine.
-  audio.play().catch(() => {});
+  audio.play().catch(() => { });
 }
 
 /**

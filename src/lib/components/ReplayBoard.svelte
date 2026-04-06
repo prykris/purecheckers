@@ -14,32 +14,46 @@
   let animating = $state(null); // { fromRow, fromCol, toRow, toCol, color, queen } during slide
 
   function replayTo(index) {
+    const forward = index > moveIndex;
     const stepping = Math.abs(index - moveIndex) === 1;
-    const stepMove = stepping && index > 0 ? moves[index - 1] : null;
 
+    // The move being animated
+    const stepMove = stepping ? (forward ? moves[index - 1] : moves[moveIndex - 1]) : null;
+
+    // Build pre-move state to get the piece info
+    let movingPiece = null;
+    if (stepMove && stepping) {
+      const pre = new CheckersGame();
+      const preIndex = forward ? index - 1 : moveIndex;
+      for (let i = 0; i < preIndex && i < moves.length; i++) {
+        pre.makeMove(moves[i].fromRow, moves[i].fromCol, moves[i].toRow, moves[i].toCol);
+      }
+      movingPiece = forward
+        ? pre.at(stepMove.fromRow, stepMove.fromCol)
+        : pre.at(stepMove.toRow, stepMove.toCol); // piece is at destination before undo
+      // For undo, the piece might have been captured/promoted — use the piece at the 'to' position
+      if (!movingPiece && !forward) {
+        // After the move, piece is at toRow/toCol in the current state
+        movingPiece = checkers.at(stepMove.toRow, stepMove.toCol);
+      }
+    }
+
+    // Always rebuild full board state
     checkers = new CheckersGame();
-    // Replay to one step before to capture the moving piece
-    const target = stepping && stepMove ? index - 1 : index;
-    for (let i = 0; i < target && i < moves.length; i++) {
+    for (let i = 0; i < index && i < moves.length; i++) {
       checkers.makeMove(moves[i].fromRow, moves[i].fromCol, moves[i].toRow, moves[i].toCol);
     }
 
-    if (stepping && stepMove) {
-      // Capture piece info before the move
-      const piece = checkers.at(stepMove.fromRow, stepMove.fromCol);
-      if (piece) {
-        animating = { ...stepMove, color: piece.color, queen: piece.queen };
-        // Apply the move after a frame so the animation starts from the old position
-        requestAnimationFrame(() => {
-          checkers.makeMove(stepMove.fromRow, stepMove.fromCol, stepMove.toRow, stepMove.toCol);
-          checkers = checkers; // trigger reactivity
-          lastMove = stepMove;
-          setTimeout(() => { animating = null; }, 250);
-        });
+    if (stepMove && movingPiece) {
+      if (forward) {
+        // Animate from → to
+        animating = { fromRow: stepMove.fromRow, fromCol: stepMove.fromCol, toRow: stepMove.toRow, toCol: stepMove.toCol, color: movingPiece.color, queen: movingPiece.queen };
       } else {
-        checkers.makeMove(stepMove.fromRow, stepMove.fromCol, stepMove.toRow, stepMove.toCol);
-        lastMove = stepMove;
+        // Animate to → from (reverse)
+        animating = { fromRow: stepMove.toRow, fromCol: stepMove.toCol, toRow: stepMove.fromRow, toCol: stepMove.fromCol, color: movingPiece.color, queen: movingPiece.queen };
       }
+      lastMove = forward ? stepMove : { fromRow: stepMove.toRow, fromCol: stepMove.toCol, toRow: stepMove.fromRow, toCol: stepMove.fromCol };
+      setTimeout(() => { animating = null; }, 220);
     } else {
       lastMove = null;
       animating = null;
@@ -100,9 +114,9 @@
         {@const piece = checkers.at(r, c)}
         {@const isFrom = lastMove && lastMove.fromRow === r && lastMove.fromCol === c}
         {@const isTo = lastMove && lastMove.toRow === r && lastMove.toCol === c}
-        {@const isAnimatingFrom = animating && animating.fromRow === r && animating.fromCol === c}
+        {@const isAnimatingTo = animating && animating.toRow === r && animating.toCol === c}
         <div class="cell" class:dark={isDark} class:light={!isDark} class:highlight-from={isFrom} class:highlight-to={isTo}>
-          {#if piece && !isAnimatingFrom}
+          {#if piece && !isAnimatingTo}
             <div class="piece" class:red={piece.color === 'red'} class:black={piece.color === 'black'}>
               {#if piece.queen}<span class="crown">♛</span>{/if}
             </div>
@@ -163,16 +177,15 @@
   .sliding-piece {
     position: absolute;
     width: 12.5%; height: 12.5%;
-    border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     z-index: 2;
     animation: slide-move 0.2s ease-out forwards;
     left: calc(var(--to-col) * 12.5%);
     top: calc(var(--to-row) * 12.5%);
-    padding: 15%;
   }
   .sliding-piece::before {
-    content: ''; position: absolute; inset: 15%;
+    content: ''; display: block;
+    width: 70%; height: 70%;
     border-radius: 50%;
   }
   .sliding-piece.red::before { background: radial-gradient(circle at 35% 35%, #f87171, #dc2626); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
