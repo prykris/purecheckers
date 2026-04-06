@@ -1,14 +1,14 @@
 <script>
-  import { CheckersGame } from '../../../../shared/game.js';
+  import { CheckersGame } from '$lib/game.js';
 
   let { data } = $props();
-  const { game: gameData } = data;
 
-  const moves = gameData.moveHistory || [];
+  // svelte-ignore state_referenced_locally
+  const g = data.game;
+  const moves = g.moveHistory || [];
   let moveIndex = $state(0);
   let checkers = $state(new CheckersGame());
 
-  // Replay the game up to moveIndex
   function replayTo(index) {
     checkers = new CheckersGame();
     for (let i = 0; i < index && i < moves.length; i++) {
@@ -30,30 +30,55 @@
     else if (e.key === 'End') toEnd();
   }
 
-  const resultText = gameData.result === 'RED_WIN' ? `${gameData.redPlayer} wins`
-    : gameData.result === 'BLACK_WIN' ? `${gameData.blackPlayer} wins`
-    : 'Draw';
+  const winner = g.result === 'RED_WIN' ? g.redPlayer : g.result === 'BLACK_WIN' ? g.blackPlayer : null;
+  const loser = g.result === 'RED_WIN' ? g.blackPlayer : g.result === 'BLACK_WIN' ? g.redPlayer : null;
+  const resultText = winner ? `${winner} wins` : 'Draw';
 
-  const fmtDate = new Date(gameData.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  // Infer why the game ended from the final board state
+  function getEndReason() {
+    const final = new CheckersGame();
+    for (const m of moves) final.makeMove(m.fromRow, m.fromCol, m.toRow, m.toCol);
+
+    const loserColor = g.result === 'RED_WIN' ? 'black' : 'red';
+    let loserPieces = 0;
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      const p = final.at(r, c);
+      if (p?.color === loserColor) loserPieces++;
+    }
+
+    if (loserPieces === 0) return `All pieces captured`;
+    const loserMoves = final.getAllValidMoves();
+    if (loserMoves.length === 0) return `${loser} has no valid moves`;
+    return `${loser} forfeited`;
+  }
+  const endReason = g.result === 'DRAW' ? 'Game drawn' : getEndReason();
+
+  const fmtDate = new Date(g.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 </script>
 
 <svelte:head>
-  <title>{gameData.redPlayer} vs {gameData.blackPlayer} — Game Replay — Pure Checkers</title>
-  <meta name="description" content="Watch the checkers game between {gameData.redPlayer} and {gameData.blackPlayer}. {resultText}. {moves.length} moves played." />
-  <link rel="canonical" href="https://purecheckers.com/game/{gameData.id}" />
-  <meta property="og:title" content="{gameData.redPlayer} vs {gameData.blackPlayer} — Checkers Replay" />
-  <meta property="og:description" content="{resultText} · {moves.length} moves · {gameData.mode}" />
-  <meta property="og:url" content="https://purecheckers.com/game/{gameData.id}" />
+  <title>{g.redPlayer} vs {g.blackPlayer} — Game Replay — Pure Checkers</title>
+  <meta name="description" content="Watch the checkers game between {g.redPlayer} and {g.blackPlayer}. {resultText}. {moves.length} moves played." />
+  <link rel="canonical" href="https://purecheckers.com/game/{g.id}" />
+  <meta property="og:title" content="{g.redPlayer} vs {g.blackPlayer} — Checkers Replay" />
+  <meta property="og:description" content="{resultText} · {moves.length} moves · {g.mode}" />
+  <meta property="og:url" content="https://purecheckers.com/game/{g.id}" />
 </svelte:head>
 
-<svelte:window on:keydown={onKeyDown} />
+<svelte:window onkeydown={onKeyDown} />
 
 <section class="replay-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a>
+    <span class="sep">/</span>
+    <span>Game #{g.id}</span>
+  </nav>
+
   <div class="replay-header">
-    <h1>{gameData.redPlayer} <span class="vs">vs</span> {gameData.blackPlayer}</h1>
+    <h1>{g.redPlayer} <span class="vs">vs</span> {g.blackPlayer}</h1>
     <div class="meta">
-      <span class="result" class:red={gameData.result === 'RED_WIN'} class:black={gameData.result === 'BLACK_WIN'}>{resultText}</span>
-      <span class="mode">{gameData.mode === 'RANKED' ? 'Ranked' : 'Friendly'}</span>
+      <span class="result" class:red={g.result === 'RED_WIN'} class:black={g.result === 'BLACK_WIN'}>{resultText}</span>
+      <span class="mode">{g.mode === 'RANKED' ? 'Ranked' : 'Friendly'}</span>
       <span class="date">{fmtDate}</span>
     </div>
   </div>
@@ -75,26 +100,39 @@
   </div>
 
   <div class="controls">
-    <button class="ctrl-btn" on:click={toStart} disabled={moveIndex === 0} title="Start">⏮</button>
-    <button class="ctrl-btn" on:click={prev} disabled={moveIndex === 0} title="Previous">◀</button>
+    <button class="ctrl-btn" onclick={toStart} disabled={moveIndex === 0} title="Start">⏮</button>
+    <button class="ctrl-btn" onclick={prev} disabled={moveIndex === 0} title="Previous">◀</button>
     <span class="move-counter">{moveIndex} / {moves.length}</span>
-    <button class="ctrl-btn" on:click={next} disabled={moveIndex >= moves.length} title="Next">▶</button>
-    <button class="ctrl-btn" on:click={toEnd} disabled={moveIndex >= moves.length} title="End">⏭</button>
+    <button class="ctrl-btn" onclick={next} disabled={moveIndex >= moves.length} title="Next">▶</button>
+    <button class="ctrl-btn" onclick={toEnd} disabled={moveIndex >= moves.length} title="End">⏭</button>
   </div>
 
-  <p class="hint">Use arrow keys to navigate moves</p>
+  {#if moveIndex >= moves.length}
+    <div class="outcome" class:win={g.result !== 'DRAW'}>
+      <span class="outcome-result">{resultText}</span>
+      <span class="outcome-reason">{endReason}</span>
+    </div>
+  {:else}
+    <p class="hint">Use arrow keys to navigate moves</p>
+  {/if}
 
   <div class="players">
-    <a href="/player/{gameData.redPlayer}" class="player-link red">
-      <span class="dot red"></span> {gameData.redPlayer}
+    <a href="/player/{g.redPlayer}" class="player-link red">
+      <span class="dot red"></span> {g.redPlayer}
     </a>
-    <a href="/player/{gameData.blackPlayer}" class="player-link black">
-      <span class="dot black"></span> {gameData.blackPlayer}
+    <a href="/player/{g.blackPlayer}" class="player-link black">
+      <span class="dot black"></span> {g.blackPlayer}
     </a>
   </div>
 </section>
 
 <style>
+  .breadcrumb { display: flex; align-items: center; gap: var(--sp-xs); font-size: var(--fs-caption); }
+  .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .breadcrumb .sep { color: var(--text-dim); opacity: 0.4; }
+  .breadcrumb span:last-child { color: var(--text); font-weight: 500; }
+
   .replay-page {
     max-width: 500px; margin: 0 auto;
     padding: 48px var(--sp-md) 120px;
@@ -141,6 +179,15 @@
   .move-counter { font-size: var(--fs-caption); color: var(--text-dim); min-width: 60px; text-align: center; font-family: var(--font-mono); }
 
   .hint { font-size: 0.6rem; color: var(--text-dim); }
+  .outcome {
+    display: flex; flex-direction: column; align-items: center; gap: var(--sp-xs);
+    padding: var(--sp-md) var(--sp-lg);
+    background: var(--surface); border: 1px solid var(--surface2);
+    border-radius: var(--radius-md); text-align: center;
+  }
+  .outcome-result { font-size: var(--fs-heading); font-weight: 700; }
+  .outcome.win .outcome-result { color: var(--success); }
+  .outcome-reason { font-size: var(--fs-caption); color: var(--text-dim); }
 
   .players { display: flex; gap: var(--sp-lg); }
   .player-link { display: flex; align-items: center; gap: var(--sp-xs); font-size: var(--fs-body); font-weight: 500; color: var(--text-dim); text-decoration: none; transition: color 0.15s; }

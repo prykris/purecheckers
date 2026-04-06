@@ -101,6 +101,10 @@
           <div class="log-meta">
             <span class="log-mode {g.mode === 'RANKED' ? 'ranked' : 'friendly'}">{g.mode === 'RANKED' ? 'Ranked' : 'Friendly'}</span>
             <span class="log-time">{fmtAgo(g.date)}</span>
+            <a class="log-replay" href="/game/{g.id}" target="_blank" title="Watch replay">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Replay
+            </a>
           </div>
         </div>
       {/each}
@@ -165,6 +169,14 @@
     padding: var(--sp-sm) var(--sp-md);
     background: var(--surface);
   }
+  .log-time { transition: opacity 0.15s; }
+  .log-replay {
+    display: none; align-items: center; gap: 3px;
+    color: var(--accent); text-decoration: none;
+    font-size: 0.6rem; font-weight: 600;
+  }
+  .log-row:hover .log-time { display: none; }
+  .log-row:hover .log-replay { display: flex; }
   .log-row.my-win { border-left: 2px solid var(--success); }
   .log-row.my-loss { border-left: 2px solid var(--accent); }
   .log-players {

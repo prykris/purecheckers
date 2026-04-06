@@ -1,5 +1,6 @@
 <script>
   let { data } = $props();
+  // svelte-ignore state_referenced_locally
   const { player, games } = data;
 
   const winRate = player.gamesPlayed > 0 ? Math.round((player.wins / player.gamesPlayed) * 100) : 0;
@@ -44,12 +45,24 @@
 </svelte:head>
 
 <section class="profile-page">
+  <nav class="breadcrumb">
+    <a href="/">Home</a>
+    <span class="sep">/</span>
+    <span>{player.username}</span>
+  </nav>
+
   <div class="profile-header">
     <div class="avatar" style="background: hsl({avatarHue}, 45%, 35%)">{initials}</div>
     <div class="header-info">
-      <h1>{player.username}</h1>
-      {#if player.isGuest}<span class="badge guest">Guest</span>{/if}
-      <span class="since">Member since {memberSince}</span>
+      <div class="name-row">
+        <h1 class:bot={player.isBot}>{player.username}</h1>
+        {#if player.isBot}
+          <span class="badge bot" title="AI opponent">Bot</span>
+        {:else if player.isGuest}
+          <span class="badge guest">Guest</span>
+        {/if}
+      </div>
+      <span class="since">{player.isBot ? 'AI Opponent' : `Member since ${memberSince}`}</span>
     </div>
   </div>
 
@@ -90,6 +103,9 @@
           <span class="game-opponent">vs {g.opponent}</span>
           <span class="game-mode">{g.mode === 'RANKED' ? 'Ranked' : 'Friendly'}</span>
           <span class="game-date">{fmtDate(g.date)}</span>
+          <a class="game-replay" href="/game/{g.id}" title="Watch replay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </a>
         </div>
       {/each}
     </div>
@@ -103,6 +119,12 @@
 </section>
 
 <style>
+  .breadcrumb { display: flex; align-items: center; gap: var(--sp-xs); font-size: var(--fs-caption); margin-bottom: var(--sp-md); }
+  .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--accent); }
+  .breadcrumb .sep { color: var(--text-dim); opacity: 0.4; }
+  .breadcrumb span:last-child { color: var(--text); font-weight: 500; }
+
   .profile-page {
     max-width: 600px; margin: 0 auto;
     padding: 64px var(--sp-md) 120px;
@@ -114,10 +136,13 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 1.4rem; font-weight: 700; color: #fff; flex-shrink: 0;
   }
-  .header-info { display: flex; flex-direction: column; gap: 2px; }
-  .header-info h1 { font-size: var(--fs-title); font-weight: 700; }
+  .header-info { display: flex; flex-direction: column; gap: 2px; justify-content: center; }
+  .name-row { display: flex; align-items: center; gap: var(--sp-sm); }
+  .header-info h1 { font-size: var(--fs-heading); font-weight: 700; }
   .badge { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: var(--radius-pill); }
   .badge.guest { background: rgba(168,162,158,0.15); color: var(--text-dim); width: fit-content; }
+  .badge.bot { background: rgba(168,85,247,0.15); color: var(--accent2); width: fit-content; }
+  h1.bot { color: var(--accent2); }
   .since { font-size: var(--fs-caption); color: var(--text-dim); }
 
   .stats-grid {
@@ -153,7 +178,13 @@
   .game-row.loss .game-result { color: var(--accent); }
   .game-opponent { flex: 1; font-weight: 500; }
   .game-mode { font-size: 0.6rem; color: var(--text-dim); }
-  .game-date { font-size: 0.6rem; color: var(--text-dim); }
+  .game-date { font-size: 0.6rem; color: var(--text-dim); transition: opacity 0.15s; }
+  .game-replay {
+    display: none; color: var(--accent); text-decoration: none;
+    flex-shrink: 0;
+  }
+  .game-row:hover .game-date { display: none; }
+  .game-row:hover .game-replay { display: flex; }
 
   .no-games { color: var(--text-dim); font-size: var(--fs-body); text-align: center; padding: var(--sp-xl) 0; }
 
