@@ -2,7 +2,8 @@
   import { onMount, onDestroy } from 'svelte';
   import { getSocket } from '$lib/socket.js';
   import { user } from '$lib/stores/user.js';
-  import { browseTab } from '$lib/stores/app.js';
+  import { browseTab, replayData } from '$lib/stores/app.js';
+  import { setScreenOverride } from '$lib/stores/gameScreen.js';
   import { api } from '$lib/api.js';
 
   export let mode = 'global'; // 'global' | 'personal'
@@ -59,13 +60,21 @@
   onDestroy(() => {
     if (socket) socket.off('global:game-ended', onGameEnded);
   });
+
+  async function openReplay(gameId) {
+    try {
+      const data = await api.get(`/leaderboard/game/${gameId}`);
+      $replayData = data.game;
+      setScreenOverride('replay');
+    } catch {}
+  }
 </script>
 
 <div class="game-log">
   <div class="log-header">
     <h3 class="log-title">{mode === 'personal' ? 'Your Games' : 'Recent Games'}</h3>
     {#if mode === 'global'}
-      <button class="filter-toggle" class:active={showMineOnly} on:click={() => showMineOnly = !showMineOnly}>
+      <button class="filter-toggle" class:active={showMineOnly} onclick={() => showMineOnly = !showMineOnly}>
         {showMineOnly ? 'Show all' : 'My games'}
       </button>
     {/if}
@@ -81,7 +90,8 @@
       {#if mode === 'personal'}
         <span>You haven't played any games yet</span>
         <!-- svelte-ignore a11y_invalid_attribute -->
-        <a href="#" class="play-link" on:click|preventDefault={goToQuickPlay}>Find an opponent</a>
+        <!-- svelte-ignore a11y_invalid_attribute -->
+        <a href="#" class="play-link" onclick={(e) => { e.preventDefault(); goToQuickPlay(); }}>Find an opponent</a>
       {:else if showMineOnly}
         <span>You haven't played any games yet</span>
       {:else}
@@ -101,10 +111,10 @@
           <div class="log-meta">
             <span class="log-mode {g.mode === 'RANKED' ? 'ranked' : 'friendly'}">{g.mode === 'RANKED' ? 'Ranked' : 'Friendly'}</span>
             <span class="log-time">{fmtAgo(g.date)}</span>
-            <a class="log-replay" href="/game/{g.id}" target="_blank" title="Watch replay">
+            <button class="log-replay" onclick={() => openReplay(g.id)} title="Watch replay">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               Replay
-            </a>
+            </button>
           </div>
         </div>
       {/each}

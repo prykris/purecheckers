@@ -1,12 +1,12 @@
 <script>
   import { onMount } from 'svelte';
-  import { phase, gameState, browseTab, gameOverVisible, connectionStatus } from '$lib/stores/app.js';
-  import { gameScreen, recompute } from '$lib/stores/gameScreen.js';
+  import { phase, gameState, browseTab, gameOverVisible, connectionStatus, replayData } from '$lib/stores/app.js';
+  import { gameScreen, recompute, clearScreenOverride } from '$lib/stores/gameScreen.js';
   import { user, token } from '$lib/stores/user.js';
   import { api } from '$lib/api.js';
   import { getSocket } from '$lib/socket.js';
   import { initSocket } from '$lib/socketService.js';
-  import { muted, toggleMute, preloadAll } from '$lib/sounds.js';
+  import { muted, toggleMute, preloadAll, play } from '$lib/sounds.js';
 
   // Game layer components
   import GameScreen from '$lib/components/GameScreen.svelte';
@@ -14,6 +14,7 @@
   import WheelScreen from '$lib/components/WheelScreen.svelte';
   import RoomWaiting from '$lib/components/lobby/RoomWaiting.svelte';
   import SearchScreen from '$lib/components/SearchScreen.svelte';
+  import ReplayBoard from '$lib/components/ReplayBoard.svelte';
 
   // Browse layer components
   import AuthScreen from '$lib/components/AuthScreen.svelte';
@@ -98,7 +99,15 @@
   }
   restoreTheme();
 
+  // Global UI click sound — plays for any button/link tap
+  function onGlobalClick(e) {
+    preloadAll();
+    const el = e.target.closest('button, .btn, a');
+    if (el) play('click');
+  }
+
   onMount(async () => {
+    document.addEventListener('pointerdown', onGlobalClick);
     if (!$token) {
       loading = false;
       return;
@@ -169,6 +178,17 @@
     <RoomWaiting />
   {:else if $gameScreen === 'search'}
     <SearchScreen />
+  {:else if $gameScreen === 'replay'}
+    <div class="replay-overlay">
+      <div class="replay-overlay-inner">
+        <button class="replay-close" title="Close replay" onclick={() => { $replayData = null; clearScreenOverride(); }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        {#if $replayData}
+          <ReplayBoard gameData={$replayData} />
+        {/if}
+      </div>
+    </div>
   {/if}
 
   <!-- Banners (visible on browse layer only) -->
@@ -288,6 +308,25 @@
   }
   .conn-retry:hover { background: rgba(255,255,255,0.3); }
   @keyframes conn-slide-in { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+
+  .replay-overlay {
+    position: fixed; inset: 0; z-index: 45;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: var(--sp-md);
+  }
+  .replay-overlay-inner {
+    position: relative; width: 100%; max-width: 500px;
+  }
+  .replay-close {
+    position: absolute; top: calc(-1 * var(--sp-xl)); right: 0;
+    background: var(--surface); border: 1px solid var(--surface2);
+    color: var(--text-dim); cursor: pointer;
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: color 0.15s;
+  }
+  .replay-close:hover { color: var(--text); }
 
   .sound-toggle {
     position: fixed; bottom: calc(var(--tab-height) + var(--sp-sm) + env(safe-area-inset-bottom, 0px));

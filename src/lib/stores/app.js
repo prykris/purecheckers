@@ -24,6 +24,9 @@ export const gameOverVisible = writable(false);
 // Connection status: 'connected' | 'reconnecting' | 'disconnected'
 export const connectionStatus = writable('connected');
 
+// Replay data (for in-app replay overlay)
+export const replayData = writable(null);
+
 // Room/game chat (separate from global chat)
 export const roomChatMessages = writable([]);
 export const roomUnreadChat = writable(0);

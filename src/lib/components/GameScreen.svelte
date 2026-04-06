@@ -422,7 +422,7 @@
 
   async function onServerMove(data) { if(data.fromRow===undefined)return; const isMyMove=game.currentPlayer===myColor; if(!isMyMove){const result=await performAnimatedMove(data.fromRow,data.fromCol,data.toRow,data.toCol);if(result){selectedPiece=null;validMoves=[];drawBoard();}} game.redTime=data.redTime;game.blackTime=data.blackTime; }
   function onTick(data) { game.redTime=data.redTime; game.blackTime=data.blackTime; syncTimers(); }
-  function onGameOver(data) { game.gameOver=true; game.winner=data.winner; gameOverData=data; }
+  function onGameOver(data) { game.gameOver=true; game.winner=data.winner; gameOverData=data; handleGameOver(); }
 
   function botTurn() { botThinking=true; setTimeout(async()=>{const move=bot.chooseMove(game);if(!move){botThinking=false;return;}const result=await performAnimatedMove(move.fromRow,move.fromCol,move.toRow,move.toCol);if(!result){botThinking=false;return;}selectedPiece=null;validMoves=[];drawBoard();if(game.gameOver){botThinking=false;handleGameOver();return;}if(result.chainContinues)setTimeout(()=>botTurn(),300);else botThinking=false;},400+Math.random()*600); }
 
@@ -438,7 +438,13 @@
     getSocket()?.emit('game:leave', { gameId });
   }
 
-  function onEmoteShow(data) { activeEmote={emoji:data.emote.emoji,label:data.emote.label,username:data.username}; clearTimeout(emoteTimeout); emoteTimeout=setTimeout(()=>{activeEmote=null;},2500); sfx('emote'); }
+  function onEmoteShow(data) {
+    if (!data.emote?.emoji) return;
+    activeEmote={emoji:data.emote.emoji,label:data.emote.label,username:data.username};
+    clearTimeout(emoteTimeout);
+    setTimeout(() => sfx('emote'), 50);
+    emoteTimeout=setTimeout(()=>{activeEmote=null;},2500);
+  }
   function sendEmote(emote) {
     socket?.emit('emote:send',{gameId:gameId,emote:{emoji:emote.data.emoji,label:emote.data.label}});
     // Only hide on mobile (desktop keeps it open in left panel)

@@ -36,16 +36,16 @@ volume.subscribe(val => {
 // Add .mp3 files to src/static/sounds/ matching these names
 const SOUNDS = {
   // Gameplay
-  place:          { src: '/sounds/piece-moved.wav', pool: 3 },
-  capture:        { src: '/sounds/piece-stumped.wav', pool: 4 },
+  place:          { src: '/sounds/piece-moved.wav', pool: 3, vary: 0.15 },
+  capture:        { src: '/sounds/piece-stumped.wav', pool: 4, vary: 0.12 },
   king:           { src: '/sounds/king-ding.wav', pool: 1 },
   gameStart:      { src: '/sounds/pieces-land-on-board.wav', pool: 1 },
   victory:        { src: '/sounds/victory-jingle.wav', pool: 1 },
   defeat:         { src: '/sounds/defeat.mp3', pool: 1 },
   tick:           { src: '/sounds/time-beep-warning.wav', pool: 1 },
   // UI
-  click:          { src: '/sounds/ui-button-click.wav', pool: 2 },
-  emote:          { src: '/sounds/move-swoosh.wav', pool: 2 },
+  click:          { src: '/sounds/ui-button-click.wav', pool: 2, vary: 0.06 },
+  emote:          { src: '/sounds/move-swoosh.wav', pool: 2, vary: 0.1 },
   error:          { src: '/sounds/error.wav', pool: 1 },
   disconnect:     { src: '/sounds/disconnected.mp3', pool: 1 },
   reconnect:      { src: '/sounds/connected.mp3', pool: 1 },
@@ -94,7 +94,10 @@ export function play(name, opts = {}) {
 
   const vol = opts.volume ?? get(volume);
   audio.volume = Math.max(0, Math.min(1, vol));
-  if (opts.rate) audio.playbackRate = opts.rate;
+  const baseRate = opts.rate || 1;
+  const def = SOUNDS[name];
+  const vary = def?.vary || 0;
+  audio.playbackRate = vary > 0 ? baseRate + (Math.random() - 0.5) * vary : baseRate;
   audio.currentTime = 0;
 
   // Browsers require a user gesture before playing audio.
