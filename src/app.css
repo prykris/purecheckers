@@ -2,6 +2,12 @@
    Global styles — design tokens, layout primitives, shared utils
    ============================================================ */
 
+/* Self-hosted Poppins — no Google Fonts dependency */
+@font-face { font-family: 'Poppins'; font-weight: 400; font-style: normal; font-display: swap; src: url('/fonts/poppins-400.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-weight: 500; font-style: normal; font-display: swap; src: url('/fonts/poppins-500.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-weight: 600; font-style: normal; font-display: swap; src: url('/fonts/poppins-600.ttf') format('truetype'); }
+@font-face { font-family: 'Poppins'; font-weight: 700; font-style: normal; font-display: swap; src: url('/fonts/poppins-700.ttf') format('truetype'); }
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {

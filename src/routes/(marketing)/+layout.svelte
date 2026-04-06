@@ -68,6 +68,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         Strategy Guides
       </a>
+      <a href="/faq" class="sidebar-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        FAQ
+      </a>
     </div>
 
     <div class="sidebar-bottom">
@@ -91,6 +95,7 @@
           <a href="/#how-to-play">How to Play</a>
           <a href="/#about">About</a>
           <a href="/blog">Blog</a>
+          <a href="/faq">FAQ</a>
           <a href="/changelog">Changelog</a>
         </div>
         <p class="mkt-footer-copy">&copy; {new Date().getFullYear()} Pure Checkers. All rights reserved.</p>
