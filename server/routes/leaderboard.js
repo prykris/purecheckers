@@ -98,8 +98,10 @@ router.get('/games', async (req, res) => {
 // GET /api/leaderboard/game/:id — single game data for replay
 router.get('/game/:id', async (req, res) => {
   try {
+    const id = Number(req.params.id);
+    if (!id || isNaN(id)) return res.status(400).json({ error: 'Invalid game ID' });
     const game = await prisma.game.findUnique({
-      where: { id: Number(req.params.id) },
+      where: { id },
       include: {
         redPlayer: { select: { username: true } },
         blackPlayer: { select: { username: true } },
