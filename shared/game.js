@@ -4,7 +4,7 @@
 // Isomorphic: runs on both client and server
 // ============================================================
 
-import { TURN_TIME } from './constants.js';
+import { TURN_TIME, DRAW_REPETITION_COUNT, DRAW_NO_CAPTURE_MOVES } from './constants.js';
 
 export class CheckersGame {
   constructor() {
@@ -13,9 +13,12 @@ export class CheckersGame {
     this.chainPiece = null;
     this.gameOver = false;
     this.winner = null;
+    this.drawReason = null;
     this.redTime = TURN_TIME;
     this.blackTime = TURN_TIME;
     this.moveHistory = [];
+    this.positionHistory = [];
+    this.movesWithoutCapture = 0;
     this.reset();
   }
 
@@ -32,9 +35,12 @@ export class CheckersGame {
     this.chainPiece = null;
     this.gameOver = false;
     this.winner = null;
+    this.drawReason = null;
     this.redTime = TURN_TIME;
     this.blackTime = TURN_TIME;
     this.moveHistory = [];
+    this.positionHistory = [];
+    this.movesWithoutCapture = 0;
   }
 
   clone() {
@@ -44,8 +50,11 @@ export class CheckersGame {
     g.chainPiece = this.chainPiece ? { ...this.chainPiece } : null;
     g.gameOver = this.gameOver;
     g.winner = this.winner;
+    g.drawReason = this.drawReason;
     g.redTime = this.redTime;
     g.blackTime = this.blackTime;
+    g.positionHistory = [...this.positionHistory];
+    g.movesWithoutCapture = this.movesWithoutCapture;
     return g;
   }
 
@@ -197,11 +206,16 @@ export class CheckersGame {
     }
 
     if (!chainContinues) {
+      // Track moves without capture for forced draw
+      if (move.captured.length > 0) this.movesWithoutCapture = 0;
+      else this.movesWithoutCapture++;
+
       this.chainPiece = null;
       this.currentPlayer = this.currentPlayer === 'red' ? 'black' : 'red';
       if (this.currentPlayer === 'red') this.redTime = TURN_TIME;
       else this.blackTime = TURN_TIME;
       this._checkGameOver();
+      if (!this.gameOver) this._checkForcedDraw();
     }
 
     this.moveHistory.push({
@@ -217,6 +231,43 @@ export class CheckersGame {
     if (moves.length === 0) {
       this.gameOver = true;
       this.winner = this.currentPlayer === 'red' ? 'black' : 'red';
+    }
+  }
+
+  _boardHash() {
+    let hash = '';
+    for (let r = 0; r < 8; r++)
+      for (let c = 0; c < 8; c++) {
+        const p = this.board[r][c];
+        if (!p) hash += '.';
+        else hash += (p.color === 'red' ? 'r' : 'b') + (p.queen ? 'Q' : 'M');
+      }
+    hash += this.currentPlayer;
+    return hash;
+  }
+
+  _checkForcedDraw() {
+    const hash = this._boardHash();
+    this.positionHistory.push(hash);
+
+    // 3-fold repetition
+    let count = 0;
+    for (const h of this.positionHistory) {
+      if (h === hash) count++;
+    }
+    if (count >= DRAW_REPETITION_COUNT) {
+      this.gameOver = true;
+      this.winner = null;
+      this.drawReason = 'repetition';
+      return;
+    }
+
+    // No-capture move limit
+    if (this.movesWithoutCapture >= DRAW_NO_CAPTURE_MOVES) {
+      this.gameOver = true;
+      this.winner = null;
+      this.drawReason = '25-move';
+      return;
     }
   }
 

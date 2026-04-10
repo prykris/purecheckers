@@ -3,7 +3,7 @@
  * UI components just read from stores. NO navigation here.
  */
 import { get } from 'svelte/store';
-import { phase, gameState, activeRoom, roomChatMessages, roomUnreadChat, searching, presenceStats, gameOverVisible } from '$lib/stores/app.js';
+import { phase, gameState, activeRoom, roomChatMessages, roomUnreadChat, roomUnreadMentions, searching, presenceStats, gameOverVisible } from '$lib/stores/app.js';
 import { setScreenOverride, clearScreenOverride } from '$lib/stores/gameScreen.js';
 import { user } from '$lib/stores/user.js';
 import { connectSocket, disconnectSocket, getSocket } from '$lib/socket.js';
@@ -50,6 +50,12 @@ export function attachSocketListeners() {
     const ar = get(activeRoom);
     if (!ar) return;
     if (closed && room?.id === ar.id) {
+      const currentPhase = get(phase);
+      if (currentPhase === 'spectating') {
+        // Spectator stays on game-over screen — only clear room reference
+        activeRoom.set(null);
+        return;
+      }
       activeRoom.set(null);
       gameState.set(null);
       phase.set('idle');
@@ -107,12 +113,19 @@ export function attachSocketListeners() {
     if (msg.senderId === u?.id) return;
     roomChatMessages.update(msgs => [...msgs, msg]);
     roomUnreadChat.update(n => n + 1);
+    if (msg.mentions?.includes(u?.id)) {
+      roomUnreadMentions.update(n => n + 1);
+    }
   });
 
   // ---- Chat history response ----
-  socket.on('chat:history', ({ channelId, messages }) => {
+  socket.on('chat:history', ({ channelId, messages, prepend }) => {
     if (channelId !== activeChannelId) return;
     if (!messages || messages.length === 0) return;
+    if (prepend) {
+      roomChatMessages.update(existing => [...messages, ...existing]);
+      return;
+    }
     roomChatMessages.set(messages);
 
     const lastSeenId = parseInt(localStorage.getItem(`chat_seen_${channelId}`) || '0');
@@ -233,6 +246,7 @@ export function markChannelRead() {
     if (lastId) localStorage.setItem(`chat_seen_${activeChannelId}`, String(lastId));
   }
   roomUnreadChat.set(0);
+  roomUnreadMentions.set(0);
 }
 
 export function getActiveChannelId() {

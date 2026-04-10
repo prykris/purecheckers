@@ -8,7 +8,7 @@ import { connectedUsers, emitSyncState } from './index.js';
 import { getSession, setPhase, forceIdle } from './userState.js';
 import { calculateElo } from '../services/elo.js';
 import { awardCoins } from '../services/coins.js';
-import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME } from '../../shared/constants.js';
+import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME, DRAW_OFFER_COOLDOWN_MS } from '../../shared/constants.js';
 import { calculateRankedPayout, depositToVault, awardDailyBounty, checkMilestones, isValidWager } from '../services/vault.js';
 import { PrismaClient } from '@prisma/client';
 
@@ -49,6 +49,9 @@ class GameRoom {
     this.timerInterval = null;
     this.disconnectTimers = new Map(); // userId -> timeout
     this.startedAt = new Date();
+    this.pendingDrawOffer = null; // userId who offered
+    this.lastDrawOffer = {};     // userId -> timestamp (cooldown)
+    this.endReason = null;       // resign, timeout, no-moves, draw-agreement, repetition, 25-move
   }
 
   getPlayerColor(userId) {
@@ -73,6 +76,7 @@ class GameRoom {
         blackTime: this.game.blackTime
       });
       if (this.game.gameOver) {
+        if (!this.endReason) this.endReason = 'timeout';
         this.endGame(io, this.game.winner);
       }
     }, 1000);
@@ -92,6 +96,8 @@ class GameRoom {
 
     let eloChanges = { red: 0, black: 0 };
     let coinRewards = { red: 0, black: 0 };
+    let coinBreakdown = { red: [], black: [] }; // [{label, amount}]
+    let eloDetail = {}; // { opponentElo, kFactor } per color
 
     // Compute ELO for ranked games
     if (this.mode === 'RANKED' && winnerId) {
@@ -113,6 +119,11 @@ class GameRoom {
           eloChanges = {
             red: winner === 'red' ? winnerDelta : loserDelta,
             black: winner === 'black' ? winnerDelta : loserDelta
+          };
+
+          eloDetail = {
+            red: { opponentElo: winner === 'red' ? loserUser.elo : winnerUser.elo },
+            black: { opponentElo: winner === 'black' ? loserUser.elo : winnerUser.elo }
           };
 
           // Update users and create game record atomically
@@ -153,12 +164,20 @@ class GameRoom {
           // Award coins with vault economics
           const winnerUserId = winner === 'red' ? this.redUserId : this.blackUserId;
           const loserUserId = winner === 'red' ? this.blackUserId : this.redUserId;
+          const winnerColor = winner;
+          const loserColor = winner === 'red' ? 'black' : 'red';
 
           // Diminishing returns check
           const isDiminished = trackAndCheckDiminishing(winnerUserId, loserUserId);
 
           let winnerTotal = isDiminished ? 0 : COINS_RANKED_WIN;
+          const winnerBreakdown = [];
+          const loserBreakdown = [];
           let tax = 0;
+
+          if (!isDiminished) {
+            winnerBreakdown.push({ label: 'Win reward', amount: COINS_RANKED_WIN });
+          }
 
           // Buy-in pot with 5% tax (only if wager is valid)
           if (this.buyIn > 0) {
@@ -167,33 +186,45 @@ class GameRoom {
               const payout = calculateRankedPayout(this.buyIn);
               winnerTotal += payout.winnerPot;
               tax = payout.tax;
+              winnerBreakdown.push({ label: 'Wager pot', amount: payout.winnerPot });
               await depositToVault(tax, 'Ranked tax', `${RANKED_TAX_RATE * 100}% of ${this.buyIn * 2} pot, game #${this.id}`);
             } else if (isDiminished && wagerValid) {
-              // 100% tax: entire pot goes to vault (anti-farming)
               tax = this.buyIn * 2;
               await depositToVault(tax, 'Anti-farm tax', `100% tax, same-opponent limit, game #${this.id}`);
             } else {
-              // Invalid wager: refund both players
               await awardCoins(this.redUserId, this.buyIn, 'WIN_REWARD');
               await awardCoins(this.blackUserId, this.buyIn, 'WIN_REWARD');
+              // Refund shows in both breakdowns
+              coinBreakdown.red.push({ label: 'Wager refund', amount: this.buyIn });
+              coinBreakdown.black.push({ label: 'Wager refund', amount: this.buyIn });
             }
           }
 
           const loserTotal = COINS_LOSS;
+          loserBreakdown.push({ label: 'Consolation', amount: COINS_LOSS });
 
           await awardCoins(winnerUserId, winnerTotal, 'WIN_REWARD');
           await awardCoins(loserUserId, loserTotal, 'WIN_REWARD');
 
           // Daily bounty (first win of day, paid from vault)
           const dailyBonus = await awardDailyBounty(winnerUserId);
-          if (dailyBonus > 0) winnerTotal += dailyBonus;
+          if (dailyBonus > 0) {
+            winnerTotal += dailyBonus;
+            winnerBreakdown.push({ label: 'Daily bonus', amount: dailyBonus });
+          }
 
           // ELO milestone check
           const updatedWinner = await prisma.user.findUnique({ where: { id: winnerUserId } });
           if (updatedWinner) {
             const milestones = await checkMilestones(winnerUserId, updatedWinner.elo);
-            for (const m of milestones) winnerTotal += m.reward;
+            for (const m of milestones) {
+              winnerTotal += m.reward;
+              winnerBreakdown.push({ label: `${m.name} milestone`, amount: m.reward });
+            }
           }
+
+          coinBreakdown[winnerColor].push(...winnerBreakdown);
+          coinBreakdown[loserColor].push(...loserBreakdown);
 
           coinRewards = {
             red: winner === 'red' ? winnerTotal : loserTotal,
@@ -204,6 +235,63 @@ class GameRoom {
         }
       } catch (err) {
         console.error('Failed to persist game result:', err);
+      }
+    } else if (this.mode === 'RANKED' && result === 'DRAW') {
+      // DRAW — small ELO convergence, consolation coins, refund buy-ins
+      try {
+        const [redUser, blackUser] = await Promise.all([
+          prisma.user.findUnique({ where: { id: this.redUserId } }),
+          prisma.user.findUnique({ where: { id: this.blackUserId } })
+        ]);
+
+        if (redUser && blackUser) {
+          // Small convergence: lower-rated gets +2, higher-rated gets -2
+          let redEloDelta = 0, blackEloDelta = 0;
+          if (redUser.elo !== blackUser.elo) {
+            if (redUser.elo < blackUser.elo) { redEloDelta = 2; blackEloDelta = -2; }
+            else { redEloDelta = -2; blackEloDelta = 2; }
+          }
+          eloChanges = { red: redEloDelta, black: blackEloDelta };
+          eloDetail = {
+            red: { opponentElo: blackUser.elo },
+            black: { opponentElo: redUser.elo }
+          };
+
+          await prisma.$transaction([
+            prisma.user.update({
+              where: { id: this.redUserId },
+              data: { elo: { increment: redEloDelta }, gamesPlayed: { increment: 1 } }
+            }),
+            prisma.user.update({
+              where: { id: this.blackUserId },
+              data: { elo: { increment: blackEloDelta }, gamesPlayed: { increment: 1 } }
+            }),
+            prisma.game.create({
+              data: {
+                redPlayerId: this.redUserId, blackPlayerId: this.blackUserId,
+                winnerId: null, result, redEloChange: redEloDelta, blackEloChange: blackEloDelta,
+                moveHistory: this.game.moveHistory, mode: this.mode, endedAt: new Date()
+              }
+            })
+          ]);
+
+          // Consolation coins to both
+          await awardCoins(this.redUserId, COINS_LOSS, 'WIN_REWARD');
+          await awardCoins(this.blackUserId, COINS_LOSS, 'WIN_REWARD');
+          coinRewards = { red: COINS_LOSS, black: COINS_LOSS };
+          coinBreakdown.red.push({ label: 'Draw consolation', amount: COINS_LOSS });
+          coinBreakdown.black.push({ label: 'Draw consolation', amount: COINS_LOSS });
+
+          // Refund buy-in on draw
+          if (this.buyIn > 0) {
+            await awardCoins(this.redUserId, this.buyIn, 'WIN_REWARD');
+            await awardCoins(this.blackUserId, this.buyIn, 'WIN_REWARD');
+            coinBreakdown.red.push({ label: 'Wager refund', amount: this.buyIn });
+            coinBreakdown.black.push({ label: 'Wager refund', amount: this.buyIn });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to persist draw result:', err);
       }
     } else {
       // FRIENDLY game — still record the game, just no ELO/coins
@@ -244,7 +332,11 @@ class GameRoom {
       gameId: this.id,
       moveHistory: this.game.moveHistory,
       eloChanges,
-      coinRewards
+      eloDetail,
+      coinRewards,
+      coinBreakdown,
+      endReason: this.endReason || this.game.drawReason || 'no-moves',
+      drawReason: this.game.drawReason || null
     });
 
     // Broadcast to all connected clients for the global game log
@@ -476,6 +568,9 @@ export function setupGameHandler(io, socket) {
     }, 0);
 
     if (room.game.gameOver) {
+      if (!room.endReason) {
+        room.endReason = room.game.drawReason || 'no-moves';
+      }
       room.endGame(io, room.game.winner);
     } else {
       scheduleBotMoveIfNeeded(io, room);
@@ -493,7 +588,63 @@ export function setupGameHandler(io, socket) {
     const winner = color === 'red' ? 'black' : 'red';
     room.game.gameOver = true;
     room.game.winner = winner;
+    room.endReason = 'resign';
     room.endGame(io, winner);
+  });
+
+  // --- Draw offer ---
+  socket.on('game:draw-offer', async ({ gameId }) => {
+    const room = activeGames.get(gameId);
+    if (!room) return;
+    const color = room.getPlayerColor(socket.userId);
+    if (!color) return;
+    if (room.game.gameOver) return;
+    if (room.pendingDrawOffer) return;
+
+    // Cooldown check
+    const lastOffer = room.lastDrawOffer[socket.userId] || 0;
+    if (Date.now() - lastOffer < DRAW_OFFER_COOLDOWN_MS) {
+      return socket.emit('game:draw-error', { error: 'Wait before offering again' });
+    }
+
+    // Don't allow vs bots
+    const opponentId = room.getOpponentId(socket.userId);
+    const isBot = await isBotUser(opponentId);
+    if (isBot) return;
+
+    room.pendingDrawOffer = socket.userId;
+    room.lastDrawOffer[socket.userId] = Date.now();
+
+    const opponentConn = connectedUsers.get(opponentId);
+    if (opponentConn) {
+      opponentConn.socket.emit('game:draw-offered', { gameId, offeredBy: socket.userId });
+    }
+  });
+
+  socket.on('game:draw-response', ({ gameId, accepted }) => {
+    const room = activeGames.get(gameId);
+    if (!room) return;
+    if (!room.pendingDrawOffer) return;
+    if (room.pendingDrawOffer === socket.userId) return; // can't accept own offer
+
+    const color = room.getPlayerColor(socket.userId);
+    if (!color) return;
+
+    const offererId = room.pendingDrawOffer;
+    room.pendingDrawOffer = null;
+
+    if (accepted) {
+      room.game.gameOver = true;
+      room.game.winner = null;
+      room.game.drawReason = 'agreement';
+      room.endReason = 'draw-agreement';
+      room.endGame(io, null);
+    } else {
+      const offererConn = connectedUsers.get(offererId);
+      if (offererConn) {
+        offererConn.socket.emit('game:draw-declined', { gameId });
+      }
+    }
   });
 
   // --- Leave game (dismiss game-over screen) ---
@@ -702,6 +853,9 @@ async function scheduleBotMoveIfNeeded(io, gameRoom) {
     }
 
     if (gameRoom.game.gameOver) {
+      if (!gameRoom.endReason) {
+        gameRoom.endReason = gameRoom.game.drawReason || 'no-moves';
+      }
       gameRoom.endGame(io, gameRoom.game.winner);
     } else {
       scheduleBotMoveIfNeeded(io, gameRoom);

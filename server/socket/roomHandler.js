@@ -206,7 +206,12 @@ export function setupRoomHandler(io, socket) {
   // --- Leave room ---
   socket.on('room:leave', ({ roomId } = {}) => {
     let room = roomId ? gameRooms.get(roomId) : findRoomForUser(socket.userId);
-    if (!room) return;
+    if (!room) {
+      // Room already deleted (e.g., game ended) — clean up session
+      forceIdle(socket.userId);
+      emitSyncState(socket, socket.userId);
+      return;
+    }
     console.log(`[Room] Leave: ${socket.username} (${socket.userId}) from room #${room.id}`);
 
     forceIdle(socket.userId);
@@ -401,7 +406,10 @@ async function startRoomGame(io, room) {
   // Spectators join the game room too
   for (const spec of room.spectators) {
     const specConn = connectedUsers.get(spec.userId);
-    if (specConn) specConn.socket.join(`game:${gameRoom.id}`);
+    if (specConn) {
+      specConn.socket.join(`game:${gameRoom.id}`);
+      specConn.socket.join(`chat:game:${gameRoom.id}`);
+    }
   }
 
   // Emit sync:state to both players (they are now in-game)

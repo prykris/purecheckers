@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { gameState, roomChatMessages } from '$lib/stores/app.js';
+  import { gameState, roomChatMessages, phase } from '$lib/stores/app.js';
   import { clearScreenOverride } from '$lib/stores/gameScreen.js';
   import { getSocket } from '$lib/socket.js';
   import { setActiveChannel } from '$lib/socketService.js';
@@ -110,7 +110,9 @@
   function goToLobby() {
     const roomId = $gameState?.roomId;
     if (roomId) getSocket()?.emit('room:leave', { roomId });
-    $gameState = null; clearScreenOverride();
+    $phase = 'idle';
+    $gameState = null;
+    clearScreenOverride();
   }
 
   let showSpectateOverlay = false;
@@ -142,7 +144,11 @@
       selectedPiece={null} validMoves={[]} {lastMove} {lastMoveCaptured}>
       {#if gameOver}
         <div class="game-over-overlay">
-          <h2>{winner === 'red' ? redName : blackName} wins!</h2>
+          {#if winner === null}
+            <h2>Draw</h2>
+          {:else}
+            <h2>{winner === 'red' ? redName : blackName} wins!</h2>
+          {/if}
           <button class="btn btn-primary btn-small" on:click={goToLobby}>Back to Lobby</button>
         </div>
       {/if}
@@ -179,7 +185,7 @@
 
   <!-- Read-only chat -->
   <div class="spectate-chat card">
-    <RoomChat channelId={gameId ? `game:${gameId}` : null} readOnly={true} />
+    <RoomChat channelId={gameId ? `game:${gameId}` : null} readOnly={false} />
   </div>
 </div>
 

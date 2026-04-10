@@ -65,6 +65,59 @@ export function setupChatHandler(io, socket) {
       });
     } catch { return; }
 
+    // Detect @username mentions and resolve to userIds
+    const mentionRegex = /@(\w+)/g;
+    const mentionUserIds = [];
+    let match;
+    while ((match = mentionRegex.exec(sanitized)) !== null) {
+      const mentionedName = match[1].toLowerCase();
+      for (const [userId, conn] of connectedUsers) {
+        if (conn.username?.toLowerCase() === mentionedName) {
+          mentionUserIds.push(userId);
+          break;
+        }
+      }
+    }
+
+    // In-game chat rules: auto-mention opponent, strip player mentions from spectators
+    if (channelId.startsWith('game:')) {
+      const gameId = parseInt(channelId.split(':')[1]);
+      try {
+        const { activeGames } = await import('./gameHandler.js');
+        const gameRoom = activeGames.get(gameId);
+        if (gameRoom) {
+          const isPlayer = gameRoom.getPlayerColor(socket.userId) !== null;
+          if (isPlayer) {
+            // Player messages auto-mention opponent
+            const opponentId = gameRoom.getOpponentId(socket.userId);
+            if (!mentionUserIds.includes(opponentId)) {
+              mentionUserIds.push(opponentId);
+            }
+          } else {
+            // Spectator: strip mentions targeting players
+            const redId = gameRoom.redUserId;
+            const blackId = gameRoom.blackUserId;
+            for (let i = mentionUserIds.length - 1; i >= 0; i--) {
+              if (mentionUserIds[i] === redId || mentionUserIds[i] === blackId) {
+                mentionUserIds.splice(i, 1);
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // Check if sender is a spectator in a game channel
+    let isSpectator = false;
+    if (channelId.startsWith('game:')) {
+      const gid = parseInt(channelId.split(':')[1]);
+      try {
+        const { activeGames } = await import('./gameHandler.js');
+        const gr = activeGames.get(gid);
+        if (gr && !gr.getPlayerColor(socket.userId)) isSpectator = true;
+      } catch {}
+    }
+
     // Broadcast to the channel's socket room
     const socketRoom = `chat:${channelId}`;
     io.to(socketRoom).emit('chat:message', {
@@ -73,18 +126,21 @@ export function setupChatHandler(io, socket) {
       senderId: socket.userId,
       username: socket.username,
       content: sanitized,
-      createdAt: msg.createdAt
+      createdAt: msg.createdAt,
+      mentions: mentionUserIds,
+      spectator: isSpectator
     });
   });
 
   // ---- Fetch history for a channel ----
-  socket.on('chat:history', async ({ channelId, afterId }) => {
+  socket.on('chat:history', async ({ channelId, afterId, beforeId }) => {
     if (!channelId) return;
     if (!canAccessChannel(channelId, socket)) return;
 
     try {
       const where = { channelId };
       if (afterId) where.id = { gt: afterId };
+      if (beforeId) where.id = { ...(where.id || {}), lt: beforeId };
 
       const messages = await prisma.chatMessage.findMany({
         where,
@@ -94,7 +150,8 @@ export function setupChatHandler(io, socket) {
 
       socket.emit('chat:history', {
         channelId,
-        messages: messages.reverse()
+        messages: messages.reverse(),
+        prepend: !!beforeId
       });
     } catch {}
   });

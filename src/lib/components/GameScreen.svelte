@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { gameState, roomUnreadChat, activeRoom, gameOverVisible, browseTab } from '$lib/stores/app.js';
+  import { gameState, roomUnreadChat, roomUnreadMentions, activeRoom, gameOverVisible, browseTab } from '$lib/stores/app.js';
   import { clearScreenOverride } from '$lib/stores/gameScreen.js';
   import { user } from '$lib/stores/user.js';
   import { getSocket } from '$lib/socket.js';
@@ -47,6 +47,9 @@
   let gameOverData = null;
   let showResignConfirm = false;
   let opponentDisconnected = false;
+  let drawOfferPending = false;
+  let drawOfferReceived = false;
+  let drawOfferCooldown = false;
 
   let capturedPieces = { red: [], black: [] };
   let moveLog = [];
@@ -93,6 +96,8 @@
       socket.on('game:opponent-disconnected', () => { opponentDisconnected = true; });
       socket.on('game:opponent-reconnected', () => { opponentDisconnected = false; });
       socket.on('emote:show', onEmoteShow);
+      socket.on('game:draw-offered', () => { drawOfferReceived = true; });
+      socket.on('game:draw-declined', () => { drawOfferPending = false; });
       socket.on('game:move-analysis', ({ rating }) => {
         if (moveLog.length > 0) {
           moveLog[moveLog.length - 1].rating = rating;
@@ -147,6 +152,8 @@
       socket.off('game:opponent-disconnected');
       socket.off('game:opponent-reconnected');
       socket.off('emote:show', onEmoteShow);
+      socket.off('game:draw-offered');
+      socket.off('game:draw-declined');
       socket.off('game:move-analysis');
     }
   });
@@ -427,9 +434,11 @@
   function botTurn() { botThinking=true; setTimeout(async()=>{const move=bot.chooseMove(game);if(!move){botThinking=false;return;}const result=await performAnimatedMove(move.fromRow,move.fromCol,move.toRow,move.toCol);if(!result){botThinking=false;return;}selectedPiece=null;validMoves=[];drawBoard();if(game.gameOver){botThinking=false;handleGameOver();return;}if(result.chainContinues)setTimeout(()=>botTurn(),300);else botThinking=false;},400+Math.random()*600); }
 
   function startTimer() { timerInterval=setInterval(()=>{if(game.gameOver){clearInterval(timerInterval);return;}game.tickTime(1);syncTimers();if(game.gameOver)handleGameOver();},1000); }
-  function handleGameOver() { clearInterval(timerInterval); if(!gameOverData)gameOverData={winner:game.winner,eloChanges:{red:0,black:0},coinRewards:{red:0,black:0}}; $gameOverVisible=true; sfx(game.winner===myColor?'victory':'defeat'); }
+  function handleGameOver() { clearInterval(timerInterval); if(!gameOverData)gameOverData={winner:game.winner,eloChanges:{red:0,black:0},coinRewards:{red:0,black:0},drawReason:game.drawReason||null}; $gameOverVisible=true; sfx(game.winner===myColor?'victory':game.winner===null?'defeat':'defeat'); }
 
   function resign() { showResignConfirm=false; game.gameOver=true; game.winner=myColor==='red'?'black':'red'; if(mode==='online')socket.emit('game:resign',{gameId:gameId}); handleGameOver(); }
+  function offerDraw() { drawOfferPending=true; drawOfferCooldown=true; setTimeout(()=>drawOfferCooldown=false, 30000); socket.emit('game:draw-offer',{gameId}); }
+  function respondDraw(accepted) { drawOfferReceived=false; socket.emit('game:draw-response',{gameId,accepted}); }
   function goToLobby() {
     gameOverData=null;
     $gameState=null;
@@ -471,7 +480,7 @@
   $: isMyTurn = currentPlayer === myColor && !game.gameOver;
   $: myTime = myColor === 'red' ? redTime : blackTime;
   $: urgency = (isMyTurn && myTime <= 10 && myTime > 0 && !game.gameOver) ? (10 - myTime) / 10 : 0;
-  $: statusText = game.gameOver ? (game.winner===myColor?'Victory!':'Defeat') : isMyTurn ? 'Your turn' : (mode==='bot'?'The Colonel is thinking...':"Opponent's turn");
+  $: statusText = game.gameOver ? (game.winner===null?'Draw':game.winner===myColor?'Victory!':'Defeat') : isMyTurn ? 'Your turn' : (mode==='bot'?'The Colonel is thinking...':"Opponent's turn");
   $: spectatorCount = $activeRoom?.spectators?.length || 0;
   function fmtTime(s) { const sec=Math.ceil(s); return `0:${sec.toString().padStart(2,'0')}`; }
 </script>
@@ -506,10 +515,51 @@
       on:mouseleave={()=>{if(dragging){dragging=null;dragStarted=false;drawBoard();}hoveredCell=null;if(canvasEl)canvasEl.style.cursor='default';if(!animating)drawBoard();}}></canvas>
 
     {#if gameOverData}
+      {@const endReason = gameOverData.endReason}
+      {@const reasonText = endReason === 'resign' ? 'by resignation'
+        : endReason === 'timeout' ? 'by timeout'
+        : endReason === 'no-moves' ? 'no moves left'
+        : endReason === 'draw-agreement' ? 'by agreement'
+        : endReason === 'repetition' ? 'by 3-fold repetition'
+        : endReason === '25-move' ? 'by 25-move rule'
+        : ''}
+      {@const myElo = gameOverData.eloChanges?.[myColor] || 0}
+      {@const myCoinTotal = gameOverData.coinRewards?.[myColor] || 0}
+      {@const myBreakdown = gameOverData.coinBreakdown?.[myColor] || []}
+      {@const oppElo = gameOverData.eloDetail?.[myColor]?.opponentElo}
       <div class="game-over">
-        <h2 style="color:{game.winner===myColor?'var(--success)':'var(--accent)'}">{game.winner===myColor?'Victory!':'Defeat'}</h2>
-        {#if gameOverData.eloChanges}<p class="elo">ELO: {gameOverData.eloChanges[myColor]>=0?'+':''}{gameOverData.eloChanges[myColor]}</p>{/if}
-        {#if gameOverData.coinRewards?.[myColor]}<p class="coins">+{gameOverData.coinRewards[myColor]} coins</p>{/if}
+        {#if gameOverData.winner === null}
+          <h2 style="color:var(--text-dim)">Draw</h2>
+        {:else}
+          <h2 style="color:{game.winner===myColor?'var(--success)':'var(--accent)'}">{game.winner===myColor?'Victory!':'Defeat'}</h2>
+        {/if}
+        {#if reasonText}<p class="end-reason">{reasonText}</p>{/if}
+
+        <div class="go-breakdown">
+          {#if myElo !== 0}
+            <div class="go-row">
+              <span class="go-label">ELO</span>
+              <span class="go-val" class:positive={myElo > 0} class:negative={myElo < 0}>{myElo > 0 ? '+' : ''}{myElo}</span>
+            </div>
+            {#if oppElo}
+              <div class="go-row go-sub"><span class="go-label">vs {oppElo} rated</span></div>
+            {/if}
+          {/if}
+          {#if myBreakdown.length > 0}
+            {#each myBreakdown as item}
+              <div class="go-row">
+                <span class="go-label">{item.label}</span>
+                <span class="go-val go-coin">+{item.amount}</span>
+              </div>
+            {/each}
+          {:else if myCoinTotal > 0}
+            <div class="go-row">
+              <span class="go-label">Coins</span>
+              <span class="go-val go-coin">+{myCoinTotal}</span>
+            </div>
+          {/if}
+        </div>
+
         <button class="btn btn-primary btn-small" on:click={goToLobby}>Lobby</button>
         {#if $user?.isGuest}
           <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -544,12 +594,19 @@
   <div class="actions">
     {#if !game.gameOver && mode !== 'spectator'}
       <button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=true}>Resign</button>
+      {#if mode === 'online'}
+        <button class="btn btn-dark btn-small" on:click={offerDraw} disabled={drawOfferPending || drawOfferCooldown}>
+          {drawOfferPending ? 'Draw offered' : 'Draw'}
+        </button>
+      {/if}
     {/if}
     {#if mode==='online'}
-      <button class="btn btn-dark btn-small chat-toggle" class:mobile-only={showChat || desktopChat} on:click={()=>{ showChat=!showChat; desktopChat=!desktopChat; $roomUnreadChat=0; }}>
+      <button class="btn btn-dark btn-small chat-toggle" class:mobile-only={showChat || desktopChat} on:click={()=>{ showChat=!showChat; desktopChat=!desktopChat; $roomUnreadChat=0; $roomUnreadMentions=0; }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         Chat
-        {#if $roomUnreadChat > 0 && !showChat && !desktopChat}
+        {#if $roomUnreadMentions > 0 && !showChat && !desktopChat}
+          <span class="mention-badge">@{$roomUnreadMentions > 9 ? '9+' : $roomUnreadMentions}</span>
+        {:else if $roomUnreadChat > 0 && !showChat && !desktopChat}
           <span class="unread-badge">{$roomUnreadChat > 9 ? '9+' : $roomUnreadChat}</span>
         {/if}
       </button>
@@ -569,6 +626,12 @@
   {#if showResignConfirm}
     <div class="overlay" on:click|self={()=>showResignConfirm=false} on:keydown|self={(e)=>e.key==='Escape'&&(showResignConfirm=false)} role="dialog" tabindex="-1">
       <div class="card confirm"><p>Resign this game?</p><div class="confirm-btns"><button class="btn btn-primary btn-small" on:click={resign}>Resign</button><button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=false}>Cancel</button></div></div>
+    </div>
+  {/if}
+
+  {#if drawOfferReceived}
+    <div class="overlay" on:click|self={() => respondDraw(false)} on:keydown|self={(e) => e.key === 'Escape' && respondDraw(false)} role="dialog" tabindex="-1">
+      <div class="card confirm"><p>{opponentName} offers a draw</p><div class="confirm-btns"><button class="btn btn-primary btn-small" on:click={() => respondDraw(true)}>Accept</button><button class="btn btn-dark btn-small" on:click={() => respondDraw(false)}>Decline</button></div></div>
     </div>
   {/if}
 
@@ -656,8 +719,24 @@
     gap: var(--sp-sm); border-radius: var(--radius-sm); z-index: 10; backdrop-filter: blur(4px);
   }
   .game-over h2 { font-size: var(--fs-title); }
-  .elo { font-size: var(--fs-body); color: var(--text-dim); }
-  .coins { font-size: var(--fs-body); color: var(--gold); }
+  .end-reason { font-size: var(--fs-caption); color: var(--text-dim); font-style: italic; margin-top: -4px; }
+
+  .go-breakdown {
+    display: flex; flex-direction: column; gap: 2px;
+    background: rgba(255,255,255,0.05); border-radius: var(--radius-sm);
+    padding: var(--sp-xs) var(--sp-sm); min-width: 140px;
+  }
+  .go-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: var(--fs-caption); gap: var(--sp-md);
+  }
+  .go-row.go-sub { justify-content: flex-start; }
+  .go-sub .go-label { font-size: 0.6rem; color: var(--text-dim); opacity: 0.7; }
+  .go-label { color: var(--text-dim); }
+  .go-val { font-weight: 700; font-family: var(--font-mono); }
+  .go-val.positive { color: var(--success); }
+  .go-val.negative { color: var(--accent); }
+  .go-val.go-coin { color: var(--gold); }
   .guest-nudge {
     font-size: var(--fs-caption); color: var(--accent2); cursor: pointer;
     text-decoration: underline; opacity: 0.85; margin-top: var(--sp-xs);
@@ -687,14 +766,15 @@
   @keyframes pulse-border { 0%,100%{border-color:var(--warning);} 50%{border-color:transparent;} }
   .actions { display: flex; gap: var(--sp-sm); }
   .chat-toggle { position: relative; }
-  .unread-badge {
+  .unread-badge, .mention-badge {
     position: absolute; top: -6px; right: -6px;
     min-width: 16px; height: 16px;
-    background: var(--accent); color: #fff;
     font-size: 0.55rem; font-weight: 700;
     border-radius: 8px; display: flex; align-items: center; justify-content: center;
-    padding: 0 4px; line-height: 1;
+    padding: 0 4px; line-height: 1; color: #fff;
   }
+  .unread-badge { background: var(--surface2); color: var(--text-dim); }
+  .mention-badge { background: var(--accent2); }
 
   .moves { display: flex; gap: var(--sp-xs); overflow-x: auto; width: 100%; max-width: 640px; scrollbar-width: none; min-height: 18px; }
   .moves::-webkit-scrollbar { display: none; }

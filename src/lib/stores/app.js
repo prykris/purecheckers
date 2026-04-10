@@ -30,3 +30,4 @@ export const replayData = writable(null);
 // Room/game chat (separate from global chat)
 export const roomChatMessages = writable([]);
 export const roomUnreadChat = writable(0);
+export const roomUnreadMentions = writable(0);
