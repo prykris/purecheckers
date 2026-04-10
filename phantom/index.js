@@ -145,8 +145,19 @@ class PhantomManager {
   }
 
   async _bringOnline(count) {
-    const offline = [...this.phantoms.values()].filter(p => !p.connected);
-    const toConnect = offline.slice(0, count);
+    // Filter out phantoms that are currently on a forced break
+    const eligible = [...this.phantoms.values()]
+      .filter(p => !p.connected)
+      .filter(p => !this.brain.isOnBreak(p.name));
+
+    if (eligible.length === 0) {
+      console.log('[PhantomManager] No eligible phantoms to bring online (all on break)');
+      return;
+    }
+
+    // Shuffle so we don't always pick the same phantom first
+    const shuffled = eligible.sort(() => Math.random() - 0.5);
+    const toConnect = shuffled.slice(0, count);
 
     for (let i = 0; i < toConnect.length; i++) {
       if (this.shuttingDown) break;
