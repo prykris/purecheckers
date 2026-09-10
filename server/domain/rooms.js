@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import QRCode from 'qrcode';
 import { reject } from './sessionCommands.js';
 import { resetReadiness, removeMember, canStartRoom } from './roomRules.js';
@@ -10,7 +10,6 @@ import { TURN_TIME } from '../../shared/constants.js';
 import { SITE_URL } from '../config.js';
 import { getSession, setPhase, forceIdle } from './sessions.js';
 
-const prisma = new PrismaClient();
 export const gameRooms = new Map();
 let nextRoomId = Date.now();
 

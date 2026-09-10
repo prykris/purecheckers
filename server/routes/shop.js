@@ -1,11 +1,10 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import { verifyToken } from '../middleware/auth.js';
 import { calculateShopSplit, depositToVault } from '../services/vault.js';
 import { SHOP_VAULT_RATE, SHOP_BURN_RATE } from '../../shared/constants.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/shop/items
 router.get('/items', async (req, res) => {

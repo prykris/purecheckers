@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import { connectedUsers } from './connections.js';
 
-const prisma = new PrismaClient();
 
 // Rate limit per user per channel: channelId:userId -> lastSendTime
 const rateLimits = new Map();

@@ -10,10 +10,8 @@ Creation runs in a database transaction. Unique-key/write conflicts trigger at m
 
 ## Deployment
 
-Apply the 20260909110000_bot_registry migration and regenerate Prisma Client before starting the new backend. For a database managed through db push, apply the equivalent nullable botKey column and unique index. No seed is required to play; the existing seed command remains useful for shop content and provisioning all bots ahead of time.
-
-The existing Railway startup uses db push. `prisma/prepareDatabase.js` applies this additive column/index upgrade transactionally before db push, including on populated installations; repeated starts preserve data. A fresh database is left for db push to create. Duplicate bot keys or an incompatible index stop startup rather than deleting or repairing user records. No global accept-data-loss option is used. Deployments managed through migration history should continue to apply the migration normally.
+User.botKey and its unique index are part of the PostgreSQL migration history in prisma/migrations, which `npm run start` applies with `prisma migrate deploy` before seeding. No seed is required to play; the existing seed command remains useful for shop content and provisioning all bots ahead of time. See docs/deployment.md for the database setup.
 
 ## Verification
 
-Tests cover an empty database, repeated provisioning, simultaneous requests from separate database clients, adopting seeded accounts, preserving renamed accounts and statistics, human/credential/admin/guest collisions, removed accounts, invalid keys, and database failures. Socket integration tests now start without seeded bots and verify that a bot game starts and the bot moves.
+Tests run against PostgreSQL and cover an empty database, repeated provisioning, simultaneous requests from separate database clients, adopting seeded accounts, preserving renamed accounts and statistics, human/credential/admin/guest collisions, removed accounts, invalid keys, and database failures. Socket integration tests now start without seeded bots and verify that a bot game starts and the bot moves.

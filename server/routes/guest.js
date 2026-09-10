@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import { JWT_SECRET } from '../config.js';
 import { generateFriendCode } from './auth.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const ADJECTIVES = [
   'Swift', 'Bold', 'Clever', 'Mighty', 'Silent', 'Lucky', 'Fierce',

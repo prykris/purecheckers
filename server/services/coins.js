@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../db.js';
 
 export async function awardCoins(userId, amount, reason) {
   const [user, transaction] = await prisma.$transaction([

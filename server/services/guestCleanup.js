@@ -4,9 +4,7 @@
  * - Guests with 0 games played → deleted entirely
  * - Guests with games played → tombstoned (username changed, kept for FK integrity)
  */
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../db.js';
 
 export async function cleanupExpiredGuests() {
   const now = new Date();

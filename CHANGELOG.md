@@ -4,6 +4,15 @@ All notable changes to Pure Checkers.
 
 ---
 
+## 10 September 2026 — PostgreSQL Storage
+
+- Moved all persistence from a SQLite file inside the app container to PostgreSQL. Railway redeploys no longer erase users, games, coins or friendships. See docs/deployment.md.
+- Startup now runs `prisma migrate deploy` instead of `db push`; the migration history was recreated for PostgreSQL and the SQLite files were archived under prisma/migrations-sqlite-archive.
+- The server shares one Prisma client (server/db.js) instead of fifteen, keeping the database connection count bounded.
+- Removed the SQLite-only prepareDatabase upgrade step. Tests and local development use a Dockerised PostgreSQL (`npm run db:up`).
+
+---
+
 ## 10 September 2026 — Reliable Sessions & Animated Gameplay
 
 - Rebuilt gameplay synchronization around authoritative server snapshots, explicit commands, duplicate-request protection and reconnect recovery.

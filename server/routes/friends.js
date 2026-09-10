@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import { verifyToken } from '../middleware/auth.js';
 import { getSession } from '../domain/sessions.js';
 
@@ -11,7 +11,6 @@ function getUserStatus(userId) {
 }
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/friends — list accepted friends with online status
 router.get('/', verifyToken, async (req, res) => {

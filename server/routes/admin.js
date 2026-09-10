@@ -1,9 +1,8 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import { verifyToken } from '../middleware/auth.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Middleware: require admin
 async function requireAdmin(req, res, next) {

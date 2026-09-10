@@ -1,11 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import {
   RANKED_TAX_RATE, SHOP_BURN_RATE, SHOP_VAULT_RATE,
   DAILY_BOUNTY_AMOUNT, ELO_MILESTONES,
   MIN_WAGER_MOVES, MIN_WAGER_DURATION_MS
 } from '../../shared/constants.js';
 
-const prisma = new PrismaClient();
 
 // ---- Vault CRUD ----
 

@@ -1,13 +1,12 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import { JWT_SECRET, JWT_EXPIRES_IN } from '../config.js';
 import { verifyToken } from '../middleware/auth.js';
 import { STARTER_COINS, ELO_START } from '../../shared/constants.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 export function generateFriendCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

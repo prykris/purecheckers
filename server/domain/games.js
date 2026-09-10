@@ -11,9 +11,7 @@ import { calculateElo } from '../services/elo.js';
 import { awardCoins } from '../services/coins.js';
 import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME, DRAW_OFFER_COOLDOWN_MS } from '../../shared/constants.js';
 import { calculateRankedPayout, depositToVault, awardDailyBounty, checkMilestones, isValidWager } from '../services/vault.js';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../db.js';
 
 // Active games: gameId -> GameRoom
 export const activeGames = new Map();

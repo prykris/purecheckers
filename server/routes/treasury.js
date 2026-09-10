@@ -1,10 +1,9 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import { getVaultBalance, getVaultLogs, getPendingPayouts, claimPendingPayout } from '../services/vault.js';
 import { verifyToken } from '../middleware/auth.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/treasury — public economy dashboard
 router.get('/', async (req, res) => {

@@ -5,11 +5,10 @@
  * Each difficulty is a different search depth.
  * Bot accounts are provisioned from the registry when first requested.
  */
-import { PrismaClient } from '@prisma/client';
+import prisma from '../db.js';
 import { ensureBotAccount } from './botAccounts.js';
 import { getBotDefinition } from '../domain/botRegistry.js';
 
-const prisma = new PrismaClient();
 
 export async function getBotUser(difficulty) {
   return ensureBotAccount(prisma, difficulty);
