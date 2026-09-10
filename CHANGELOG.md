@@ -4,6 +4,19 @@ All notable changes to Pure Checkers.
 
 ---
 
+## 10 September 2026 — Reliable Sessions & Animated Gameplay
+
+- Rebuilt gameplay synchronization around authoritative server snapshots, explicit commands, duplicate-request protection and reconnect recovery.
+- Fixed bot readiness and room cleanup. A shared bot registry now creates missing accounts safely and preserves existing identities and statistics.
+- Unified browser navigation: screens and URLs follow accepted session state, including minimized rooms, reloads and Back/Forward.
+- Added move slides, capture fade/shrink, promotion glow and result reveal after the final move, for players and spectators.
+- Bounded animation queues cancel on recovery, tab suspension, board orientation changes or reduced-motion settings.
+- Replay loading now reports errors and discards responses from obsolete navigation. Room departure remains visible until confirmed.
+- Removed the legacy wheel screen and independent client gameplay-state mutations.
+- Added regression coverage for session recovery, commands, bot provisioning, navigation, animation ordering and additive database upgrades.
+
+---
+
 ## v1.3.0 — Game Polish
 
 ### Move Analysis

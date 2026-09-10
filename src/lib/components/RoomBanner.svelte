@@ -1,21 +1,19 @@
 <script>
   import { activeRoom } from '$lib/stores/app.js';
-  import { gameScreen, setScreenOverride } from '$lib/stores/gameScreen.js';
-  import { getSocket } from '$lib/socket.js';
+  import { gameScreen, openSession } from '$lib/stores/navigation.js';
+  import { sendCommand, session } from '$lib/stores/session.js';
 
-  let leaving = false;
+  $: leaving = $session.pending === 'room:leave';
 
-  function goToRoom() { setScreenOverride('room-waiting'); }
+  function goToRoom() { openSession(); }
 
   function leaveRoom(e) {
     e.stopPropagation();
-    leaving = true;
-    getSocket()?.emit('room:leave', { roomId: $activeRoom?.id });
+
+    sendCommand('room:leave', { roomId: $activeRoom?.id });
     // Server will confirm via sync:state -> activeRoom becomes null
   }
 
-  // Reset leaving state when room is cleared
-  $: if (!$activeRoom) leaving = false;
 
   $: playerCount = $activeRoom?.players?.length || 0;
   $: hasOpponent = playerCount >= 2;
@@ -25,14 +23,14 @@
 
   $: dotClass = allReady ? 'ready' : hasOpponent ? 'joined' : 'waiting';
   $: label = allReady ? 'Ready!' : hasOpponent ? (opponentOnline ? opponentName : `${opponentName} (away)`) : 'Waiting...';
-  $: show = $activeRoom && !leaving && $gameScreen === 'none';
+  $: show = $activeRoom && $gameScreen === 'none';
 </script>
 
 {#if show}
   <div class="room-pill" class:joined={hasOpponent} class:ready={allReady} on:click={goToRoom} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && goToRoom()}>
     <span class="dot {dotClass}"></span>
     <span class="pill-text">{label}</span>
-    <span class="pill-close" on:click={leaveRoom} on:keydown={(e) => e.key === 'Enter' && leaveRoom()} role="button" tabindex="0" title="Leave room">
+    <span class="pill-close" on:click={leaveRoom} on:keydown={(e) => e.key === 'Enter' && leaveRoom(e)} role="button" tabindex="0" aria-disabled={leaving} title="Leave room">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </span>
   </div>

@@ -1,6 +1,6 @@
 <script>
   import { phase, gameState, activeRoom, searching, connectionStatus, browseTab, presenceStats, gameOverVisible } from '$lib/stores/app.js';
-  import { gameScreen } from '$lib/stores/gameScreen.js';
+  import { gameScreen } from '$lib/stores/navigation.js';
   import { user } from '$lib/stores/user.js';
   import { getSocket } from '$lib/socket.js';
   import { api } from '$lib/api.js';
@@ -34,27 +34,10 @@
     eventLog = [...eventLog.slice(-(MAX_EVENTS - 1)), entry];
   }
 
-  // Intercept socket events
-  let origEmit;
-  function hookSocket(sock) {
-    if (!sock || sock._devHooked) return;
-    sock._devHooked = true;
-
-    // Hook incoming events
-    const origOn = sock.onevent;
-    sock.onevent = function(packet) {
-      const [name, ...args] = packet.data || [];
-      logEvent('in', name, args[0]);
-      origOn.call(this, packet);
-    };
-
-    // Hook outgoing events
-    origEmit = sock.emit.bind(sock);
-    sock.emit = function(name, ...args) {
-      if (name !== 'ping') logEvent('out', name, args[0]);
-      return origEmit(name, ...args);
-    };
-  }
+  const onIncoming = (name, data) => logEvent('in', name, data);
+  const onOutgoing = (name, data) => logEvent('out', name, data);
+  function unhookSocket(sock) { sock?.offAny(onIncoming); sock?.offAnyOutgoing(onOutgoing); }
+  function hookSocket(sock) { sock.onAny(onIncoming); sock.onAnyOutgoing(onOutgoing); }
 
   onMount(() => {
     window.addEventListener('keydown', onKeyDown);
@@ -63,12 +46,13 @@
     // Re-check periodically in case socket connects later
     const interval = setInterval(() => {
       const s = getSocket();
-      if (s && s !== socket) { socket = s; hookSocket(s); }
+      if (s !== socket) { unhookSocket(socket); socket = s; if (s) hookSocket(s); }
     }, 2000);
     return () => clearInterval(interval);
   });
 
   onDestroy(() => {
+    unhookSocket(socket);
     window.removeEventListener('keydown', onKeyDown);
   });
 

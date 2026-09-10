@@ -1,7 +1,6 @@
 <script>
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { phase } from '$lib/stores/app.js';
-  import { getSocket } from '$lib/socket.js';
+  import { createEventDispatcher } from 'svelte';
+  import { sendCommand } from '$lib/stores/session.js';
 
   const dispatch = createEventDispatcher();
 
@@ -13,33 +12,13 @@
   let allowSpectators = true;
   let error = '';
   let creating = false;
-  let socket;
-
-  onMount(() => {
-    socket = getSocket();
-    if (socket) {
-      socket.on('room:error', onError);
-    }
-  });
-
-  onDestroy(() => {
-    if (socket) {
-      socket.off('room:error', onError);
-    }
-  });
-
-  // When server confirms we're in a room via sync:state, close the modal
-  $: if ($phase === 'in-room' && creating) {
-    creating = false;
-    dispatch('close');
-  }
-
-  function onError({ error: e }) { error = e; creating = false; }
-
-  function create() {
-    error = '';
+  async function create() {
+    if (creating) return;
     creating = true;
-    socket?.emit('room:create', { buyIn, turnTimer, isPrivate, allowSpectators });
+    const result = await sendCommand('room:create', { buyIn, turnTimer, isPrivate, allowSpectators });
+    error = result.error || '';
+    creating = false;
+    if (result.ok) dispatch('close');
   }
 </script>
 

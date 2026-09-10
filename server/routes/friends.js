@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { verifyToken } from '../middleware/auth.js';
-import { getSession } from '../socket/userState.js';
+import { getSession } from '../domain/sessions.js';
 
 function getUserStatus(userId) {
   const session = getSession(userId);

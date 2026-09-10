@@ -1,130 +1,19 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import { gameState, roomChatMessages, phase } from '$lib/stores/app.js';
-  import { clearScreenOverride } from '$lib/stores/gameScreen.js';
-  import { getSocket } from '$lib/socket.js';
-  import { setActiveChannel } from '$lib/socketService.js';
-  import { CheckersGame } from '../../../shared/game.js';
-  import { TURN_TIME } from '../../../shared/constants.js';
-  import BoardView from './BoardView.svelte';
+  import { gameState } from '$lib/stores/app.js';
+  import { fade } from 'svelte/transition';
+  import { session, sendCommand } from '$lib/stores/session.js';
+  import GameBoard from './GameBoard.svelte';
   import RoomChat from './chat/RoomChat.svelte';
-
-  let game = new CheckersGame();
   let flip = false;
-  let lastMove = null;
-  let lastMoveCaptured = [];
-  let boardView;
-  let socket;
-  let gameOver = false;
-  let winner = null;
-
-  const redName = $gameState?.spectatorRedName || 'Red';
-  const blackName = $gameState?.spectatorBlackName || 'Black';
-  const gameId = $gameState?.gameId;
-
-  // Restore state if provided
-  if ($gameState?.reconnectState) {
-    const rs = $gameState.reconnectState;
-    game.board = rs.board;
-    game.currentPlayer = rs.currentPlayer;
-    game.redTime = rs.redTime;
-    game.blackTime = rs.blackTime;
-    game.chainPiece = rs.chainPiece;
-    game.gameOver = rs.gameOver;
-    game.winner = rs.winner;
-  }
-
-  onMount(() => {
-    socket = getSocket();
-    if (!socket) return;
-    if (gameId) setActiveChannel(`game:${gameId}`);
-    socket.on('game:moved', onMove);
-    socket.on('game:tick', onTick);
-    socket.on('game:over', onGameOver);
-    socket.on('game:sync', onSync);
-  });
-
-  onDestroy(() => {
-    if (socket) {
-      socket.off('game:moved', onMove);
-      socket.off('game:tick', onTick);
-      socket.off('game:over', onGameOver);
-      socket.off('game:sync', onSync);
-    }
-  });
-
-  function onSync(state) {
-    game.board = state.board;
-    game.currentPlayer = state.currentPlayer;
-    game.redTime = state.redTime;
-    game.blackTime = state.blackTime;
-    game.chainPiece = state.chainPiece;
-    game.gameOver = state.gameOver;
-    game.winner = state.winner;
-    game = game;
-    boardView?.redraw();
-  }
-
-  async function onMove(data) {
-    if (data.fromRow === undefined) return;
-    // Gather capture info before making the move
-    const piece = game.at(data.fromRow, data.fromCol);
-    const moves = game.getValidMovesFor(data.fromRow, data.fromCol);
-    const move = moves.find(m => m.toRow === data.toRow && m.toCol === data.toCol);
-    const captured = move?.captured?.map(cap => {
-      const cp = game.at(cap.row, cap.col);
-      return { row: cap.row, col: cap.col, color: cp?.color, queen: cp?.queen };
-    }) || [];
-
-    const result = game.makeMove(data.fromRow, data.fromCol, data.toRow, data.toCol);
-    if (!result) return;
-
-    lastMove = { fromRow: data.fromRow, fromCol: data.fromCol, toRow: data.toRow, toCol: data.toCol };
-    lastMoveCaptured = captured.map(c => ({ row: c.row, col: c.col }));
-    game.redTime = data.redTime;
-    game.blackTime = data.blackTime;
-    game = game;
-
-    // Animate
-    if (boardView && piece) {
-      await boardView.animateMove(data.fromRow, data.fromCol, data.toRow, data.toCol, piece.color, piece.queen, captured);
-    }
-    boardView?.redraw();
-  }
-
-  function onTick(data) {
-    game.redTime = data.redTime;
-    game.blackTime = data.blackTime;
-    game = game;
-  }
-
-  function onGameOver(data) {
-    game.gameOver = true;
-    game.winner = data.winner;
-    gameOver = true;
-    winner = data.winner;
-    game = game;
-  }
-
-  function toggleFlip() { flip = !flip; boardView?.redraw(); }
-  function goToLobby() {
-    const roomId = $gameState?.roomId;
-    if (roomId) getSocket()?.emit('room:leave', { roomId });
-    $phase = 'idle';
-    $gameState = null;
-    clearScreenOverride();
-  }
-
-  let showSpectateOverlay = false;
-  let overlayTimer = null;
-  function onBoardTap() {
-    if (gameOver) return;
-    showSpectateOverlay = true;
-    clearTimeout(overlayTimer);
-    overlayTimer = setTimeout(() => { showSpectateOverlay = false; }, 1500);
-  }
-
-  function fmtTime(s) { const sec = Math.ceil(s); return `0:${sec.toString().padStart(2, '0')}`; }
+  $: game = $gameState.state;
+  $: gameId = $gameState.gameId;
+  $: redName = $gameState.spectatorRedName;
+  $: blackName = $gameState.spectatorBlackName;
+  $: gameOver = game.gameOver;
+  $: winner = game.winner;
+  function toggleFlip() { flip = !flip; }
+  function goToLobby() { sendCommand('room:leave', { roomId: $gameState.roomId }); }
+  function fmtTime(seconds) { if (!game.turnTime) return '∞'; const n = Math.ceil(seconds); return Math.floor(n/60) + ':' + String(n%60).padStart(2, '0'); }
 </script>
 
 <div class="spectate-layout">
@@ -139,11 +28,10 @@
 
   <!-- Board -->
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="board-tap-zone" on:click={onBoardTap}>
-    <BoardView bind:this={boardView} {game} {flip} myColor="red" interactive={false}
-      selectedPiece={null} validMoves={[]} {lastMove} {lastMoveCaptured}>
-      {#if gameOver}
-        <div class="game-over-overlay">
+  <div class="board-tap-zone">
+    <GameBoard snapshot={game} recovery={$session.recovery} connected={$session.status === 'ready'} {flip} myColor="red" interactive={false} let:resultVisible let:resultDuration>
+      {#if gameOver && resultVisible}
+        <div class="game-over-overlay" in:fade={{ duration: resultDuration }}>
           {#if winner === null}
             <h2>Draw</h2>
           {:else}
@@ -152,13 +40,8 @@
           <button class="btn btn-primary btn-small" on:click={goToLobby}>Back to Lobby</button>
         </div>
       {/if}
-    </BoardView>
-    {#if showSpectateOverlay}
-      <div class="spectate-tap-overlay">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        You're spectating
-      </div>
-    {/if}
+    </GameBoard>
+
   </div>
 
   <!-- Bottom player -->

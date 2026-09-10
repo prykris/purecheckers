@@ -1,13 +1,13 @@
 <script>
   import { searching } from '$lib/stores/app.js';
-  import { gameScreen, setScreenOverride } from '$lib/stores/gameScreen.js';
-  import { getSocket } from '$lib/socket.js';
+  import { gameScreen, openSession } from '$lib/stores/navigation.js';
+  import { sendCommand } from '$lib/stores/session.js';
 
-  function openSearch() { setScreenOverride('search'); }
+  function openSearch() { openSession(); }
 
   function cancel(e) {
     e.stopPropagation();
-    getSocket()?.emit('matchmaking:leave');
+    sendCommand('matchmaking:leave');
   }
 
   $: show = $searching && $gameScreen === 'none';

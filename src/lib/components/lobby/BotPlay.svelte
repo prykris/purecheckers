@@ -1,7 +1,5 @@
 <script>
-  import { getSocket } from '$lib/socket.js';
-  import { phase } from '$lib/stores/app.js';
-  import { setScreenOverride } from '$lib/stores/gameScreen.js';
+  import { sendCommand } from '$lib/stores/session.js';
 
   let botDifficulty = (typeof localStorage !== 'undefined' && localStorage.getItem('checkers_bot_diff')) || 'medium';
   let creating = false;
@@ -12,30 +10,12 @@
     localStorage.setItem('checkers_bot_diff', d);
   }
 
-  function play() {
-    const socket = getSocket();
-    if (!socket || creating) return;
+  async function play() {
+    if (creating) return;
     creating = true;
-    error = '';
-
-    // Create a room, then call the bot into it
-    socket.emit('room:create', { buyIn: 0, turnTimer: 60, isPrivate: false, allowSpectators: true });
-
-    socket.once('room:created', ({ room }) => {
-      // Room created, now call the bot
-      socket.emit('bot:join', { roomId: room.id, difficulty: botDifficulty });
-    });
-
-    socket.once('room:error', ({ error: e }) => {
-      error = e;
-      creating = false;
-    });
-  }
-
-  // When phase transitions to in-room or in-game, show room waiting overlay
-  $: if (creating && ($phase === 'in-room' || $phase === 'in-game')) {
+    const result = await sendCommand('bot:play', { difficulty: botDifficulty });
+    error = result.error || '';
     creating = false;
-    setScreenOverride('room-waiting');
   }
 </script>
 

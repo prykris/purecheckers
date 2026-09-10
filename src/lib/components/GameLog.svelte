@@ -1,9 +1,10 @@
 <script>
+  import { browseTo } from '$lib/stores/navigation.js';
   import { onMount, onDestroy } from 'svelte';
   import { getSocket } from '$lib/socket.js';
   import { user } from '$lib/stores/user.js';
-  import { browseTab, replayData } from '$lib/stores/app.js';
-  import { setScreenOverride } from '$lib/stores/gameScreen.js';
+  import { browseTab } from '$lib/stores/app.js';
+  import { openReplay } from '$lib/stores/navigation.js';
   import { api } from '$lib/api.js';
 
   export let mode = 'global'; // 'global' | 'personal'
@@ -41,7 +42,7 @@
   }
 
   function goToQuickPlay() {
-    $browseTab = 'lobby';
+    browseTo('lobby');
   }
 
   onMount(async () => {
@@ -61,13 +62,7 @@
     if (socket) socket.off('global:game-ended', onGameEnded);
   });
 
-  async function openReplay(gameId) {
-    try {
-      const data = await api.get(`/leaderboard/game/${gameId}`);
-      $replayData = data.game;
-      setScreenOverride('replay');
-    } catch {}
-  }
+
 </script>
 
 <div class="game-log">

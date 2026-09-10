@@ -1,13 +1,11 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import { closeSync, openSync } from 'node:fs';
 
 process.env.JWT_SECRET = 'test-secret';
 process.env.DATABASE_URL = 'file:./test.db';
+closeSync(openSync('prisma/test.db', 'a'));
 
 // Push schema to test DB
-try {
-  execSync('npx prisma db push --skip-generate --accept-data-loss 2>&1', {
+  execFileSync(process.execPath, ['node_modules/prisma/build/index.js', 'db', 'push', '--skip-generate', '--accept-data-loss'], {
     env: { ...process.env, DATABASE_URL: 'file:./test.db' }
   });
-} catch (e) {
-  console.warn('Prisma db push warning:', e.message);
-}

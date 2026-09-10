@@ -1,9 +1,8 @@
 <script>
+  import { browseTo } from '$lib/stores/navigation.js';
   import { user, token } from '$lib/stores/user.js';
   import { browseTab } from '$lib/stores/app.js';
   import { api } from '$lib/api.js';
-  import { reconnectSocket } from '$lib/socketService.js';
-  import { disconnectSocket } from '$lib/socket.js';
   import GameLog from './GameLog.svelte';
 
 
@@ -28,8 +27,7 @@
       $token = data.token;
       $user = data.user;
       upgradeError = '';
-      // Reconnect socket with new identity — sync:state resets all stores
-      await reconnectSocket();
+
     } catch (err) {
       upgradeError = err?.message || 'Something went wrong';
     }
@@ -43,15 +41,14 @@
 
 
   function logout() {
-    disconnectSocket();
-    disconnectSocket(); $token = null; $user = null;
+    $token = null; $user = null;
   }
 
 </script>
 
 <div class="profile-layout">
   <div class="profile-content">
-    <button class="back-btn" on:click={() => $browseTab = 'lobby'}>
+    <button class="back-btn" on:click={() => browseTo('lobby')}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
       Back
     </button>
@@ -124,7 +121,7 @@
 
     <GameLog mode="personal" />
 
-    <button class="btn btn-dark treasury-btn" on:click={() => $browseTab = 'treasury'}>
+    <button class="btn btn-dark treasury-btn" on:click={() => browseTo('treasury')}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       Community Treasury
     </button>

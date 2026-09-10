@@ -1,33 +1,34 @@
 <script>
+  import { browseTo } from '$lib/stores/navigation.js';
   import { browseTab } from '$lib/stores/app.js';
 </script>
 
 <nav class="tab-bar">
-  <button class="tab" class:active={$browseTab === 'lobby'} on:click={() => $browseTab = 'lobby'}>
+  <button class="tab" class:active={$browseTab === 'lobby'} on:click={() => browseTo('lobby')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
     </svg>
     <span>Play</span>
   </button>
-  <button class="tab" class:active={$browseTab === 'treasury'} on:click={() => $browseTab = 'treasury'}>
+  <button class="tab" class:active={$browseTab === 'treasury'} on:click={() => browseTo('treasury')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
     </svg>
     <span>Treasury</span>
   </button>
-  <button class="tab" class:active={$browseTab === 'shop'} on:click={() => $browseTab = 'shop'}>
+  <button class="tab" class:active={$browseTab === 'shop'} on:click={() => browseTo('shop')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
     </svg>
     <span>Shop</span>
   </button>
-  <button class="tab" class:active={$browseTab === 'friends'} on:click={() => $browseTab = 'friends'}>
+  <button class="tab" class:active={$browseTab === 'friends'} on:click={() => browseTo('friends')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
     </svg>
     <span>Friends</span>
   </button>
-  <button class="tab" class:active={$browseTab === 'profile'} on:click={() => $browseTab = 'profile'}>
+  <button class="tab" class:active={$browseTab === 'profile'} on:click={() => browseTo('profile')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
     </svg>

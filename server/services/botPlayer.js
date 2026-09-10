@@ -3,44 +3,16 @@
  *
  * Uses the shared CheckersGame + minimax from shared/game.js.
  * Each difficulty is a different search depth.
- * Bot accounts are real User rows in the database (seeded on startup).
+ * Bot accounts are provisioned from the registry when first requested.
  */
 import { PrismaClient } from '@prisma/client';
+import { ensureBotAccount } from './botAccounts.js';
+import { getBotDefinition } from '../domain/botRegistry.js';
 
 const prisma = new PrismaClient();
 
-const DIFFICULTIES = {
-  easy:   { depth: 2, name: 'Bot Easy' },
-  medium: { depth: 4, name: 'Bot Medium' },
-  hard:   { depth: 6, name: 'Bot Hard' },
-};
-
-// Cached bot User IDs (loaded once on first use)
-let botUsers = null;
-
-/**
- * Load or return cached bot user records.
- */
-export async function getBotUsers() {
-  if (botUsers) return botUsers;
-  const bots = await prisma.user.findMany({ where: { isBot: true } });
-  botUsers = {};
-  for (const bot of bots) {
-    for (const [diff, config] of Object.entries(DIFFICULTIES)) {
-      if (bot.username === config.name) {
-        botUsers[diff] = bot;
-      }
-    }
-  }
-  return botUsers;
-}
-
-/**
- * Get the bot User for a given difficulty.
- */
 export async function getBotUser(difficulty) {
-  const bots = await getBotUsers();
-  return bots[difficulty] || null;
+  return ensureBotAccount(prisma, difficulty);
 }
 
 /**
@@ -57,7 +29,7 @@ export async function isBotUser(userId) {
  * Runs synchronously — the caller should schedule with setTimeout for natural feel.
  */
 export function chooseBotMove(game, difficulty) {
-  const config = DIFFICULTIES[difficulty];
+  const config = getBotDefinition(difficulty);
   if (!config) return null;
 
   const moves = game.getAllValidMoves();
@@ -127,11 +99,6 @@ function minimax(game, depth, alpha, beta, maximizing, botColor) {
  * Get the difficulty key for a bot userId.
  */
 export async function getBotDifficulty(userId) {
-  const bots = await getBotUsers();
-  for (const [diff, bot] of Object.entries(bots)) {
-    if (bot.id === userId) return diff;
-  }
-  return null;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { isBot: true, botKey: true } });
+  return user?.isBot && getBotDefinition(user.botKey) ? user.botKey : null;
 }
-
-export { DIFFICULTIES };

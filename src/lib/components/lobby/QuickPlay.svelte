@@ -1,15 +1,14 @@
 <script>
   import { user } from '$lib/stores/user.js';
-  import { setScreenOverride } from '$lib/stores/gameScreen.js';
-  import { getSocket } from '$lib/socket.js';
+  import { sendCommand } from '$lib/stores/session.js';
   import RoomCreate from './RoomCreate.svelte';
   import GameLog from '../GameLog.svelte';
 
   let showCreatePrivate = false;
 
   function findOpponent() {
-    getSocket()?.emit('matchmaking:join', { elo: $user?.elo || 1000 });
-    setScreenOverride('search');
+    sendCommand('matchmaking:join');
+
   }
 </script>
 

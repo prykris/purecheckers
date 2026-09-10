@@ -1,4 +1,5 @@
 <script>
+  import { browseTo } from '$lib/stores/navigation.js';
   import { onMount } from 'svelte';
   import { user } from '$lib/stores/user.js';
   import { browseTab } from '$lib/stores/app.js';
@@ -41,7 +42,7 @@
 
 <div class="page-scroll">
   <div class="page-content treasury">
-    <button class="btn btn-dark btn-small back" on:click={() => $browseTab = 'lobby'}>Back</button>
+    <button class="btn btn-dark btn-small back" on:click={() => browseTo('lobby')}>Back</button>
 
     <h2>Community Treasury</h2>
     <p class="subtitle">Every coin has a history. This economy belongs to the players.</p>

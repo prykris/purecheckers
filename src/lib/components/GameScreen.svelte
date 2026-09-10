@@ -1,488 +1,64 @@
 <script>
+  import { browseTo } from '$lib/stores/navigation.js';
   import { onMount, onDestroy } from 'svelte';
-  import { gameState, roomUnreadChat, roomUnreadMentions, activeRoom, gameOverVisible, browseTab } from '$lib/stores/app.js';
-  import { clearScreenOverride } from '$lib/stores/gameScreen.js';
+  import { fade } from 'svelte/transition';
+  import { gameState, activeRoom, roomUnreadChat, roomUnreadMentions, browseTab } from '$lib/stores/app.js';
+  import { session, sendCommand } from '$lib/stores/session.js';
   import { user } from '$lib/stores/user.js';
   import { getSocket } from '$lib/socket.js';
   import { api } from '$lib/api.js';
+  import { describeHistory } from '$lib/gamePresentation.js';
+  import GameBoard from './GameBoard.svelte';
   import RoomChat from './chat/RoomChat.svelte';
-  import { play as sfx } from '$lib/sounds.js';
-  import { setActiveChannel } from '$lib/socketService.js';
-  import { CheckersGame, ColonelBot } from '../../../shared/game.js';
-  import { TURN_TIME } from '../../../shared/constants.js';
 
-  let canvasEl;
-  let ctx;
-  let CELL = 60, BOARD_PX = 480;
-
-  let game = new CheckersGame();
-  let myColor = $gameState?.myColor || 'red';
-  let mode = $gameState?.mode || 'online';
-  let opponentName = $gameState?.opponentName || 'Opponent';
-  const gameId = $gameState?.gameId;
-  let selectedPiece = null;
-  let validMoves = [];
-
-  // Restore state on reconnect
-  if ($gameState?.reconnectState) {
-    const rs = $gameState.reconnectState;
-    game.board = rs.board;
-    game.currentPlayer = rs.currentPlayer;
-    game.redTime = rs.redTime;
-    game.blackTime = rs.blackTime;
-    game.chainPiece = rs.chainPiece;
-    game.gameOver = rs.gameOver;
-    game.winner = rs.winner;
-    game.moveHistory = rs.moveHistory || [];
-    // If game was already over, show the game-over screen immediately
-    if (rs.gameOver) {
-      gameOverData = { winner: rs.winner, eloChanges: { red: 0, black: 0 }, coinRewards: { red: 0, black: 0 } };
-      $gameOverVisible = true;
-    }
-  }
-  let lastMove = null;
-  let hoveredCell = null;
-  let animating = false;
-  let botThinking = false;
-  let gameOverData = null;
-  let showResignConfirm = false;
-  let opponentDisconnected = false;
-  let drawOfferPending = false;
-  let drawOfferReceived = false;
-  let drawOfferCooldown = false;
-
-  let capturedPieces = { red: [], black: [] };
-  let moveLog = [];
-  let moveNumber = 0;
-
-
-  let ownedEmotes = [];
-  let activeEmote = null;
-  let showEmoteBar = false;
-  let showChat = false;
-  let desktopChat = window.innerWidth >= 1100;
-  let emoteTimeout = null;
-
-  let moveAnimState = null;
-  let shatterParticles = [];
-  let capturedOverlay = [];
-  let trail = [];
-  let boardTextureCanvas = null;
-  let introAnim = null;
-  let lastMoveCaptured = []; // [{row, col}] positions where captures happened
-
-  const bot = new ColonelBot();
-  let timerInterval = null;
-  let socket = null;
-
-  onMount(() => {
-    ctx = canvasEl.getContext('2d');
-    resizeBoard();
-    window.addEventListener('resize', resizeBoard);
-
-    if (mode === 'online') {
-      socket = getSocket();
-      if (gameId) setActiveChannel(`game:${gameId}`);
-      socket.on('game:start', (data) => {
-        game.redTime = data.redTime;
-        game.blackTime = data.blackTime;
-        game.currentPlayer = data.currentPlayer;
-        syncTimers();
-        sfx('gameStart');
-      });
-      socket.on('game:moved', onServerMove);
-      socket.on('game:tick', onTick);
-      socket.on('game:over', onGameOver);
-      socket.on('game:opponent-disconnected', () => { opponentDisconnected = true; });
-      socket.on('game:opponent-reconnected', () => { opponentDisconnected = false; });
-      socket.on('emote:show', onEmoteShow);
-      socket.on('game:draw-offered', () => { drawOfferReceived = true; });
-      socket.on('game:draw-declined', () => { drawOfferPending = false; });
-      socket.on('game:move-analysis', ({ rating }) => {
-        if (moveLog.length > 0) {
-          moveLog[moveLog.length - 1].rating = rating;
-          moveLog = moveLog;
-        }
-      });
-
-      const loadEmotes = async () => {
-        try {
-          const [invData, shopData] = await Promise.all([api.get('/shop/inventory'), api.get('/shop/items')]);
-          const owned = invData.inventory.filter(i => i.item.type === 'EMOTE').map(i => i.item);
-          const free = (shopData.items || []).filter(i => i.type === 'EMOTE' && i.price === 0);
-          const ids = new Set(owned.map(e => e.id));
-          ownedEmotes = [...owned, ...free.filter(e => !ids.has(e.id))];
-        } catch {
-          // Fallback: try just free items
-          try {
-            const shopData = await api.get('/shop/items');
-            ownedEmotes = (shopData.items || []).filter(i => i.type === 'EMOTE' && i.price === 0);
-          } catch {}
-        }
-      };
-      loadEmotes();
-    }
-
-    if (mode === 'bot') {
-      startTimer();
-      if (myColor === 'black') setTimeout(() => botTurn(), 1100);
-    }
-
-    // Play intro animation unless reconnecting
-    if (!$gameState?.reconnectState) {
-      playIntroAnimation();
-    } else {
-      drawBoard();
-    }
-
-    // Also listen for zoom changes
-    window.visualViewport?.addEventListener('resize', resizeBoard);
-  });
-
-  onDestroy(() => {
-    window.removeEventListener('resize', resizeBoard);
-    window.visualViewport?.removeEventListener('resize', resizeBoard);
-    clearInterval(timerInterval);
-    clearTimeout(emoteTimeout);
-    if (socket) {
-      socket.off('game:start');
-      socket.off('game:moved', onServerMove);
-      socket.off('game:tick', onTick);
-      socket.off('game:over', onGameOver);
-      socket.off('game:opponent-disconnected');
-      socket.off('game:opponent-reconnected');
-      socket.off('emote:show', onEmoteShow);
-      socket.off('game:draw-offered');
-      socket.off('game:draw-declined');
-      socket.off('game:move-analysis');
-    }
-  });
-
-  // ---- Board sizing ----
-  function resizeBoard() {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const chromeH = vh <= 520 ? 100 : 200;
-    let maxW, maxH, cap;
-    if (vw >= 1100) { maxW = Math.min(vw - 560, 640); maxH = vh - 100; cap = 640; }
-    else if (vw >= 600) { maxW = Math.min(vw - 24, 560); maxH = vh - chromeH; cap = 560; }
-    else { maxW = vw - 16; maxH = vh - chromeH; cap = 480; }
-    BOARD_PX = Math.min(maxW, maxH, cap);
-    BOARD_PX = Math.max(BOARD_PX, 200);
-    CELL = BOARD_PX / 8;
-    if (canvasEl) { canvasEl.width = BOARD_PX; canvasEl.height = BOARD_PX; generateBoardTexture(); drawBoard(); }
-  }
-
-  function generateBoardTexture() {
-    boardTextureCanvas = document.createElement('canvas');
-    boardTextureCanvas.width = BOARD_PX; boardTextureCanvas.height = BOARD_PX;
-    const t = boardTextureCanvas.getContext('2d');
-    const style = getComputedStyle(document.documentElement);
-    const light = style.getPropertyValue('--board-light').trim() || '#c8b078';
-    const dark = style.getPropertyValue('--board-dark').trim() || '#6b8e4e';
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-      t.fillStyle = (r + c) % 2 === 0 ? light : dark;
-      t.fillRect(c * CELL, r * CELL, CELL, CELL);
-    }
-    const img = t.getImageData(0, 0, BOARD_PX, BOARD_PX);
-    const d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const n = (Math.random() - 0.5) * 10;
-      d[i] = Math.min(255, Math.max(0, d[i]+n));
-      d[i+1] = Math.min(255, Math.max(0, d[i+1]+n));
-      d[i+2] = Math.min(255, Math.max(0, d[i+2]+n));
-    }
-    t.putImageData(img, 0, 0);
-  }
-
-  // ---- Drawing ----
-  function drawPiece(px, py, color, isQueen, alpha) {
-    const r = CELL * 0.38;
-    ctx.save();
-    if (alpha !== undefined && alpha < 1) ctx.globalAlpha = alpha;
-    ctx.beginPath(); ctx.ellipse(px+1,py+3,r,r*0.7,0,0,Math.PI*2); ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(px,py+2,r,0,Math.PI*2); ctx.fillStyle=color==='red'?'#b91c1c':'#1a1a1a'; ctx.fill();
-    const g = ctx.createRadialGradient(px-r*0.3,py-r*0.3,r*0.1,px,py,r);
-    if (color==='red'){g.addColorStop(0,'#f87171');g.addColorStop(0.7,'#ef4444');g.addColorStop(1,'#dc2626');}
-    else{g.addColorStop(0,'#57534e');g.addColorStop(0.7,'#3d3530');g.addColorStop(1,'#1c1917');}
-    ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
-    ctx.strokeStyle=color==='red'?'#991b1b':'#44403c'; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.beginPath(); ctx.arc(px,py,r*0.65,0,Math.PI*2);
-    ctx.strokeStyle=color==='red'?'rgba(252,165,165,0.3)':'rgba(168,162,158,0.2)'; ctx.lineWidth=1; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(px-r*0.15,py-r*0.2,r*0.3,r*0.15,-0.3,0,Math.PI*2);
-    ctx.fillStyle=color==='red'?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.08)'; ctx.fill();
-    if (isQueen) {
-      const cw=r*0.55,ch=r*0.35,cy=py-ch*0.1;
-      ctx.beginPath(); ctx.moveTo(px-cw,cy+ch*0.4); ctx.lineTo(px-cw,cy-ch*0.3); ctx.lineTo(px-cw*0.5,cy+ch*0.1);
-      ctx.lineTo(px,cy-ch*0.5); ctx.lineTo(px+cw*0.5,cy+ch*0.1); ctx.lineTo(px+cw,cy-ch*0.3); ctx.lineTo(px+cw,cy+ch*0.4); ctx.closePath();
-      const cg=ctx.createLinearGradient(px,cy-ch*0.5,px,cy+ch*0.4);
-      cg.addColorStop(0,'#ffe066'); cg.addColorStop(1,'#b8860b');
-      ctx.fillStyle=cg; ctx.fill(); ctx.strokeStyle='#8B6914'; ctx.lineWidth=0.5; ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  function drawBoard() {
-    if (!ctx) return;
-    ctx.clearRect(0,0,BOARD_PX,BOARD_PX);
-    const flip = myColor==='black';
-    if (boardTextureCanvas) { if(flip){ctx.save();ctx.translate(BOARD_PX,BOARD_PX);ctx.rotate(Math.PI);ctx.drawImage(boardTextureCanvas,0,0);ctx.restore();}else ctx.drawImage(boardTextureCanvas,0,0); }
-    if (lastMove) {
-      ctx.fillStyle='rgba(100,180,255,0.22)';
-      const fr=flip?7-lastMove.fromRow:lastMove.fromRow,fc=flip?7-lastMove.fromCol:lastMove.fromCol;
-      const tr=flip?7-lastMove.toRow:lastMove.toRow,tc=flip?7-lastMove.toCol:lastMove.toCol;
-      ctx.fillRect(fc*CELL,fr*CELL,CELL,CELL); ctx.fillRect(tc*CELL,tr*CELL,CELL,CELL);
-      // Highlight captured squares in red tint
-      ctx.fillStyle='rgba(239,68,68,0.25)';
-      for (const cap of lastMoveCaptured) {
-        const cr=flip?7-cap.row:cap.row, cc=flip?7-cap.col:cap.col;
-        ctx.fillRect(cc*CELL,cr*CELL,CELL,CELL);
-      }
-    }
-    if (selectedPiece) { const sr=flip?7-selectedPiece.row:selectedPiece.row,sc=flip?7-selectedPiece.col:selectedPiece.col; ctx.fillStyle='rgba(255,255,100,0.45)'; ctx.fillRect(sc*CELL,sr*CELL,CELL,CELL); }
-    if (hoveredCell&&!selectedPiece&&!animating&&!game.gameOver) { const p=game.at(hoveredCell.row,hoveredCell.col); if(p&&p.color===myColor&&game.currentPlayer===myColor){const hr=flip?7-hoveredCell.row:hoveredCell.row,hc=flip?7-hoveredCell.col:hoveredCell.col;ctx.fillStyle='rgba(255,255,255,0.1)';ctx.fillRect(hc*CELL,hr*CELL,CELL,CELL);} }
-    for (const m of validMoves) { const mr=flip?7-m.toRow:m.toRow,mc=flip?7-m.toCol:m.toCol,cx=mc*CELL+CELL/2,cy=mr*CELL+CELL/2; if(m.captured.length>0){ctx.beginPath();ctx.arc(cx,cy,CELL*0.35,0,Math.PI*2);ctx.strokeStyle='rgba(233,69,96,0.45)';ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,CELL*0.12,0,Math.PI*2);ctx.fillStyle='rgba(233,69,96,0.5)';ctx.fill();}else{ctx.beginPath();ctx.arc(cx,cy,CELL*0.15,0,Math.PI*2);ctx.fillStyle='rgba(255,255,100,0.5)';ctx.fill();} }
-    for (const t of trail) drawPiece(t.x,t.y,t.color,t.queen,t.alpha);
-    for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
-      if(moveAnimState&&r===moveAnimState.destRow&&c===moveAnimState.destCol) continue;
-      if(dragging&&dragStarted&&r===dragging.row&&c===dragging.col) continue; // skip dragged piece at board pos
-      const p=game.at(r,c); if(!p) continue;
-      const dr=flip?7-r:r,dc=flip?7-c:c;
-      if (introAnim) {
-        const elapsed = performance.now() - introAnim.startTime;
-        const pieceDelay = (dr + dc) * 35;
-        const progress = Math.max(0, Math.min(1, (elapsed - pieceDelay) / 300));
-        if (progress <= 0) continue;
-        const eased = 1 - Math.pow(1 - progress, 3);
-        const targetY = dr*CELL+CELL/2;
-        const curY = -CELL + (targetY + CELL) * eased;
-        drawPiece(dc*CELL+CELL/2, curY, p.color, p.queen, progress);
-        continue;
-      }
-      drawPiece(dc*CELL+CELL/2,dr*CELL+CELL/2,p.color,p.queen);
-    }
-    for (const cap of capturedOverlay) { const cr=flip?7-cap.row:cap.row,cc=flip?7-cap.col:cap.col; drawPiece(cc*CELL+CELL/2,cr*CELL+CELL/2,cap.color,cap.queen); }
-    for (const p of shatterParticles) { ctx.save();ctx.globalAlpha=Math.max(0,p.life);ctx.translate(p.x,p.y);ctx.rotate(p.rotation);ctx.fillStyle=p.color;ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);ctx.restore(); }
-    // Draw dragged piece floating at pointer
-    if (dragging && dragStarted) {
-      drawPiece(dragging.x, dragging.y, dragging.piece.color, dragging.piece.queen, 0.85);
-    }
-  }
-
-  function playIntroAnimation() {
-    introAnim = { startTime: performance.now() };
-    animating = true;
-    function tick() {
-      const elapsed = performance.now() - introAnim.startTime;
-      drawBoard();
-      if (elapsed < 950) requestAnimationFrame(tick);
-      else { introAnim = null; animating = false; drawBoard(); }
-    }
-    requestAnimationFrame(tick);
-  }
-
-  // ---- Animation system ----
-  function gatherAnimInfo(fr,fc,tr,tc) { const p=game.at(fr,fc),moves=game.getValidMovesFor(fr,fc),move=moves.find(m=>m.toRow===tr&&m.toCol===tc); if(!p||!move) return null; return{fromRow:fr,fromCol:fc,toRow:tr,toCol:tc,pieceColor:p.color,pieceQueen:p.queen,captured:move.captured.map(cap=>{const cp=game.at(cap.row,cap.col);return{row:cap.row,col:cap.col,color:cp.color,queen:cp.queen};})}; }
-  function animateSlide(info) { return new Promise(resolve => { const flip=myColor==='black'; const fromX=(flip?7-info.fromCol:info.fromCol)*CELL+CELL/2,fromY=(flip?7-info.fromRow:info.fromRow)*CELL+CELL/2; const toX=(flip?7-info.toCol:info.toCol)*CELL+CELL/2,toY=(flip?7-info.toRow:info.toRow)*CELL+CELL/2; const duration=200,start=performance.now(); moveAnimState={destRow:info.toRow,destCol:info.toCol}; capturedOverlay=info.captured; trail=[]; let lastT=0; function tick(now){const t=Math.min((now-start)/duration,1),e=1-Math.pow(1-t,3); const cx=fromX+(toX-fromX)*e,cy=fromY+(toY-fromY)*e; if(now-lastT>20&&t>0.05){trail.push({x:cx,y:cy,color:info.pieceColor,queen:info.pieceQueen,alpha:0.2});lastT=now;if(trail.length>6)trail.shift();} for(let i=0;i<trail.length;i++)trail[i].alpha=0.12*(i+1)/trail.length; drawBoard();drawPiece(cx,cy,info.pieceColor,info.pieceQueen); if(t<1)requestAnimationFrame(tick);else{moveAnimState=null;capturedOverlay=[];trail=[];resolve();}} requestAnimationFrame(tick);}); }
-  function spawnShatter(px,py,color) { const base=color==='red'?[233,69,96]:[45,45,45]; for(let i=0;i<14;i++){const angle=(Math.PI*2*i/14)+(Math.random()-0.5)*0.5,speed=80+Math.random()*180,size=CELL*(0.04+Math.random()*0.08); const r=Math.min(255,Math.max(0,base[0]+(Math.random()-0.5)*50)),g=Math.min(255,Math.max(0,base[1]+(Math.random()-0.5)*50)),b=Math.min(255,Math.max(0,base[2]+(Math.random()-0.5)*50)); shatterParticles.push({x:px,y:py,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed-50,size,color:`rgb(${r|0},${g|0},${b|0})`,life:1,decay:1.5+Math.random(),gravity:300+Math.random()*150,rotation:Math.random()*Math.PI*2,rotSpeed:(Math.random()-0.5)*12});} }
-  function animateEffects() { return new Promise(resolve=>{let last=performance.now();function tick(now){const dt=(now-last)/1000;last=now;for(const p of shatterParticles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.gravity*dt;p.life-=p.decay*dt;p.rotation+=p.rotSpeed*dt;p.size*=0.98;}shatterParticles=shatterParticles.filter(p=>p.life>0);drawBoard();if(shatterParticles.length>0)requestAnimationFrame(tick);else resolve();}requestAnimationFrame(tick);}); }
-
-  async function performAnimatedMove(fr,fc,tr,tc) {
-    const info=gatherAnimInfo(fr,fc,tr,tc); const result=game.makeMove(fr,fc,tr,tc); if(!result)return null;
-    // Sound — chain captures pitch up
-    if(result.captured.length>0) { chainCount++; sfx('capture', { rate: 1 + (chainCount - 1) * 0.1 }); }
-    else { chainCount = 0; sfx('place'); }
-    if(!result.chainContinues) chainCount = 0;
-    if(result.promoted) sfx('king');
-    lastMove={fromRow:fr,fromCol:fc,toRow:tr,toCol:tc};
-    lastMoveCaptured = info?.captured?.map(c => ({row:c.row, col:c.col})) || [];
-    if(info?.captured.length>0){for(const cap of info.captured)capturedPieces[info.pieceColor].push({color:cap.color,queen:cap.queen});capturedPieces=capturedPieces;}
-    moveLog=[...moveLog,{num:++moveNumber,color:info?.pieceColor,from:`${'abcdefgh'[fc]}${8-fr}`,to:`${'abcdefgh'[tc]}${8-tr}`,capture:result.captured.length>0}];
-    if(info){animating=true;await animateSlide(info);if(info.captured.length>0){const flip=myColor==='black';for(const cap of info.captured){const cr=flip?7-cap.row:cap.row,cc=flip?7-cap.col:cap.col;spawnShatter(cc*CELL+CELL/2,cr*CELL+CELL/2,cap.color);}}if(shatterParticles.length>0)await animateEffects();animating=false;
-      // Execute queued chain move if player clicked during animation
-      if(pendingChainMove&&selectedPiece){const pm=pendingChainMove;pendingChainMove=null;executeMove(selectedPiece.row,selectedPiece.col,pm.toRow,pm.toCol);}}
-    syncTimers();
-    return result;
-  }
-
-  // ---- Input (click + drag) ----
-  let dragging = null; // { row, col, piece, x, y } — canvas-space coords of dragged piece
-  let dragStarted = false; // true once pointer moves — drag vs click
-  let pendingChainMove = null; // { toRow, toCol } — queued during animation for instant chain
-  let chainCount = 0; // tracks consecutive captures for pitch escalation
-
-  function getCell(clientX, clientY) {
-    const rect = canvasEl.getBoundingClientRect();
-    const scale = BOARD_PX / rect.width;
-    const flip = myColor === 'black';
-    let col = Math.floor((clientX - rect.left) * scale / CELL);
-    let row = Math.floor((clientY - rect.top) * scale / CELL);
-    if (flip) { row = 7 - row; col = 7 - col; }
-    return { row, col };
-  }
-
-  function getCanvasXY(clientX, clientY) {
-    const rect = canvasEl.getBoundingClientRect();
-    const scale = BOARD_PX / rect.width;
-    return { x: (clientX - rect.left) * scale, y: (clientY - rect.top) * scale };
-  }
-
-  function onPointerDown(e) {
-    if (game.gameOver || botThinking || game.currentPlayer !== myColor) return;
-    // Allow chain queuing during animation
-    if (animating) return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const { row, col } = getCell(clientX, clientY);
-    const piece = game.at(row, col);
-
-    if (piece && piece.color === myColor) {
-      const moves = game.getValidMovesFor(row, col);
-      if (moves.length > 0) {
-        const { x, y } = getCanvasXY(clientX, clientY);
-        dragging = { row, col, piece, x, y };
-        dragStarted = false;
-        selectedPiece = { row, col };
-        validMoves = moves;
-        drawBoard();
-      }
-    }
-  }
-
-  function onPointerMove(e) {
-    if (game.gameOver || animating || botThinking) { if (canvasEl) canvasEl.style.cursor = 'default'; return; }
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    if (dragging) {
-      e.preventDefault();
-      const { x, y } = getCanvasXY(clientX, clientY);
-      dragStarted = true;
-      dragging = { ...dragging, x, y };
-      drawBoard();
-      return;
-    }
-
-    // Hover logic (mouse only, not touch)
-    if (e.touches) return;
-    const { row, col } = getCell(clientX, clientY);
-    if (col < 0 || col > 7 || row < 0 || row > 7) return;
-    const piece = game.at(row, col);
-    const isTarget = validMoves.some(m => m.toRow === row && m.toCol === col);
-    canvasEl.style.cursor = (piece?.color === myColor && game.currentPlayer === myColor) || isTarget ? 'pointer' : 'default';
-    const nh = (piece?.color === myColor) ? { row, col } : null;
-    if (hoveredCell?.row !== nh?.row || hoveredCell?.col !== nh?.col) { hoveredCell = nh; if (!animating) drawBoard(); }
-  }
-
-  function onPointerUp(e) {
-    if (!dragging) return;
-    const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-    const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-    const { row, col } = getCell(clientX, clientY);
-
-    if (dragStarted) {
-      const mt = validMoves.find(m => m.toRow === row && m.toCol === col);
-      if (mt) {
-        dragging = null; dragStarted = false;
-        executeMove(selectedPiece.row, selectedPiece.col, row, col);
-        return;
-      }
-    } else {
-      const mt = validMoves.find(m => m.toRow === row && m.toCol === col);
-      if (mt && selectedPiece) {
-        dragging = null; dragStarted = false;
-        executeMove(selectedPiece.row, selectedPiece.col, row, col);
-        return;
-      }
-    }
-
-    dragging = null; dragStarted = false;
-    drawBoard();
-  }
-
-  function onClick(e) {
-    if (game.gameOver || botThinking || game.currentPlayer !== myColor) return;
-    if (dragStarted) return;
-    const { row, col } = getCell(e.clientX, e.clientY);
-
-    // During animation, allow queuing chain continuation moves
-    if (animating && selectedPiece && validMoves.length > 0) {
-      const mt = validMoves.find(m => m.toRow === row && m.toCol === col);
-      if (mt) pendingChainMove = { toRow: row, toCol: col };
-      return;
-    }
-    if (animating) return;
-
-    const mt = validMoves.find(m => m.toRow === row && m.toCol === col);
-    if (mt && selectedPiece) { executeMove(selectedPiece.row, selectedPiece.col, row, col); return; }
-    const piece = game.at(row, col);
-    if (piece && piece.color === myColor) {
-      const moves = game.getValidMovesFor(row, col);
-      if (moves.length > 0) { selectedPiece = { row, col }; validMoves = moves; }
-      else { selectedPiece = null; validMoves = []; }
-    } else { selectedPiece = null; validMoves = []; }
-    drawBoard();
-  }
-
-  // ---- Move execution ----
-  async function executeMove(fr,fc,tr,tc) { if(mode==='online')socket.emit('game:move',{gameId:gameId,fromRow:fr,fromCol:fc,toRow:tr,toCol:tc}); const result=await performAnimatedMove(fr,fc,tr,tc); if(!result)return; if(result.chainContinues){selectedPiece={row:tr,col:tc};validMoves=game.getValidMovesFor(tr,tc);}else{selectedPiece=null;validMoves=[];} drawBoard(); if(game.gameOver){handleGameOver();return;} if(mode==='bot'&&game.currentPlayer!==myColor)botTurn(); }
-
-  async function onServerMove(data) { if(data.fromRow===undefined)return; const isMyMove=game.currentPlayer===myColor; if(!isMyMove){const result=await performAnimatedMove(data.fromRow,data.fromCol,data.toRow,data.toCol);if(result){selectedPiece=null;validMoves=[];drawBoard();}} game.redTime=data.redTime;game.blackTime=data.blackTime; }
-  function onTick(data) { game.redTime=data.redTime; game.blackTime=data.blackTime; syncTimers(); }
-  function onGameOver(data) { game.gameOver=true; game.winner=data.winner; gameOverData=data; handleGameOver(); }
-
-  function botTurn() { botThinking=true; setTimeout(async()=>{const move=bot.chooseMove(game);if(!move){botThinking=false;return;}const result=await performAnimatedMove(move.fromRow,move.fromCol,move.toRow,move.toCol);if(!result){botThinking=false;return;}selectedPiece=null;validMoves=[];drawBoard();if(game.gameOver){botThinking=false;handleGameOver();return;}if(result.chainContinues)setTimeout(()=>botTurn(),300);else botThinking=false;},400+Math.random()*600); }
-
-  function startTimer() { timerInterval=setInterval(()=>{if(game.gameOver){clearInterval(timerInterval);return;}game.tickTime(1);syncTimers();if(game.gameOver)handleGameOver();},1000); }
-  function handleGameOver() { clearInterval(timerInterval); if(!gameOverData)gameOverData={winner:game.winner,eloChanges:{red:0,black:0},coinRewards:{red:0,black:0},drawReason:game.drawReason||null}; $gameOverVisible=true; sfx(game.winner===myColor?'victory':game.winner===null?'defeat':'defeat'); }
-
-  function resign() { showResignConfirm=false; game.gameOver=true; game.winner=myColor==='red'?'black':'red'; if(mode==='online')socket.emit('game:resign',{gameId:gameId}); handleGameOver(); }
-  function offerDraw() { drawOfferPending=true; drawOfferCooldown=true; setTimeout(()=>drawOfferCooldown=false, 30000); socket.emit('game:draw-offer',{gameId}); }
-  function respondDraw(accepted) { drawOfferReceived=false; socket.emit('game:draw-response',{gameId,accepted}); }
-  function goToLobby() {
-    gameOverData=null;
-    $gameState=null;
-    $gameOverVisible=false;
-    clearScreenOverride();
-    getSocket()?.emit('game:leave', { gameId });
-  }
-
-  function onEmoteShow(data) {
-    if (!data.emote?.emoji) return;
-    activeEmote={emoji:data.emote.emoji,label:data.emote.label,username:data.username};
-    clearTimeout(emoteTimeout);
-    setTimeout(() => sfx('emote'), 50);
-    emoteTimeout=setTimeout(()=>{activeEmote=null;},2500);
-  }
-  function sendEmote(emote) {
-    socket?.emit('emote:send',{gameId:gameId,emote:{emoji:emote.data.emoji,label:emote.data.label}});
-    // Only hide on mobile (desktop keeps it open in left panel)
-    if (window.innerWidth < 1100) showEmoteBar=false;
-  }
-
-  let redTime = game.redTime;
-  let blackTime = game.blackTime;
-  let currentPlayer = game.currentPlayer;
-
-  // Sync reactive time vars from game state
-  function syncTimers() {
-    redTime = game.redTime; blackTime = game.blackTime; currentPlayer = game.currentPlayer;
-    // Tick sound when MY timer is low
-    const myTime = myColor === 'red' ? redTime : blackTime;
-    if (currentPlayer === myColor && myTime <= 10 && myTime > 0 && !game.gameOver) {
-      sfx('tick', { volume: Math.min(1, 0.3 + (10 - myTime) * 0.07) });
-    }
-  }
-
+  // The screen is a view of the session. Only presentation state is writable here.
+  $: game = $gameState.state;
+  $: gameId = game.gameId;
+  $: myColor = $gameState.myColor;
+  $: opponentName = $gameState.opponentName;
+  $: opponentDisconnected = $gameState.opponentOnline === false && !game.gameOver;
+  $: currentPlayer = game.currentPlayer;
   $: topColor = myColor === 'red' ? 'black' : 'red';
-  $: topTime = topColor === 'red' ? redTime : blackTime;
-  $: bottomTime = myColor === 'red' ? redTime : blackTime;
+  $: topTime = topColor === 'red' ? game.redTime : game.blackTime;
+  $: bottomTime = myColor === 'red' ? game.redTime : game.blackTime;
   $: isMyTurn = currentPlayer === myColor && !game.gameOver;
-  $: myTime = myColor === 'red' ? redTime : blackTime;
-  $: urgency = (isMyTurn && myTime <= 10 && myTime > 0 && !game.gameOver) ? (10 - myTime) / 10 : 0;
-  $: statusText = game.gameOver ? (game.winner===null?'Draw':game.winner===myColor?'Victory!':'Defeat') : isMyTurn ? 'Your turn' : (mode==='bot'?'The Colonel is thinking...':"Opponent's turn");
+  $: canAct = $session.status === 'ready' && !$session.pending;
+  $: urgency = game.turnTime && isMyTurn && bottomTime < 10 ? (10-bottomTime)/10 : 0;
+  $: statusText = game.gameOver ? (game.winner === null ? 'Draw' : game.winner === myColor ? 'Victory!' : 'Defeat') : $session.pending === 'game:move' ? 'Confirming move…' : isMyTurn ? 'Your turn' : "Opponent's turn";
+  $: gameOverData = game.gameOver ? game.resultData || { winner: game.winner, endReason: game.endReason } : null;
+  $: drawOfferPending = game.pendingDrawOffer === $user?.id;
+  $: drawOfferReceived = game.pendingDrawOffer != null && !drawOfferPending && !game.gameOver;
+  $: drawOfferCooldown = (game.drawOfferAvailableAt || 0) > ($session.snapshot?.serverTime || 0);
   $: spectatorCount = $activeRoom?.spectators?.length || 0;
-  function fmtTime(s) { const sec=Math.ceil(s); return `0:${sec.toString().padStart(2,'0')}`; }
+  let historyLength = -1, capturedPieces = { red: [], black: [] }, moveLog = [];
+  $: if (game.moveHistory.length !== historyLength) {
+    historyLength = game.moveHistory.length;
+    ({ capturedPieces, moveLog } = describeHistory(game.moveHistory));
+  }
+  const mode = 'online';
+  let showResignConfirm = false, showChat = false, showEmoteBar = false;
+  let desktopChat = typeof window !== 'undefined' && window.innerWidth >= 1100;
+  let ownedEmotes = [], activeEmote = null, emoteTimer, socket;
+  function move({ detail }) { sendCommand('game:move', { gameId, expectedPly: game.moveHistory.length, ...detail }); }
+  function resign() { showResignConfirm = false; sendCommand('game:resign', { gameId }); }
+  function offerDraw() { sendCommand('game:draw-offer', { gameId }); }
+  function respondDraw(accepted) { sendCommand('game:draw-response', { gameId, accepted }); }
+  async function goToLobby(tab = 'lobby') { const result = await sendCommand('game:leave', { gameId }); if (result.ok) browseTo(tab); }
+  function fmtTime(seconds) { if (!game.turnTime) return '∞'; const n = Math.ceil(seconds); return Math.floor(n/60) + ':' + String(n%60).padStart(2, '0'); }
+  function onEmote(data) {
+    if (!data.emote?.emoji) return;
+    activeEmote = { ...data.emote, username: data.username };
+    clearTimeout(emoteTimer); emoteTimer = setTimeout(() => activeEmote = null, 2500);
+  }
+  function sendEmote(emote) { socket?.emit('emote:send', { gameId, emote: { emoji: emote.data.emoji, label: emote.data.label } }); }
+  onMount(() => {
+    socket = getSocket(); socket?.on('emote:show', onEmote);
+    Promise.all([api.get('/shop/inventory'), api.get('/shop/items')]).then(([inventory, shop]) => {
+      const items = [...inventory.inventory.map(i => i.item), ...shop.items.filter(i => i.price === 0)];
+      ownedEmotes = [...new Map(items.filter(i => i.type === 'EMOTE').map(i => [i.id, i])).values()];
+    }).catch(() => {});
+  });
+  onDestroy(() => { socket?.off('emote:show', onEmote); clearTimeout(emoteTimer); });
 </script>
 
 <div class="game-layout">
@@ -498,7 +74,7 @@
       <div class="dot {topColor}"></div>
       <span class="pname">{opponentName}</span>
       <span class="timer" class:low={topTime<=15} class:critical={topTime<=7}>{fmtTime(topTime)}</span>
-      <div class="tbar-track"><div class="tbar-fill" class:low={topTime<=15} class:critical={topTime<=7} style="width:{topTime/TURN_TIME*100}%"></div></div>
+      <div class="tbar-track"><div class="tbar-fill" class:low={topTime<=15} class:critical={topTime<=7} style="width:{game.turnTime ? Math.min(100, topTime/game.turnTime*100) : 100}%"></div></div>
     </div>
     <div class="captured">
       {#each capturedPieces[topColor]||[] as cap}<div class="cap {cap.color}"></div>{/each}
@@ -507,14 +83,8 @@
 
   <!-- Center: board -->
   <div class="board-wrap" class:urgent={urgency > 0} style="--urgency: {urgency}">
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <canvas bind:this={canvasEl} width="480" height="480"
-      on:click={onClick}
-      on:mousedown={onPointerDown} on:mousemove={onPointerMove} on:mouseup={onPointerUp}
-      on:touchstart={onPointerDown} on:touchmove={onPointerMove} on:touchend={onPointerUp}
-      on:mouseleave={()=>{if(dragging){dragging=null;dragStarted=false;drawBoard();}hoveredCell=null;if(canvasEl)canvasEl.style.cursor='default';if(!animating)drawBoard();}}></canvas>
-
-    {#if gameOverData}
+    <GameBoard snapshot={game} recovery={$session.recovery} connected={$session.status === 'ready'} {myColor} interactive={canAct && isMyTurn} on:move={move} let:resultVisible let:resultDuration>
+    {#if gameOverData && resultVisible}
       {@const endReason = gameOverData.endReason}
       {@const reasonText = endReason === 'resign' ? 'by resignation'
         : endReason === 'timeout' ? 'by timeout'
@@ -527,7 +97,7 @@
       {@const myCoinTotal = gameOverData.coinRewards?.[myColor] || 0}
       {@const myBreakdown = gameOverData.coinBreakdown?.[myColor] || []}
       {@const oppElo = gameOverData.eloDetail?.[myColor]?.opponentElo}
-      <div class="game-over">
+      <div class="game-over" in:fade={{ duration: resultDuration }}>
         {#if gameOverData.winner === null}
           <h2 style="color:var(--text-dim)">Draw</h2>
         {:else}
@@ -560,13 +130,14 @@
           {/if}
         </div>
 
-        <button class="btn btn-primary btn-small" on:click={goToLobby}>Lobby</button>
+        <button class="btn btn-primary btn-small" on:click={() => goToLobby()}>Lobby</button>
         {#if $user?.isGuest}
           <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <p class="guest-nudge" on:click={() => { goToLobby(); $browseTab = 'profile'; }}>Create an account to keep your ELO and progress</p>
+          <p class="guest-nudge" on:click={() => { goToLobby('profile'); }}>Create an account to keep your ELO and progress</p>
         {/if}
       </div>
     {/if}
+    </GameBoard>
   </div>
 
   <!-- Bottom: self -->
@@ -575,7 +146,7 @@
       {#each capturedPieces[myColor]||[] as cap}<div class="cap {cap.color}"></div>{/each}
     </div>
     <div class="pinfo" class:active={currentPlayer === myColor}>
-      <div class="tbar-track"><div class="tbar-fill" class:low={bottomTime<=15} class:critical={bottomTime<=7} style="width:{bottomTime/TURN_TIME*100}%"></div></div>
+      <div class="tbar-track"><div class="tbar-fill" class:low={bottomTime<=15} class:critical={bottomTime<=7} style="width:{game.turnTime ? Math.min(100, bottomTime/game.turnTime*100) : 100}%"></div></div>
       <div class="dot {myColor}"></div>
       <span class="pname">{$user?.username}</span>
       <span class="timer" class:low={bottomTime<=15} class:critical={bottomTime<=7}>{fmtTime(bottomTime)}</span>
@@ -595,7 +166,7 @@
     {#if !game.gameOver && mode !== 'spectator'}
       <button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=true}>Resign</button>
       {#if mode === 'online'}
-        <button class="btn btn-dark btn-small" on:click={offerDraw} disabled={drawOfferPending || drawOfferCooldown}>
+        <button class="btn btn-dark btn-small" on:click={offerDraw} disabled={!canAct || drawOfferPending || drawOfferCooldown}>
           {drawOfferPending ? 'Draw offered' : 'Draw'}
         </button>
       {/if}

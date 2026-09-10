@@ -34,6 +34,7 @@
   function scrollToBottom() {
     if (messagesEl) {
       requestAnimationFrame(() => {
+        if (!messagesEl) return;
         messagesEl.scrollTop = messagesEl.scrollHeight;
         userScrolledUp = false;
       });

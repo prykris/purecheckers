@@ -7,15 +7,16 @@
 import { TURN_TIME, DRAW_REPETITION_COUNT, DRAW_NO_CAPTURE_MOVES } from './constants.js';
 
 export class CheckersGame {
-  constructor() {
+  constructor(turnTime = TURN_TIME) {
+    this.turnTime = turnTime;
     this.board = [];
     this.currentPlayer = 'red';
     this.chainPiece = null;
     this.gameOver = false;
     this.winner = null;
     this.drawReason = null;
-    this.redTime = TURN_TIME;
-    this.blackTime = TURN_TIME;
+    this.redTime = this.turnTime;
+    this.blackTime = this.turnTime;
     this.moveHistory = [];
     this.positionHistory = [];
     this.movesWithoutCapture = 0;
@@ -36,15 +37,15 @@ export class CheckersGame {
     this.gameOver = false;
     this.winner = null;
     this.drawReason = null;
-    this.redTime = TURN_TIME;
-    this.blackTime = TURN_TIME;
+    this.redTime = this.turnTime;
+    this.blackTime = this.turnTime;
     this.moveHistory = [];
-    this.positionHistory = [];
+    this.positionHistory = [this._boardHash()];
     this.movesWithoutCapture = 0;
   }
 
   clone() {
-    const g = new CheckersGame();
+    const g = new CheckersGame(this.turnTime);
     g.board = this.board.map(row => row.map(cell => cell ? { ...cell } : null));
     g.currentPlayer = this.currentPlayer;
     g.chainPiece = this.chainPiece ? { ...this.chainPiece } : null;
@@ -55,11 +56,12 @@ export class CheckersGame {
     g.blackTime = this.blackTime;
     g.positionHistory = [...this.positionHistory];
     g.movesWithoutCapture = this.movesWithoutCapture;
+    g.moveHistory = structuredClone(this.moveHistory);
     return g;
   }
 
   at(r, c) {
-    if (r < 0 || r > 7 || c < 0 || c > 7) return undefined;
+    if (!Number.isInteger(r) || !Number.isInteger(c) || r < 0 || r > 7 || c < 0 || c > 7) return undefined;
     return this.board[r][c];
   }
 
@@ -176,6 +178,7 @@ export class CheckersGame {
   }
 
   makeMove(fromRow, fromCol, toRow, toCol) {
+    if (this.gameOver || ![fromRow, fromCol, toRow, toCol].every(n => Number.isInteger(n) && n >= 0 && n < 8)) return null;
     const valid = this.getValidMovesFor(fromRow, fromCol);
     const move = valid.find(m => m.toRow === toRow && m.toCol === toCol);
     if (!move) return null;
@@ -212,8 +215,8 @@ export class CheckersGame {
 
       this.chainPiece = null;
       this.currentPlayer = this.currentPlayer === 'red' ? 'black' : 'red';
-      if (this.currentPlayer === 'red') this.redTime = TURN_TIME;
-      else this.blackTime = TURN_TIME;
+      if (this.currentPlayer === 'red') this.redTime = this.turnTime;
+      else this.blackTime = this.turnTime;
       this._checkGameOver();
       if (!this.gameOver) this._checkForcedDraw();
     }
@@ -272,7 +275,7 @@ export class CheckersGame {
   }
 
   tickTime(seconds) {
-    if (this.gameOver) return;
+    if (this.gameOver || this.turnTime === 0 || !Number.isFinite(seconds) || seconds <= 0) return;
     if (this.currentPlayer === 'red') {
       this.redTime = Math.max(0, this.redTime - seconds);
       if (this.redTime <= 0) { this.gameOver = true; this.winner = 'black'; }

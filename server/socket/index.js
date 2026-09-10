@@ -1,156 +1,109 @@
+import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
+import { PROTOCOL_VERSION } from '../../shared/protocol.js';
 import { JWT_SECRET } from '../config.js';
-import { setupPresence, getStats as getPresenceStats, broadcastStats } from './presenceHandler.js';
-import { setupGameHandler, activeGames } from './gameHandler.js';
+import { attachCommandTransport } from './commandRouter.js';
+import { connectedUsers } from './connections.js';
+import { setupPresence, getStats, broadcastStats } from './presenceHandler.js';
 import { setupChatHandler } from './chatHandler.js';
-import { setupRoomHandler, gameRooms, broadcastRoomUpdate } from './roomHandler.js';
-import {
-  getSession, getOrCreateSession, forceIdle, handleDisconnect,
-  handleReconnect, buildSyncPayload, setDisconnectCallbacks,
-  setOnPhaseChange
-} from './userState.js';
+import { createGameActions, activeGames, startMatchmaking, stopMatchmaking } from '../domain/games.js';
+import { createRoomActions, gameRooms, sanitizeRoom, broadcastRoomUpdate } from '../domain/rooms.js';
+import { getSession, getOrCreateSession, handleDisconnect, handleReconnect, setOnPhaseChange, getAllSessions } from '../domain/sessions.js';
+import { buildSyncPayload } from '../domain/snapshots.js';
+import { createSessionDispatcher } from '../domain/sessionCommands.js';
+import { configureEvents } from '../domain/events.js';
+import { configureLifecycle, restoreMembership } from '../domain/lifecycle.js';
 
-// Connected users: userId -> { socketId, socket, username }
-// Still exported for backward compat during migration — will be removed in Phase 7
-export const connectedUsers = new Map();
+export const serverId = randomUUID();
 
-// Re-export for other modules to build sync payloads
+function reconcileSubscriptions(socket, session) {
+  const channels = new Set();
+  const roomId = session.phase === 'in-room' ? session.roomId : session.spectatingRoomId;
+  const gameId = session.phase === 'in-game' ? session.gameId : session.spectatingGameId;
+  if (roomId) { channels.add('room:' + roomId); channels.add('chat:room:' + roomId); }
+  if (gameId) { channels.add('game:' + gameId); channels.add('chat:game:' + gameId); }
+  for (const name of socket.rooms) {
+    if (/^(room:|game:|chat:room:|chat:game:)/.test(name) && !channels.has(name)) socket.leave(name);
+  }
+  for (const name of channels) socket.join(name);
+}
+
 export function emitSyncState(socket, userId) {
-  const payload = buildSyncPayload(userId, { gameRooms, activeGames, connectedUsers, getPresenceStats });
+  const session = getSession(userId);
+  if (!session || session.connectionId !== socket.id) return null;
+  reconcileSubscriptions(socket, session);
+  const payload = buildSyncPayload(userId, { gameRooms, activeGames, getPresenceStats: getStats, sanitizeRoom });
+  Object.assign(payload, {
+    protocolVersion: PROTOCOL_VERSION, serverId, serverTime: Date.now(), connectionId: socket.id,
+    sequence: session.snapshotSequence = (session.snapshotSequence || 0) + 1,
+    context: { gameId: session.gameId, roomId: session.roomId, spectatingRoomId: session.spectatingRoomId }
+  });
   socket.emit('sync:state', payload);
+  return payload;
+}
+
+function publishUser(userId) {
+  const connection = connectedUsers.get(userId);
+  if (connection) emitSyncState(connection.socket, userId);
+}
+function publishGame(gameId) {
+  for (const session of getAllSessions().values()) {
+    if (session.gameId === gameId || session.spectatingGameId === gameId) publishUser(session.userId);
+  }
 }
 
 export function setupSocket(io) {
-  // Broadcast presence stats on every phase change
+  configureEvents({ publishUser, publishGame,
+    broadcast: (event, data) => io.emit(event, data),
+    notifyChannel: (channel, event, data) => io.to(channel).emit(event, data),
+    notifyUser: (userId, event, data) => connectedUsers.get(userId)?.socket.emit(event, data)
+  });
+  configureLifecycle();
   setOnPhaseChange(() => broadcastStats(io));
-
-  // Register disconnect timeout callbacks
-  setDisconnectCallbacks({
-    onGameTimeout: (userId, gameId, ioRef) => {
-      const gameRoom = activeGames.get(gameId);
-      if (!gameRoom || gameRoom.game.gameOver) return;
-      const color = gameRoom.getPlayerColor(userId);
-      if (!color) return;
-      const winner = color === 'red' ? 'black' : 'red';
-      gameRoom.game.gameOver = true;
-      gameRoom.game.winner = winner;
-      gameRoom.endGame(ioRef, winner);
-    },
-    onRoomTimeout: (userId, roomId, ioRef) => {
-      const room = gameRooms.get(roomId);
-      if (!room) return;
-      const session = getSession(userId);
-      const username = session?.username || 'Unknown';
-      console.log(`[Room] Timeout: ${username} (${userId}) removed from room #${roomId}`);
-      forceIdle(userId);
-      room.players = room.players.filter(p => p.userId !== userId);
-      if (room.players.length === 0) {
-        console.log(`[Room] Timeout destroy: room #${roomId} (empty)`);
-        gameRooms.delete(roomId);
-        ioRef.emit('room:updated', { room: { id: roomId }, closed: true });
-        ioRef.emit('room:list-update', { room: { id: roomId, closed: true } });
-      } else {
-        if (room.hostId === userId) {
-          room.hostId = room.players[0].userId;
-          room.hostName = room.players[0].username;
-        }
-        room.players.forEach(p => p.ready = false);
-        broadcastRoomUpdate(ioRef, room);
-      }
-    }
-  });
-
-  // Authenticate sockets via JWT — unified for guests and registered users
+  startMatchmaking();
+  io.engine.on('close', stopMatchmaking);
   io.use((socket, next) => {
-    const token = socket.handshake.auth?.token;
-    if (!token) return next(new Error('No token'));
     try {
-      const payload = jwt.verify(token, JWT_SECRET);
-      socket.userId = payload.userId;
-      socket.username = payload.username;
-      socket.isGuest = !!payload.isGuest;
+      const payload = jwt.verify(socket.handshake.auth?.token, JWT_SECRET);
+      socket.userId = payload.userId; socket.username = payload.username; socket.isGuest = !!payload.isGuest;
       next();
-    } catch {
-      next(new Error('Invalid token'));
-    }
+    } catch { next(new Error('Invalid token')); }
   });
-
-  io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.username} (${socket.userId})`);
-
-    // --- UserState session ---
+  io.on('connection', socket => {
     const session = getOrCreateSession(socket.userId, socket.username, socket.isGuest);
-
-    // Kick existing session for same user (one session per user)
     const existing = connectedUsers.get(socket.userId);
+    connectedUsers.set(socket.userId, { socketId: socket.id, socket, username: socket.username });
+    handleReconnect(socket.userId, socket.id);
     if (existing && existing.socketId !== socket.id) {
       existing.socket.emit('session:kicked', { reason: 'Logged in from another device' });
       existing.socket.disconnect(true);
     }
-
-    // Update connectedUsers (legacy) and session
-    connectedUsers.set(socket.userId, {
-      socketId: socket.id,
-      socket,
-      username: socket.username
-    });
-    handleReconnect(socket.userId, socket);
-
-    // Set up handlers — their reconnect logic syncs session phase
-    setupPresence(io, socket);
-    setupGameHandler(io, socket);
+    const actor = { userId: socket.userId, username: socket.username, isGuest: socket.isGuest, connectionId: socket.id };
+    const games = createGameActions(actor), rooms = createRoomActions(actor);
+    attachCommandTransport(socket, session, { serverId, publish: emitSyncState, dispatch: createSessionDispatcher(session, { ...games, ...rooms }) });
+    restoreMembership(socket.userId);
+    if (session.roomId && gameRooms.has(session.roomId)) broadcastRoomUpdate(gameRooms.get(session.roomId));
     setupChatHandler(io, socket);
-    setupRoomHandler(io, socket);
-
-    // --- Rejoin socket.io rooms based on (now-synced) session phase ---
-    rejoinSocketRooms(socket, session);
-
-    // --- Emit sync:state ---
+    setupPresence(io, socket);
+    // Non-authoritative notifications never mutate gameplay or session state.
+    for (const [event, action] of [['room:list', rooms['room:list']], ['emote:send', games['emote:send']]]) {
+      socket.on(event, data => {
+        if (session.connectionId !== socket.id) return;
+        try { action(data && typeof data === 'object' ? data : {}); } catch (error) { console.error(event, error); }
+      });
+    }
     emitSyncState(socket, socket.userId);
-
+    socket.on('sync:request', (_data, ack) => {
+      const snapshot = emitSyncState(socket, socket.userId);
+      if (typeof ack === 'function') ack(snapshot);
+    });
     socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.username}`);
-      // Only delete from legacy map if this socket is still the active one
-      const current = connectedUsers.get(socket.userId);
-      if (current && current.socketId === socket.id) {
-        connectedUsers.delete(socket.userId);
-      }
-      // Mark session as disconnected, start phase-appropriate timer
-      handleDisconnect(socket.userId, io);
+      if (session.connectionId !== socket.id) return;
+      connectedUsers.delete(socket.userId);
+      handleDisconnect(socket.userId);
+      games.disconnect(); rooms.disconnect();
+      if (session.gameId) publishGame(session.gameId);
+      broadcastStats(io);
     });
   });
-}
-
-/**
- * Rejoin socket.io rooms based on the user's current phase.
- * This ensures the socket receives broadcasts for rooms/games it belongs to.
- */
-function rejoinSocketRooms(socket, session) {
-  switch (session.phase) {
-    case 'in-room': {
-      if (session.roomId) {
-        socket.join(`room:${session.roomId}`);
-        socket.join(`chat:room:${session.roomId}`);
-      }
-      break;
-    }
-    case 'in-game': {
-      if (session.gameId) {
-        socket.join(`game:${session.gameId}`);
-        socket.join(`chat:game:${session.gameId}`);
-      }
-      break;
-    }
-    case 'spectating': {
-      if (session.spectatingRoomId) {
-        socket.join(`room:${session.spectatingRoomId}`);
-        socket.join(`chat:room:${session.spectatingRoomId}`);
-      }
-      if (session.spectatingGameId) {
-        socket.join(`game:${session.spectatingGameId}`);
-        socket.join(`chat:game:${session.spectatingGameId}`);
-      }
-      break;
-    }
-  }
 }

@@ -1,11 +1,12 @@
+import { reject } from './sessionCommands.js';
 import { CheckersGame } from '../../shared/game.js';
 import { quickPlayPool } from '../services/quickPlay.js';
-import { createQuickPlayRoom } from './roomHandler.js';
+import { createQuickPlayRoom, gameRooms } from './rooms.js';
 import { isBotUser, chooseBotMove, getBotDifficulty } from '../services/botPlayer.js';
 import { analyzeMoveQuality } from '../services/moveAnalysis.js';
 import { shouldEmote, getMoveTriggers, getAnalysisTriggers, cleanupGame as cleanupBotEmotes } from '../services/botEmotes.js';
-import { connectedUsers, emitSyncState } from './index.js';
-import { getSession, setPhase, forceIdle } from './userState.js';
+import { publishUser, publishGame, broadcast, notifyChannel, notifyUser } from './events.js';
+import { getSession, setPhase, forceIdle, handleDisconnect, getAllSessions } from './sessions.js';
 import { calculateElo } from '../services/elo.js';
 import { awardCoins } from '../services/coins.js';
 import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME, DRAW_OFFER_COOLDOWN_MS } from '../../shared/constants.js';
@@ -39,15 +40,19 @@ function trackAndCheckDiminishing(winnerId, loserId) {
 }
 
 class GameRoom {
-  constructor(id, redUserId, blackUserId, mode = 'RANKED', buyIn = 0) {
+  constructor(id, redUserId, blackUserId, mode = 'RANKED', buyIn = 0, turnTime = 60) {
     this.id = id;
-    this.game = new CheckersGame();
+    this.game = new CheckersGame(turnTime);
+    this.version = 0;
+    this.finalization = null;
+    this.resultData = null;
+    this.botScheduled = false;
+    this.lastClockAt = null;
     this.redUserId = redUserId;
     this.blackUserId = blackUserId;
     this.mode = mode;
     this.buyIn = buyIn;
     this.timerInterval = null;
-    this.disconnectTimers = new Map(); // userId -> timeout
     this.startedAt = new Date();
     this.pendingDrawOffer = null; // userId who offered
     this.lastDrawOffer = {};     // userId -> timestamp (cooldown)
@@ -64,20 +69,20 @@ class GameRoom {
     return userId === this.redUserId ? this.blackUserId : this.redUserId;
   }
 
-  startTimer(io) {
+  startTimer() {
+    this.stopTimer();
+    this.lastClockAt = performance.now();
     this.timerInterval = setInterval(() => {
       if (this.game.gameOver) {
         this.stopTimer();
         return;
       }
-      this.game.tickTime(1);
-      io.to(`game:${this.id}`).emit('game:tick', {
-        redTime: this.game.redTime,
-        blackTime: this.game.blackTime
-      });
+      this.advanceClock();
+
+      publishGame(this.id);
       if (this.game.gameOver) {
         if (!this.endReason) this.endReason = 'timeout';
-        this.endGame(io, this.game.winner);
+        this.endGame(this.game.winner);
       }
     }, 1000);
   }
@@ -89,7 +94,29 @@ class GameRoom {
     }
   }
 
-  async endGame(io, winner) {
+  advanceClock() {
+    if (this.lastClockAt === null || this.game.gameOver) return;
+    const now = performance.now();
+    this.game.tickTime((now - this.lastClockAt) / 1000);
+    this.lastClockAt = now;
+    this.version++;
+  }
+
+  endGame(winner) {
+    if (this.finalization) return this.finalization;
+    this.game.gameOver = true;
+    this.game.winner = winner;
+    this.pendingDrawOffer = null;
+    this.version++;
+    this.stopTimer();
+    // Latch before any asynchronous persistence work or competing terminal event.
+    this.finalization = Promise.resolve().then(() => this.persistResult(winner));
+
+    publishGame(this.id);
+    return this.finalization;
+  }
+
+  async persistResult(winner) {
     this.stopTimer();
     const result = winner === 'red' ? 'RED_WIN' : winner === 'black' ? 'BLACK_WIN' : 'DRAW';
     const winnerId = winner === 'red' ? this.redUserId : winner === 'black' ? this.blackUserId : null;
@@ -325,7 +352,7 @@ class GameRoom {
       }
     }
 
-    io.to(`game:${this.id}`).emit('game:over', {
+    this.resultData = {
       winner,
       result,
       winnerId,
@@ -337,20 +364,21 @@ class GameRoom {
       coinBreakdown,
       endReason: this.endReason || this.game.drawReason || 'no-moves',
       drawReason: this.game.drawReason || null
-    });
+    };
+    this.version++;
+
+    publishGame(this.id);
 
     // Broadcast to all connected clients for the global game log
-    const redConn = connectedUsers.get(this.redUserId);
-    const blackConn = connectedUsers.get(this.blackUserId);
-    let redName = redConn?.username || getSession(this.redUserId)?.username;
-    let blackName = blackConn?.username || getSession(this.blackUserId)?.username;
+    let redName = this.playerNames[this.redUserId];
+    let blackName = this.playerNames[this.blackUserId];
     if (!redName || !blackName) {
       try {
         if (!redName) { const u = await prisma.user.findUnique({ where: { id: this.redUserId }, select: { username: true } }); redName = u?.username || 'Unknown'; }
         if (!blackName) { const u = await prisma.user.findUnique({ where: { id: this.blackUserId }, select: { username: true } }); blackName = u?.username || 'Unknown'; }
       } catch {}
     }
-    io.emit('global:game-ended', {
+    broadcast('global:game-ended', {
       id: this.id,
       redPlayer: redName,
       blackPlayer: blackName,
@@ -364,12 +392,12 @@ class GameRoom {
     // 60-second cleanup timer (below) handles abandoned sessions.
 
     // Clean up game room reference
-    const { gameRooms } = await import('./roomHandler.js');
+    const { gameRooms } = await import('./rooms.js');
     for (const [roomId, room] of gameRooms) {
       if (room.gameId === this.id) {
         room.status = 'finished';
-        io.to(`room:${roomId}`).emit('room:updated', { room: null, closed: true });
-        io.emit('room:list-update', { room: { id: roomId, closed: true } });
+
+        broadcast('room:list-update', { room: { id: roomId, closed: true } });
         gameRooms.delete(roomId);
         break;
       }
@@ -378,20 +406,24 @@ class GameRoom {
     // Clean up after 60s — force idle for players who never dismissed
     const redId = this.redUserId;
     const blackId = this.blackUserId;
-    setTimeout(() => {
+    this.cleanupTimer = setTimeout(() => {
       activeGames.delete(this.id);
       // Force idle if still in-game (never dismissed game-over screen)
       const rSession = getSession(redId);
       if (rSession?.phase === 'in-game' && rSession.gameId === this.id) {
         forceIdle(redId);
-        const rc = connectedUsers.get(redId);
-        if (rc) emitSyncState(rc.socket, redId);
+        publishUser(redId);
       }
       const bSession = getSession(blackId);
       if (bSession?.phase === 'in-game' && bSession.gameId === this.id) {
         forceIdle(blackId);
-        const bc = connectedUsers.get(blackId);
-        if (bc) emitSyncState(bc.socket, blackId);
+        publishUser(blackId);
+      }
+      for (const session of getAllSessions().values()) {
+        if (session.phase === 'spectating' && session.spectatingGameId === this.id) {
+          forceIdle(session.userId);
+          if (session.connectionId) publishUser(session.userId);
+        }
       }
       cleanupBotEmotes(this.id);
     }, 60000);
@@ -400,6 +432,14 @@ class GameRoom {
   getState() {
     return {
       gameId: this.id,
+      version: this.version,
+      turnTime: this.game.turnTime,
+      pendingDrawOffer: this.pendingDrawOffer,
+      endReason: this.endReason || this.game.drawReason,
+      drawReason: this.game.drawReason,
+      resultData: this.resultData,
+      movesWithoutCapture: this.game.movesWithoutCapture,
+      positionHistory: this.game.positionHistory,
       board: this.game.board,
       currentPlayer: this.game.currentPlayer,
       redTime: this.game.redTime,
@@ -407,7 +447,8 @@ class GameRoom {
       chainPiece: this.game.chainPiece,
       gameOver: this.game.gameOver,
       winner: this.game.winner,
-      moveHistory: this.game.moveHistory
+      moveHistory: this.game.moveHistory,
+      rematchRequests: [...(this.rematchRequests || [])]
     };
   }
 }
@@ -422,99 +463,75 @@ export function findActiveGameForUser(userId) {
 }
 
 let matchmakingInterval = null;
+export function startMatchmaking() {
+  if (matchmakingInterval) return;
+  matchmakingInterval = setInterval(() => {
+    for (const { a, b, mode } of quickPlayPool.tryMatch()) createQuickPlayRoom(a, b, mode).catch(error => console.error('Match creation failed:', error));
+  }, 2000);
+  matchmakingInterval.unref?.();
+}
+export function stopMatchmaking() { clearInterval(matchmakingInterval); matchmakingInterval = null; }
 
-export function setupGameHandler(io, socket) {
-  // Start quick play matchmaking loop once
-  if (!matchmakingInterval) {
-    matchmakingInterval = setInterval(() => {
-      const pairs = quickPlayPool.tryMatch();
-      for (const { a, b, mode } of pairs) {
-        createQuickPlayRoom(io, a, b, mode);
-      }
-    }, 2000);
-  }
-
-  // --- Check for active game on reconnect ---
-  // (Phase/routing is handled by sync:state in index.js)
-  const activeGame = findActiveGameForUser(socket.userId);
-  if (activeGame) {
-    const { gameId, room, color } = activeGame;
-    // Sync session phase if needed
-    const session = getSession(socket.userId);
-    if (session && session.phase !== 'in-game') {
-      forceIdle(socket.userId);
-      setPhase(socket.userId, 'in-game', { gameId, gameColor: color });
-    }
-
-    // Clear disconnect timer
-    if (room.disconnectTimers.has(socket.userId)) {
-      clearTimeout(room.disconnectTimers.get(socket.userId));
-      room.disconnectTimers.delete(socket.userId);
-    }
-
-    // Notify opponent
-    const opponentId = room.getOpponentId(socket.userId);
-    const opponentConn = connectedUsers.get(opponentId);
-    if (opponentConn) {
-      opponentConn.socket.emit('game:opponent-reconnected', { gameId });
-    }
-
-    // System message
-    const channelId = `game:${gameId}`;
-    prisma.chatMessage.create({
-      data: { channelId, senderId: 0, username: 'System', content: `${socket.username} reconnected.` }
-    }).then(msg => {
-      io.to(`chat:${channelId}`).emit('chat:message', { id: msg.id, channelId, senderId: 0, username: 'System', content: msg.content, createdAt: msg.createdAt, system: true });
-    }).catch(() => {});
-  }
-
+export function createGameActions(actor) {
+  const actions = {};
   // --- Quick Play Matchmaking ---
-  socket.on('matchmaking:join', (data) => {
-    const mmSession = getSession(socket.userId);
+  actions["matchmaking:join"] = async () => {
+    const mmSession = getSession(actor.userId);
     if (!mmSession || mmSession.phase !== 'idle') {
-      return socket.emit('matchmaking:error', { error: 'Cannot search while in a room or game' });
+      return reject({ error: 'Cannot search while in a room or game' });
     }
-    const elo = data?.elo || 1000;
-    setPhase(socket.userId, 'matchmaking');
-    quickPlayPool.add(socket.userId, elo, socket.isGuest);
-    socket.emit('matchmaking:joined');
-    emitSyncState(socket, socket.userId);
-  });
+    const player = await prisma.user.findUnique({ where: { id: actor.userId } });
+    if (!player || mmSession.phase !== 'idle' || mmSession.connectionId !== actor.connectionId) return reject('Session changed');
+    const elo = player.elo;
+    setPhase(actor.userId, 'matchmaking');
+    quickPlayPool.add(actor.userId, elo, actor.isGuest);
 
-  socket.on('matchmaking:leave', () => {
-    forceIdle(socket.userId);
-    quickPlayPool.remove(socket.userId);
-    socket.emit('matchmaking:left');
-    emitSyncState(socket, socket.userId);
-  });
+    publishUser(actor.userId);
+  };
+
+  actions["matchmaking:leave"] = () => {
+    if (getSession(actor.userId)?.phase !== 'matchmaking') return publishUser(actor.userId);
+    if ([...gameRooms.values()].some(room => room.status === 'starting' && room.players.some(p => p.userId === actor.userId))) return publishUser(actor.userId);
+    forceIdle(actor.userId);
+    quickPlayPool.remove(actor.userId);
+
+    publishUser(actor.userId);
+  };
 
   // --- Emotes ---
-  socket.on('emote:send', ({ gameId, emote }) => {
+  actions["emote:send"] = ({ gameId, emote }) => {
     const room = activeGames.get(gameId);
     if (!room) return;
-    if (!room.getPlayerColor(socket.userId)) return;
+    if (!room.getPlayerColor(actor.userId)) return;
     // Rate limit: 1 emote per 2 seconds per user
     const now = Date.now();
     if (!room.lastEmote) room.lastEmote = {};
-    if (room.lastEmote[socket.userId] && now - room.lastEmote[socket.userId] < 2000) return;
-    room.lastEmote[socket.userId] = now;
+    if (room.lastEmote[actor.userId] && now - room.lastEmote[actor.userId] < 2000) return;
+    room.lastEmote[actor.userId] = now;
 
-    io.to(`game:${gameId}`).emit('emote:show', {
-      userId: socket.userId,
-      username: socket.username,
+    notifyChannel(`game:${gameId}`, 'emote:show', {
+      userId: actor.userId,
+      username: actor.username,
       emote
     });
-  });
+  };
 
   // --- Game moves ---
-  socket.on('game:move', ({ gameId, fromRow, fromCol, toRow, toCol }) => {
+  actions["game:move"] = ({ gameId, fromRow, fromCol, toRow, toCol, expectedPly }) => {
     const room = activeGames.get(gameId);
-    if (!room) return socket.emit('game:move-rejected', { reason: 'Game not found' });
+    if (!room) return reject('Game not found');
 
-    const color = room.getPlayerColor(socket.userId);
-    if (!color) return socket.emit('game:move-rejected', { reason: 'Not in this game' });
+    const color = room.getPlayerColor(actor.userId);
+    if (!color || getSession(actor.userId)?.gameId !== gameId) return reject('Not in this game');
+    room.advanceClock();
+    if (room.game.gameOver) {
+      room.endReason ||= 'timeout';
+      room.endGame(room.game.winner);
+      return reject('Game is over');
+    }
+    if (!Number.isSafeInteger(expectedPly) || expectedPly !== room.game.moveHistory.length) return reject('Stale move; state refreshed');
     if (room.game.currentPlayer !== color) {
-      return socket.emit('game:move-rejected', { reason: 'Not your turn' });
+      return reject('Not your turn');
     }
 
     // Clone pre-move state for analysis (async, non-blocking)
@@ -522,39 +539,31 @@ export function setupGameHandler(io, socket) {
 
     const result = room.game.makeMove(fromRow, fromCol, toRow, toCol);
     if (!result) {
-      socket.emit('game:move-rejected', { reason: 'Invalid move' });
-      socket.emit('game:sync', room.getState());
-      return;
+      return reject('Invalid move');
     }
 
-    io.to(`game:${gameId}`).emit('game:moved', {
-      fromRow, fromCol, toRow, toCol,
-      captured: result.captured,
-      promoted: result.promoted,
-      chainContinues: result.chainContinues,
-      redTime: room.game.redTime,
-      blackTime: room.game.blackTime,
-      currentPlayer: room.game.currentPlayer
-    });
+    room.version++;
+
+    publishGame(gameId);
 
     // Async move analysis — don't block the move response
     setTimeout(() => {
       try {
         const analysis = analyzeMoveQuality(preMoveClone, { fromRow, fromCol, toRow, toCol }, color);
-        socket.emit('game:move-analysis', { rating: analysis.rating, scoreDiff: analysis.scoreDiff });
+        notifyUser(actor.userId, 'game:move-analysis', { gameId, rating: analysis.rating, scoreDiff: analysis.scoreDiff });
 
         // Check if opponent is a bot — trigger emote reaction to player's move
-        const opponentId = room.getOpponentId(socket.userId);
+        const opponentId = room.getOpponentId(actor.userId);
         isBotUser(opponentId).then(isBot => {
           if (!isBot) return;
-          getBotDifficulty(opponentId).then(diff => {
+          return getBotDifficulty(opponentId).then(diff => {
             if (!diff) return;
             const moveNum = room.game.moveHistory?.length || 0;
             const triggers = getAnalysisTriggers(analysis, moveNum);
             for (const trigger of triggers) {
               const emote = shouldEmote(trigger, diff, gameId);
               if (emote) {
-                io.to(`game:${gameId}`).emit('emote:show', {
+                notifyChannel(`game:${gameId}`, 'emote:show', {
                   userId: opponentId,
                   username: 'Bot',
                   emote
@@ -563,7 +572,7 @@ export function setupGameHandler(io, socket) {
               }
             }
           });
-        });
+        }).catch(() => {});
       } catch {}
     }, 0);
 
@@ -571,231 +580,178 @@ export function setupGameHandler(io, socket) {
       if (!room.endReason) {
         room.endReason = room.game.drawReason || 'no-moves';
       }
-      room.endGame(io, room.game.winner);
+      room.endGame(room.game.winner);
     } else {
-      scheduleBotMoveIfNeeded(io, room);
+      scheduleBotMoveIfNeeded(room);
     }
-  });
+  };
 
   // --- Resign ---
-  socket.on('game:resign', ({ gameId }) => {
+  actions["game:resign"] = ({ gameId }) => {
     const room = activeGames.get(gameId);
-    if (!room) return;
+    if (!room || room.game.gameOver || getSession(actor.userId)?.gameId !== gameId) return;
 
-    const color = room.getPlayerColor(socket.userId);
+    const color = room.getPlayerColor(actor.userId);
     if (!color) return;
 
     const winner = color === 'red' ? 'black' : 'red';
-    room.game.gameOver = true;
-    room.game.winner = winner;
     room.endReason = 'resign';
-    room.endGame(io, winner);
-  });
+    room.endGame(winner);
+  };
 
   // --- Draw offer ---
-  socket.on('game:draw-offer', async ({ gameId }) => {
+  actions["game:draw-offer"] = ({ gameId }) => {
     const room = activeGames.get(gameId);
     if (!room) return;
-    const color = room.getPlayerColor(socket.userId);
+    const color = room.getPlayerColor(actor.userId);
     if (!color) return;
     if (room.game.gameOver) return;
     if (room.pendingDrawOffer) return;
 
     // Cooldown check
-    const lastOffer = room.lastDrawOffer[socket.userId] || 0;
+    const lastOffer = room.lastDrawOffer[actor.userId] || 0;
     if (Date.now() - lastOffer < DRAW_OFFER_COOLDOWN_MS) {
-      return socket.emit('game:draw-error', { error: 'Wait before offering again' });
+      return reject({ error: 'Wait before offering again' });
     }
 
     // Don't allow vs bots
-    const opponentId = room.getOpponentId(socket.userId);
-    const isBot = await isBotUser(opponentId);
-    if (isBot) return;
+    const opponentId = room.getOpponentId(actor.userId);
+    if (room.botIds.has(opponentId)) return reject('Bots do not accept draw offers');
 
-    room.pendingDrawOffer = socket.userId;
-    room.lastDrawOffer[socket.userId] = Date.now();
+    room.pendingDrawOffer = actor.userId;
+    room.lastDrawOffer[actor.userId] = Date.now();
+    room.version++;
 
-    const opponentConn = connectedUsers.get(opponentId);
-    if (opponentConn) {
-      opponentConn.socket.emit('game:draw-offered', { gameId, offeredBy: socket.userId });
-    }
-  });
+    publishGame(gameId);
 
-  socket.on('game:draw-response', ({ gameId, accepted }) => {
+  };
+
+  actions["game:draw-response"] = ({ gameId, accepted }) => {
     const room = activeGames.get(gameId);
-    if (!room) return;
+    if (!room || room.game.gameOver || typeof accepted !== 'boolean') return;
     if (!room.pendingDrawOffer) return;
-    if (room.pendingDrawOffer === socket.userId) return; // can't accept own offer
+    if (room.pendingDrawOffer === actor.userId) return; // can't accept own offer
 
-    const color = room.getPlayerColor(socket.userId);
+    const color = room.getPlayerColor(actor.userId);
     if (!color) return;
 
     const offererId = room.pendingDrawOffer;
     room.pendingDrawOffer = null;
+    room.version++;
 
     if (accepted) {
-      room.game.gameOver = true;
-      room.game.winner = null;
       room.game.drawReason = 'agreement';
       room.endReason = 'draw-agreement';
-      room.endGame(io, null);
+      room.endGame(null);
     } else {
-      const offererConn = connectedUsers.get(offererId);
-      if (offererConn) {
-        offererConn.socket.emit('game:draw-declined', { gameId });
-      }
+
+      publishGame(gameId);
+
     }
-  });
+  };
 
   // --- Leave game (dismiss game-over screen) ---
-  socket.on('game:leave', ({ gameId }) => {
-    forceIdle(socket.userId);
-    emitSyncState(socket, socket.userId);
-  });
-
-  // --- Sync (reconnect) ---
-  socket.on('game:sync', ({ gameId }) => {
+  actions["game:leave"] = ({ gameId }) => {
+    const session = getSession(actor.userId);
+    if (session?.phase !== 'in-game' || session.gameId !== gameId) return publishUser(actor.userId);
     const room = activeGames.get(gameId);
-    if (!room) return;
+    if (room && !room.game.gameOver) return reject('Finish or resign the game before leaving');
 
-    const color = room.getPlayerColor(socket.userId);
-    if (!color) return;
 
-    // Rejoin the socket room
-    socket.join(`game:${gameId}`);
-    socket.join(`chat:game:${gameId}`);
-    socket.emit('game:sync', room.getState());
-
-    // Clear disconnect timer
-    if (room.disconnectTimers.has(socket.userId)) {
-      clearTimeout(room.disconnectTimers.get(socket.userId));
-      room.disconnectTimers.delete(socket.userId);
-    }
-  });
+    forceIdle(actor.userId);
+    publishUser(actor.userId);
+  };
 
   // --- Rematch ---
-  socket.on('game:rematch-request', ({ gameId }) => {
+  actions["game:rematch-request"] = async ({ gameId }) => {
     const room = activeGames.get(gameId);
-    if (!room || !room.game.gameOver) return;
+    if (!room || !room.game.gameOver || !room.getPlayerColor(actor.userId) || room.rematching) return;
+    if (getSession(actor.userId)?.gameId !== gameId) return;
 
     if (!room.rematchRequests) room.rematchRequests = new Set();
-    room.rematchRequests.add(socket.userId);
+    room.rematchRequests.add(actor.userId);
 
-    const opponentId = room.getOpponentId(socket.userId);
-    const opponentConn = connectedUsers.get(opponentId);
-    if (opponentConn) {
-      opponentConn.socket.emit('game:rematch-requested', { gameId });
-    }
+    const opponentId = room.getOpponentId(actor.userId);
 
     // Both requested — create new game with swapped colors
     if (room.rematchRequests.size === 2) {
-      const newRoom = createGameDirect(
-        io,
+      if (![room.redUserId, room.blackUserId].every(id => getSession(id)?.gameId === gameId && !!getSession(id)?.connectionId)) return;
+      room.rematching = true;
+      await room.finalization;
+      if (![room.redUserId, room.blackUserId].every(id => getSession(id)?.gameId === gameId && !!getSession(id)?.connectionId)) { room.rematching = false; return; }
+
+      await createGameDirect(
         room.blackUserId, // swap: old black is new red
         room.redUserId,
-        room.mode
+        room.mode, 0, room.game.turnTime, gameId
       );
-      io.to(`game:${room.id}`).emit('game:rematch-accepted', {
-        newGameId: newRoom.id
-      });
-      activeGames.delete(room.id);
+
+      room.rematching = false;
     }
-  });
+  };
 
   // --- Handle disconnect during game ---
   // Disconnect timers are handled centrally by userState.
   // Here we only handle matchmaking cleanup and opponent notification.
-  socket.on('disconnect', () => {
-    quickPlayPool.remove(socket.userId);
+  actions["disconnect"] = () => {
+    quickPlayPool.remove(actor.userId);
 
     // Notify opponent if in an active game
     for (const [gameId, room] of activeGames) {
       if (room.game.gameOver) continue;
-      const color = room.getPlayerColor(socket.userId);
+      const color = room.getPlayerColor(actor.userId);
       if (!color) continue;
 
-      const opponentId = room.getOpponentId(socket.userId);
-      const opponentConn = connectedUsers.get(opponentId);
-      if (opponentConn) {
-        opponentConn.socket.emit('game:opponent-disconnected', { gameId });
-      }
+      const opponentId = room.getOpponentId(actor.userId);
+
       const channelId = `game:${gameId}`;
       prisma.chatMessage.create({
-        data: { channelId, senderId: 0, username: 'System', content: `${socket.username} disconnected. Waiting 30s...` }
+        data: { channelId, senderId: 0, username: 'System', content: `${actor.username} disconnected. Waiting 30s...` }
       }).then(msg => {
-        io.to(`chat:${channelId}`).emit('chat:message', { id: msg.id, channelId, senderId: 0, username: 'System', content: msg.content, createdAt: msg.createdAt, system: true });
+        notifyChannel(`chat:${channelId}`, 'chat:message', { id: msg.id, channelId, senderId: 0, username: 'System', content: msg.content, createdAt: msg.createdAt, system: true });
       }).catch(() => {});
     }
-  });
+  };
+  return actions;
 }
 
-async function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
+async function createGameDirect(redUserId, blackUserId, mode, buyIn = 0, turnTime = 60, previousGameId = null) {
+  if (redUserId === blackUserId) throw new Error('Players must be different');
+  const players = await Promise.all([redUserId, blackUserId].map(id => prisma.user.findUnique({ where: { id } })));
+  for (const player of players) {
+    if (!player) throw new Error('Player not found');
+    if (player.isBot) continue;
+    const session = getSession(player.id);
+    const rematching = previousGameId !== null && session?.phase === 'in-game' && session.gameId === previousGameId && activeGames.get(previousGameId)?.game.gameOver;
+    if (!session || (!rematching && !['idle', 'in-room', 'matchmaking'].includes(session.phase)) || findActiveGameForUser(player.id)) throw new Error('Player is already occupied');
+  }
   const gameId = nextGameId++;
-  const room = new GameRoom(gameId, redUserId, blackUserId, mode, buyIn);
+  const room = new GameRoom(gameId, redUserId, blackUserId, mode, buyIn, turnTime);
+  room.botIds = new Set(players.filter(p => p.isBot).map(p => p.id));
+  room.playerNames = Object.fromEntries(players.map(p => [p.id, p.username]));
   activeGames.set(gameId, room);
-
-  // Set phase for human players (bots have no session)
-  const redConn = connectedUsers.get(redUserId);
-  const blackConn = connectedUsers.get(blackUserId);
-  if (redConn) {
-    setPhase(redUserId, 'in-game', { gameId, gameColor: 'red' });
-  }
-  if (blackConn) {
-    setPhase(blackUserId, 'in-game', { gameId, gameColor: 'black' });
-  }
-
-  // Look up usernames — bots have no connection or session, fall back to DB
-  let redName = redConn?.username || getSession(redUserId)?.username;
-  let blackName = blackConn?.username || getSession(blackUserId)?.username;
-  if (!redName) {
-    const u = await prisma.user.findUnique({ where: { id: redUserId }, select: { username: true } });
-    redName = u?.username || 'Opponent';
-  }
-  if (!blackName) {
-    const u = await prisma.user.findUnique({ where: { id: blackUserId }, select: { username: true } });
-    blackName = u?.username || 'Opponent';
-  }
-
-  if (redConn) {
-    redConn.socket.join(`game:${gameId}`);
-    redConn.socket.join(`chat:game:${gameId}`);
-    redConn.socket.emit('matchmaking:found', {
-      gameId,
-      yourColor: 'red',
-      opponent: { id: blackUserId, username: blackName }
-    });
-  }
-  if (blackConn) {
-    blackConn.socket.join(`game:${gameId}`);
-    blackConn.socket.join(`chat:game:${gameId}`);
-    blackConn.socket.emit('matchmaking:found', {
-      gameId,
-      yourColor: 'black',
-      opponent: { id: redUserId, username: redName }
-    });
+  for (const [index, player] of players.entries()) {
+    if (player.isBot) continue;
+    if (previousGameId !== null) forceIdle(player.id);
+    setPhase(player.id, 'in-game', { gameId, gameColor: index === 0 ? 'red' : 'black' });
+    if (!!!getSession(player.id)?.connectionId) handleDisconnect(player.id);
   }
 
   // Presence is derived from session phase (already set to 'in-game' above)
 
   // Grace period for the first mover — added before sync so client sees correct time
   const WHEEL_GRACE = 5;
-  room.game.redTime += WHEEL_GRACE;
+  if (turnTime > 0) room.game.redTime += WHEEL_GRACE;
 
   // Emit sync:state to both players (with grace time included)
-  if (redConn) emitSyncState(redConn.socket, redUserId);
-  if (blackConn) emitSyncState(blackConn.socket, blackUserId);
+  publishUser(redUserId);
+  publishUser(blackUserId);
 
   // Start immediately — wheel is purely cosmetic on client
-  io.to(`game:${gameId}`).emit('game:start', {
-    gameId,
-    board: room.game.board,
-    redTime: room.game.redTime,
-    blackTime: room.game.blackTime,
-    currentPlayer: room.game.currentPlayer
-  });
-  room.startTimer(io);
+
+  room.startTimer();
   // Schedule first bot move with a small delay for client to mount
-  setTimeout(() => scheduleBotMoveIfNeeded(io, room), 500);
+  setTimeout(() => scheduleBotMoveIfNeeded(room), 500);
 
   return room;
 }
@@ -803,47 +759,50 @@ async function createGameDirect(io, redUserId, blackUserId, mode, buyIn = 0) {
 /**
  * If the current player in a game is a bot, schedule a bot move after a natural delay.
  */
-async function scheduleBotMoveIfNeeded(io, gameRoom) {
-  if (gameRoom.game.gameOver) return;
+async function scheduleBotMoveIfNeeded(gameRoom) {
+  if (gameRoom.game.gameOver || gameRoom.botScheduled) return;
 
   const currentColor = gameRoom.game.currentPlayer;
+  const ply = gameRoom.game.moveHistory.length;
   const currentUserId = currentColor === 'red' ? gameRoom.redUserId : gameRoom.blackUserId;
-  const isBot = await isBotUser(currentUserId);
-  if (!isBot) return;
-
-  const difficulty = await getBotDifficulty(currentUserId);
-  if (!difficulty) return;
+  if (!gameRoom.botIds?.has(currentUserId)) return;
+  gameRoom.botScheduled = true;
+  let difficulty;
+  try {
+    difficulty = await getBotDifficulty(currentUserId);
+  } catch (err) { console.error('Bot lookup failed:', err); }
+  if (!difficulty) { gameRoom.botScheduled = false; return; }
 
   // Chain continuations are fast (150ms), first move gets natural thinking delay
   const isChain = gameRoom.game.chainPiece != null;
   const delay = isChain ? 150 : (400 + Math.random() * 600);
 
   setTimeout(() => {
-    if (gameRoom.game.gameOver) return;
+    gameRoom.botScheduled = false;
+    if (gameRoom.game.gameOver || activeGames.get(gameRoom.id) !== gameRoom || gameRoom.game.currentPlayer !== currentColor || gameRoom.game.moveHistory.length !== ply) return;
 
     const move = chooseBotMove(gameRoom.game, difficulty);
     if (!move) return;
+    gameRoom.advanceClock();
+    if (gameRoom.game.gameOver) {
+      gameRoom.endReason = 'timeout';
+      gameRoom.endGame(gameRoom.game.winner);
+      return;
+    }
 
     const result = gameRoom.game.makeMove(move.fromRow, move.fromCol, move.toRow, move.toCol);
     if (!result) return;
 
-    io.to(`game:${gameRoom.id}`).emit('game:moved', {
-      fromRow: move.fromRow, fromCol: move.fromCol,
-      toRow: move.toRow, toCol: move.toCol,
-      captured: result.captured,
-      promoted: result.promoted,
-      chainContinues: result.chainContinues,
-      redTime: gameRoom.game.redTime,
-      blackTime: gameRoom.game.blackTime,
-      currentPlayer: gameRoom.game.currentPlayer
-    });
+    gameRoom.version++;
+
+    publishGame(gameRoom.id);
 
     // Bot emote triggers based on what just happened
     const triggers = getMoveTriggers(result, gameRoom.game, currentColor);
     for (const trigger of triggers) {
       const emote = shouldEmote(trigger, difficulty, gameRoom.id);
       if (emote) {
-        io.to(`game:${gameRoom.id}`).emit('emote:show', {
+        notifyChannel(`game:${gameRoom.id}`, 'emote:show', {
           userId: currentUserId,
           username: 'Bot',
           emote
@@ -856,9 +815,9 @@ async function scheduleBotMoveIfNeeded(io, gameRoom) {
       if (!gameRoom.endReason) {
         gameRoom.endReason = gameRoom.game.drawReason || 'no-moves';
       }
-      gameRoom.endGame(io, gameRoom.game.winner);
+      gameRoom.endGame(gameRoom.game.winner);
     } else {
-      scheduleBotMoveIfNeeded(io, gameRoom);
+      scheduleBotMoveIfNeeded(gameRoom);
     }
   }, delay);
 }

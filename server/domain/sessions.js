@@ -22,9 +22,9 @@ function notifyPhaseChange() {
 const VALID_TRANSITIONS = {
   'idle':         ['in-room', 'matchmaking', 'in-game', 'spectating'],
   'in-room':      ['in-game', 'idle'],
-  'matchmaking':  ['in-game', 'idle'],
+  'matchmaking':  ['in-room', 'in-game', 'idle'],
   'in-game':      ['idle'],
-  'spectating':   ['idle'],
+  'spectating':   ['idle', 'spectating'],
 };
 
 // ---- Sessions map ----
@@ -37,8 +37,7 @@ class UserSession {
     this.username = username;
     this.isGuest = isGuest;
 
-    this.socketId = null;
-    this.socket = null;
+    this.connectionId = null;
 
     this.phase = 'idle';
 
@@ -96,6 +95,7 @@ export function setPhase(userId, newPhase, context = {}) {
     return false;
   }
 
+  if ((newPhase === 'in-room' && !context.roomId) || (newPhase === 'in-game' && (!context.gameId || !['red', 'black'].includes(context.gameColor))) || (newPhase === 'spectating' && !context.spectatingRoomId)) return false;
   const oldPhase = session.phase;
   session.phase = newPhase;
   session.clearContext();
@@ -132,108 +132,6 @@ export function forceIdle(userId) {
  * Build the sync:state payload for a user.
  * Requires access to gameRooms and activeGames — passed in to avoid circular imports.
  */
-export function buildSyncPayload(userId, { gameRooms, activeGames, connectedUsers, getPresenceStats }) {
-  const session = sessions.get(userId);
-  if (!session) {
-    return { phase: 'idle', room: null, game: null, matchmaking: null, spectate: null, chatChannelId: null, presenceStats: null };
-  }
-
-  const payload = {
-    phase: session.phase,
-    room: null,
-    game: null,
-    matchmaking: null,
-    spectate: null,
-    chatChannelId: null,
-    presenceStats: getPresenceStats ? getPresenceStats() : null,
-  };
-
-  switch (session.phase) {
-    case 'in-room': {
-      const room = gameRooms.get(session.roomId);
-      if (room) {
-        payload.room = sanitizeRoomForSync(room);
-        payload.chatChannelId = `room:${room.id}`;
-      } else {
-        // Room was deleted — force idle
-        forceIdle(userId);
-        payload.phase = 'idle';
-      }
-      break;
-    }
-
-    case 'matchmaking': {
-      payload.matchmaking = { joinedAt: Date.now() };
-      break;
-    }
-
-    case 'in-game': {
-      const gameRoom = activeGames.get(session.gameId);
-      if (gameRoom) {
-        const opponentId = gameRoom.getOpponentId(userId);
-        const opponentSession = sessions.get(opponentId);
-        // Look up opponent name — check session, then scan room players for bots
-        let opponentName = opponentSession?.username;
-        if (!opponentName) {
-          // Bot or disconnected player — find name from the room that started this game
-          for (const room of gameRooms.values()) {
-            if (room.gameId === gameRoom.id) {
-              const p = room.players.find(pl => pl.userId === opponentId);
-              if (p) opponentName = p.username;
-              break;
-            }
-          }
-        }
-        payload.game = {
-          gameId: gameRoom.id,
-          yourColor: session.gameColor,
-          opponentName: opponentName || 'Opponent',
-          opponentId,
-          opponentOnline: opponentSession?.socket != null,
-          ...gameRoom.getState(),
-        };
-        payload.chatChannelId = `game:${gameRoom.id}`;
-      } else {
-        // Game was deleted — force idle
-        forceIdle(userId);
-        payload.phase = 'idle';
-      }
-      break;
-    }
-
-    case 'spectating': {
-      const room = gameRooms.get(session.spectatingRoomId);
-      const gameRoom = session.spectatingGameId ? activeGames.get(session.spectatingGameId) : null;
-      // Get player names for spectator display
-      let redName = 'Red', blackName = 'Black';
-      if (gameRoom && room) {
-        const redPlayer = room.players.find(p => p.userId === gameRoom.redUserId);
-        const blackPlayer = room.players.find(p => p.userId === gameRoom.blackUserId);
-        if (redPlayer) redName = redPlayer.username;
-        if (blackPlayer) blackName = blackPlayer.username;
-      }
-      payload.spectate = {
-        roomId: session.spectatingRoomId,
-        gameId: session.spectatingGameId,
-        room: room ? sanitizeRoomForSync(room) : null,
-        gameState: gameRoom ? gameRoom.getState() : null,
-        redName,
-        blackName,
-      };
-      if (session.spectatingGameId) {
-        payload.chatChannelId = `game:${session.spectatingGameId}`;
-      } else if (session.spectatingRoomId) {
-        payload.chatChannelId = `room:${session.spectatingRoomId}`;
-      }
-      break;
-    }
-
-    // 'idle' — everything stays null
-  }
-
-  return payload;
-}
-
 // Disconnect timer callbacks — set by handlers to avoid circular imports
 let onGameDisconnectTimeout = null;
 let onRoomDisconnectTimeout = null;
@@ -246,11 +144,10 @@ export function setDisconnectCallbacks({ onGameTimeout, onRoomTimeout }) {
 /**
  * Handle socket disconnect — mark session as disconnected, start timeout.
  */
-export function handleDisconnect(userId, io) {
+export function handleDisconnect(userId) {
   const session = sessions.get(userId);
   if (!session) return;
-  session.socket = null;
-  session.socketId = null;
+  session.connectionId = null;
   session.disconnectedAt = Date.now();
 
   // Start phase-appropriate disconnect timer
@@ -264,9 +161,9 @@ export function handleDisconnect(userId, io) {
       // 30 seconds to reconnect or forfeit
       session.disconnectTimer = setTimeout(() => {
         session.disconnectTimer = null;
-        if (session.phase === 'in-game' && !session.socket && onGameDisconnectTimeout) {
+        if (session.phase === 'in-game' && !session.connectionId && onGameDisconnectTimeout) {
           console.log(`[UserState] Game disconnect timeout: ${session.username} (${userId})`);
-          onGameDisconnectTimeout(userId, session.gameId, io);
+          onGameDisconnectTimeout(userId, session.gameId);
         }
       }, 30000);
       break;
@@ -275,9 +172,9 @@ export function handleDisconnect(userId, io) {
       // 2 minutes to reconnect or get removed
       session.disconnectTimer = setTimeout(() => {
         session.disconnectTimer = null;
-        if (session.phase === 'in-room' && !session.socket && onRoomDisconnectTimeout) {
+        if (session.phase === 'in-room' && !session.connectionId && onRoomDisconnectTimeout) {
           console.log(`[UserState] Room disconnect timeout: ${session.username} (${userId})`);
-          onRoomDisconnectTimeout(userId, session.roomId, io);
+          onRoomDisconnectTimeout(userId, session.roomId);
         }
       }, 120000);
       break;
@@ -294,11 +191,10 @@ export function handleDisconnect(userId, io) {
 /**
  * Handle socket reconnect — restore socket ref, clear disconnect state.
  */
-export function handleReconnect(userId, socket) {
+export function handleReconnect(userId, connectionId) {
   const session = sessions.get(userId);
   if (!session) return;
-  session.socket = socket;
-  session.socketId = socket.id;
+  session.connectionId = connectionId;
   session.disconnectedAt = null;
   if (session.disconnectTimer) {
     clearTimeout(session.disconnectTimer);
@@ -322,33 +218,4 @@ export function removeSession(userId) {
  */
 export function getAllSessions() {
   return sessions;
-}
-
-// ---- Internal helpers ----
-
-function sanitizeRoomForSync(room) {
-  return {
-    id: room.id,
-    hostId: room.hostId,
-    hostName: room.hostName,
-    joinCode: room.joinCode,
-    settings: {
-      buyIn: room.settings.buyIn,
-      turnTimer: room.settings.turnTimer,
-      isPrivate: room.settings.isPrivate,
-      allowSpectators: room.settings.allowSpectators,
-    },
-    players: room.players.map(p => ({
-      userId: p.userId,
-      username: p.username,
-      elo: p.elo,
-      ready: p.ready,
-      online: p.online !== false,
-    })),
-    spectators: room.spectators.map(s => ({ userId: s.userId, username: s.username })),
-    status: room.status,
-    gameId: room.gameId || null,
-    createdAt: room.createdAt,
-    joinUrl: room.joinUrl || null,
-  };
 }

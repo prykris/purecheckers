@@ -2,7 +2,7 @@
  * Presence — derived entirely from userState sessions.
  * No separate Maps, no manual status tracking.
  */
-import { getAllSessions } from './userState.js';
+import { getAllSessions } from '../domain/sessions.js';
 
 export function getStats() {
   const sessions = getAllSessions();
@@ -10,7 +10,7 @@ export function getStats() {
   let lookingToPlay = 0;
 
   for (const session of sessions.values()) {
-    if (session.socket) {
+    if (session.connectionId) {
       online++;
       if (session.phase === 'matchmaking' || session.phase === 'in-room') {
         lookingToPlay++;
@@ -37,12 +37,15 @@ export function setupPresence(io, socket) {
   // Start periodic stats broadcast (once) as a safety net
   if (!statsInterval) {
     statsInterval = setInterval(() => broadcastStats(io), 10000);
+    statsInterval.unref?.();
+    io.engine.on('close', () => { clearInterval(statsInterval); statsInterval = null; });
   }
 
   // Broadcast on connect
   broadcastStats(io);
 
   socket.on('disconnect', () => {
+    if (getAllSessions().get(socket.userId)?.connectionId !== socket.id) return;
     io.emit('presence:update', {
       userId: socket.userId,
       username: socket.username,

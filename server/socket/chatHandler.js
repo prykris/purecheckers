@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { connectedUsers } from './index.js';
+import { connectedUsers } from './connections.js';
 
 const prisma = new PrismaClient();
 
@@ -83,7 +83,7 @@ export function setupChatHandler(io, socket) {
     if (channelId.startsWith('game:')) {
       const gameId = parseInt(channelId.split(':')[1]);
       try {
-        const { activeGames } = await import('./gameHandler.js');
+        const { activeGames } = await import('../domain/games.js');
         const gameRoom = activeGames.get(gameId);
         if (gameRoom) {
           const isPlayer = gameRoom.getPlayerColor(socket.userId) !== null;
@@ -112,7 +112,7 @@ export function setupChatHandler(io, socket) {
     if (channelId.startsWith('game:')) {
       const gid = parseInt(channelId.split(':')[1]);
       try {
-        const { activeGames } = await import('./gameHandler.js');
+        const { activeGames } = await import('../domain/games.js');
         const gr = activeGames.get(gid);
         if (gr && !gr.getPlayerColor(socket.userId)) isSpectator = true;
       } catch {}

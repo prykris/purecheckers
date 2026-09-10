@@ -9,22 +9,23 @@
   let roomCount = 0;
   let socket;
 
+  function onList({ rooms }) { roomCount = rooms.length; }
+  function refresh() { socket?.emit('room:list', {}); }
   onMount(() => {
     socket = getSocket();
     if (socket) {
       socket.emit('room:list', {});
-      socket.on('room:list', ({ rooms }) => { roomCount = rooms.length; });
-      socket.on('room:list-update', () => {
-        // Re-fetch count
-        socket.emit('room:list', {});
-      });
+      socket.on('room:list', onList);
+      socket.on('connect', refresh);
+      socket.on('room:list-update', refresh);
     }
   });
 
   onDestroy(() => {
     if (socket) {
-      socket.off('room:list');
-      socket.off('room:list-update');
+      socket.off('room:list', onList);
+      socket.off('connect', refresh);
+      socket.off('room:list-update', refresh);
     }
   });
 </script>

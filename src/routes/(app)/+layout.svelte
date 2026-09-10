@@ -1,17 +1,20 @@
 <script>
-  import { onMount } from 'svelte';
+  let { children } = $props();
+  import { onMount, onDestroy } from 'svelte';
   import { phase, gameState, browseTab, gameOverVisible, connectionStatus, replayData } from '$lib/stores/app.js';
-  import { gameScreen, recompute, clearScreenOverride } from '$lib/stores/gameScreen.js';
+  import { gameScreen, navigation, navigationController, closeReplay } from '$lib/stores/navigation.js';
+  import { afterNavigate } from '$app/navigation';
+  import { attachBrowserNavigation } from '$lib/browserNavigation.js';
   import { user, token } from '$lib/stores/user.js';
   import { api } from '$lib/api.js';
-  import { getSocket } from '$lib/socket.js';
-  import { initSocket } from '$lib/socketService.js';
+  import { disconnectSocket } from '$lib/socket.js';
+  import { session } from '$lib/stores/session.js';
+  import { initSocket, detachSocketListeners } from '$lib/socketService.js';
   import { muted, toggleMute, preloadAll, play } from '$lib/sounds.js';
 
   // Game layer components
   import GameScreen from '$lib/components/GameScreen.svelte';
   import SpectateScreen from '$lib/components/SpectateScreen.svelte';
-  import WheelScreen from '$lib/components/WheelScreen.svelte';
   import RoomWaiting from '$lib/components/lobby/RoomWaiting.svelte';
   import SearchScreen from '$lib/components/SearchScreen.svelte';
   import ReplayBoard from '$lib/components/ReplayBoard.svelte';
@@ -36,42 +39,20 @@
   let chatOpen = $state(false);
   let lbOpen = $state(false);
   let loading = $state(true);
-  let kicked = $state(false);
-  let socketInitialized = false;
-
-  // Recompute gameScreen whenever phase or gameOverVisible changes
+  const initializing = $derived(loading || (!!$user && !$session.snapshot));
+  const kicked = $derived($session.status === 'replaced');
+  let mounted = $state(false);
+  let detachNavigation;
+  const connectionIdentity = $derived($token && $user?.id ? $token : null);
   $effect(() => {
-    // Read both stores to establish dependency
-    $phase;
-    $gameOverVisible;
-    recompute();
+    if (!mounted || !connectionIdentity) return;
+    initSocket();
+    return () => { detachSocketListeners(); disconnectSocket(); };
   });
-
-  // URL sync — reflect state, never drive it
-  $effect(() => {
-    const gs = $gameScreen;
-    const tab = $browseTab;
-    const path = gs !== 'none' ? `/${gs}` : `/${tab}`;
-    if (typeof window !== 'undefined' && window.location.pathname !== path) {
-      history.replaceState({}, '', path);
-    }
+  afterNavigate(() => {
+    if (!detachNavigation) detachNavigation = attachBrowserNavigation();
+    else navigationController.locationChanged(window.location.href);
   });
-
-  // When token+user are set (fresh login), connect socket
-  $effect(() => {
-    if ($token && $user && !socketInitialized) {
-      socketInitialized = true;
-      doInitSocket();
-    }
-  });
-
-  async function doInitSocket() {
-    loading = true;
-    await initSocket();
-    const sock = getSocket();
-    if (sock) sock.on('session:kicked', () => { kicked = true; });
-    loading = false;
-  }
 
   // Apply saved theme on load (before anything renders)
   function restoreTheme() {
@@ -106,23 +87,20 @@
     if (el) play('click');
   }
 
-  onMount(async () => {
+  onMount(() => {
+    mounted = true;
     document.addEventListener('pointerdown', onGlobalClick);
-    if (!$token) {
-      loading = false;
-      return;
-    }
-
-    try {
-      const data = await api.get('/auth/me');
-      $user = data.user;
-      socketInitialized = true;
-      await doInitSocket();
-    } catch {
-      $token = null;
-      $user = null;
-      loading = false;
-    }
+    const initialToken = $token;
+    if (!initialToken) { loading = false; return; }
+    api.get('/auth/me').then(data => {
+      if ($token === initialToken) $user = data.user;
+    }).catch(() => {
+      if ($token === initialToken) { $token = null; $user = null; }
+    }).finally(() => loading = false);
+  });
+  onDestroy(() => {
+    detachNavigation?.();
+    if (typeof document !== 'undefined') document.removeEventListener('pointerdown', onGlobalClick);
   });
 
   const showGameLayer = $derived($gameScreen !== 'none');
@@ -141,7 +119,12 @@
   </div>
 {/if}
 
+{@render children()}
 <DevPanel />
+
+{#if ($session.error || $navigation.error) && !kicked}
+  <div class="session-error" role="alert">{$session.error || $navigation.error}</div>
+{/if}
 
 {#if $connectionStatus !== 'connected' && $user && !loading}
   <div class="connection-bar" class:disconnected={$connectionStatus === 'disconnected'}>
@@ -155,7 +138,7 @@
   </div>
 {/if}
 
-{#if loading}
+{#if initializing}
   <div class="splash">
     <h1 class="splash-title">Checkers</h1>
     <div class="splash-spinner"></div>
@@ -164,16 +147,16 @@
 
 {#if !loading && !$user}
   <AuthScreen />
-{:else if !loading}
+{:else if !initializing}
   <!-- Game layer: full-screen overlay when active -->
-  {#if $gameScreen === 'wheel'}
-    <WheelScreen />
-  {:else if $gameScreen === 'game'}
+  {#if $gameScreen === 'game'}
+    {#key $gameState?.gameId}
     {#if $gameState?.mode === 'spectator'}
       <SpectateScreen />
     {:else}
       <GameScreen />
     {/if}
+    {/key}
   {:else if $gameScreen === 'room-waiting'}
     <RoomWaiting />
   {:else if $gameScreen === 'search'}
@@ -181,10 +164,12 @@
   {:else if $gameScreen === 'replay'}
     <div class="replay-overlay">
       <div class="replay-overlay-inner">
-        <button class="replay-close" title="Close replay" onclick={() => { $replayData = null; clearScreenOverride(); }}>
+        <button class="replay-close" title="Close replay" onclick={closeReplay}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        {#if $replayData}
+        {#if $navigation.loading}
+          <p role="status">Loading replay…</p>
+        {:else if $replayData}
           <ReplayBoard gameData={$replayData} />
         {/if}
       </div>
@@ -242,6 +227,7 @@
 {/if}
 
 <style>
+  .session-error { position: fixed; top: 36px; left: 50%; transform: translateX(-50%); z-index: 1100; max-width: 90vw; padding: 12px 18px; border-radius: 8px; background: var(--surface2); color: var(--text); }
   .kicked-overlay {
     position: fixed; inset: 0; z-index: 999;
     background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);

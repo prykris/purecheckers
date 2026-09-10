@@ -1,7 +1,8 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { setScreenOverride } from '$lib/stores/gameScreen.js';
+  import { openSession } from '$lib/stores/navigation.js';
   import { user } from '$lib/stores/user.js';
+  import { sendCommand } from '$lib/stores/session.js';
   import { getSocket } from '$lib/socket.js';
   import RoomCreate from './RoomCreate.svelte';
 
@@ -18,16 +19,16 @@
     socket.emit('room:list', { filter });
     socket.on('room:list', onList);
     socket.on('room:list-update', onUpdate);
-    socket.on('room:joined', onJoined);
-    socket.on('room:error', onError);
+    socket.on('connect', refreshList);
+
+
   });
 
   onDestroy(() => {
     if (socket) {
       socket.off('room:list', onList);
       socket.off('room:list-update', onUpdate);
-      socket.off('room:joined', onJoined);
-      socket.off('room:error', onError);
+      socket.off('connect', refreshList);
     }
   });
 
@@ -38,30 +39,24 @@
     if (idx >= 0) rooms[idx] = room; else if (!room.settings?.isPrivate) rooms = [room, ...rooms];
     rooms = rooms;
   }
-  function onJoined({ spectating }) {
-    if (spectating) return; // Handled by sync:state → phase='spectating'
-    setScreenOverride('room-waiting');
-  }
-  function onError({ error }) { joinError = error; setTimeout(() => joinError = '', 3000); }
-
   function refreshList() {
     socket?.emit('room:list', { filter: filter === 'all' ? undefined : filter });
   }
 
   function joinRoom(room) {
     joinError = '';
-    socket?.emit('room:join', { roomId: room.id });
+    sendCommand('room:join', { roomId: room.id }).then(result => { joinError = result.error || ''; });
   }
 
   function spectateRoom(room) {
     if (!socket) return;
     // Server handles everything via sync:state → phase='spectating' → gameScreen='game'
-    socket.emit('room:spectate', { roomId: room.id });
+    sendCommand('room:spectate', { roomId: room.id }).then(result => { joinError = result.error || ''; });
   }
 
   function onCreated() {
     showCreate = false;
-    // room:created handler in RoomCreate transitions to waiting screen
+
   }
 
   $: if (filter) refreshList();
@@ -116,7 +111,7 @@
           </div>
           <div class="room-actions">
             {#if isMine}
-              <button class="btn btn-secondary btn-small" on:click={() => setScreenOverride('room-waiting')}>Open</button>
+              <button class="btn btn-secondary btn-small" on:click={() => openSession()}>Open</button>
             {:else if room.status === 'waiting' && room.players.length < 2}
               <button class="btn btn-primary btn-small" on:click={() => joinRoom(room)}>Join</button>
             {:else if room.status === 'playing' && room.settings.allowSpectators}

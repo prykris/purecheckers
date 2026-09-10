@@ -1,6 +1,7 @@
 <script>
   // Release dates — each date gets a dot on the activity grid
   const releases = [
+    '2026-09-10', // Reliable sessions, navigation and animated gameplay
     '2026-04-06', '2026-04-06', '2026-04-06', '2026-04-06', // Sound, replays, navigation, SEO
     '2026-04-05', '2026-04-05', '2026-04-05', '2026-04-05', '2026-04-05', // Game intelligence, bots, guests, state, polish
     '2026-03-28', // Launch
@@ -70,6 +71,21 @@
       {/each}
     </div>
   </div>
+
+  <article class="release">
+    <div class="release-header">
+      <h2>Reliable Sessions & Animated Gameplay</h2>
+      <time datetime="2026-09-10">10 September 2026</time>
+    </div>
+    <ul>
+      <li><strong>Better Recovery</strong> — reconnecting or refreshing restores the server's current game, room and result.</li>
+      <li><strong>Reliable Bot Games</strong> — fixed bot readiness and stuck rooms. Missing bot accounts are created automatically without resetting existing bot progress.</li>
+      <li><strong>Animated Moves</strong> — pieces slide, captured pieces fade away, and promotions reveal a glowing crown. Winning moves finish before the result appears.</li>
+      <li><strong>Motion That Keeps Up</strong> — interrupted games recover immediately without a backlog of old animations. Reduced-motion preferences are respected.</li>
+      <li><strong>Consistent Navigation</strong> — the address bar follows your game or minimized room. Reloads and Back/Forward keep your active session intact.</li>
+      <li><strong>Clearer Feedback</strong> — replay loading shows failures, obsolete replay requests cannot reopen a closed view, and room departure waits for confirmation.</li>
+    </ul>
+  </article>
 
   <article class="release">
     <div class="release-header">

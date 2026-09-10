@@ -1,18 +1,18 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import { gameState, activeRoom } from '$lib/stores/app.js';
-  import { clearScreenOverride } from '$lib/stores/gameScreen.js';
+  import { onDestroy } from 'svelte';
+  import { activeRoom } from '$lib/stores/app.js';
+  import { minimizeSession } from '$lib/stores/navigation.js';
   import { user } from '$lib/stores/user.js';
-  import { getSocket } from '$lib/socket.js';
+  import { sendCommand, session } from '$lib/stores/session.js';
   import RoomChat from '../chat/RoomChat.svelte';
 
-  let socket;
+  let copyTimer;
   let copied = false;
 
-  // Room data comes from the activeRoom store (kept in sync by RoomBanner)
+  // Room data is a read-only projection of the session snapshot.
   $: room = $activeRoom;
   $: joinUrl = room?.joinUrl || null;
-  $: qrDataUrl = room?.qrDataUrl || $gameState?.roomData?.qrDataUrl || null;
+  $: qrDataUrl = room?.qrDataUrl || null;
   $: code = room?.joinCode || '';
   $: isHost = room?.hostId === $user?.id;
   $: myPlayer = room?.players?.find(p => p.userId === $user?.id);
@@ -22,39 +22,25 @@
     if (!joinUrl) return;
     navigator.clipboard.writeText(joinUrl).then(() => {
       copied = true;
-      setTimeout(() => copied = false, 2000);
+      clearTimeout(copyTimer); copyTimer = setTimeout(() => copied = false, 2000);
     });
   }
 
-  onMount(() => {
-    socket = getSocket();
-    if (!socket) return;
-    socket.on('room:kicked', onKicked);
-  });
-
-  onDestroy(() => {
-    if (socket) {
-      socket.off('room:kicked', onKicked);
-    }
-  });
-
-  function onKicked() { $activeRoom = null; clearScreenOverride(); }
-
+  onDestroy(() => clearTimeout(copyTimer));
   function toggleReady() {
-    socket?.emit('room:ready', { roomId: room?.id });
+    sendCommand('room:ready', { roomId: room?.id, ready: !myReady });
   }
 
   function backToLobby() {
-    clearScreenOverride();
+    minimizeSession();
   }
 
   function leaveRoom() {
-    socket?.emit('room:leave', { roomId: room?.id });
-    clearScreenOverride();
+    sendCommand('room:leave', { roomId: room?.id });
   }
 
   function kick(userId) {
-    socket?.emit('room:kick', { roomId: room?.id, userId });
+    sendCommand('room:kick', { roomId: room?.id, userId });
   }
 
   // Bot difficulty selection (remembered in localStorage)
@@ -64,7 +50,7 @@
     localStorage.setItem('checkers_bot_diff', d);
   }
   function callBot() {
-    socket?.emit('bot:join', { roomId: room?.id, difficulty: botDifficulty });
+    sendCommand('bot:join', { roomId: room?.id, difficulty: botDifficulty });
   }
 
   $: effectiveMode = room?.effectiveMode || 'RANKED';
@@ -154,8 +140,8 @@
       {/if}
 
       <div class="actions">
-        {#if room.players.length === 2}
-          <button class="btn" class:btn-primary={!myReady} class:btn-secondary={myReady} on:click={toggleReady}>
+        {#if myPlayer && room.players.length === 2}
+          <button class="btn" class:btn-primary={!myReady} class:btn-secondary={myReady} on:click={toggleReady} disabled={$session.pending !== null || $session.status !== 'ready'}>
             {myReady ? 'Unready' : 'Ready Up'}
           </button>
         {/if}

@@ -1,17 +1,16 @@
 <script>
   import { searching, presenceStats } from '$lib/stores/app.js';
-  import { clearScreenOverride } from '$lib/stores/gameScreen.js';
-  import { getSocket } from '$lib/socket.js';
+  import { minimizeSession } from '$lib/stores/navigation.js';
+  import { sendCommand } from '$lib/stores/session.js';
 
   $: others = $presenceStats.lookingToPlay - 1;
 
   function cancel() {
-    getSocket()?.emit('matchmaking:leave');
-    clearScreenOverride();
+    sendCommand('matchmaking:leave');
   }
 
   function minimize() {
-    clearScreenOverride();
+    minimizeSession();
   }
 </script>
 
