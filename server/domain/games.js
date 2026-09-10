@@ -9,12 +9,14 @@ import { publishUser, publishGame, broadcast, notifyChannel, notifyUser } from '
 import { getSession, setPhase, forceIdle, handleDisconnect, getAllSessions } from './sessions.js';
 import { calculateElo } from '../services/elo.js';
 import { awardCoins } from '../services/coins.js';
-import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME, DRAW_OFFER_COOLDOWN_MS } from '../../shared/constants.js';
+import { COINS_RANKED_WIN, COINS_LOSS, RANKED_TAX_RATE, MAX_DAILY_WINS_VS_SAME, DRAW_OFFER_COOLDOWN_MS, REVEAL_TIMEOUT_MS } from '../../shared/constants.js';
 import { calculateRankedPayout, depositToVault, awardDailyBounty, checkMilestones, isValidWager } from '../services/vault.js';
 import prisma from '../db.js';
 
 // Active games: gameId -> GameRoom
 export const activeGames = new Map();
+// Tunable at runtime so tests can exercise the reveal timeout without waiting.
+export const gameConfig = { revealTimeoutMs: REVEAL_TIMEOUT_MS };
 // Pending friend game lobbies: code -> { hostId, hostSocket }
 // Timestamp-based unique ID — never collides across restarts
 let nextGameId = Date.now();
@@ -55,6 +57,40 @@ class GameRoom {
     this.pendingDrawOffer = null; // userId who offered
     this.lastDrawOffer = {};     // userId -> timestamp (cooldown)
     this.endReason = null;       // resign, timeout, no-moves, draw-agreement, repetition, 25-move
+    // Colour reveal: colours are assigned, but the clock waits until every human
+    // player has finished (or skipped) the wheel, or the reveal deadline passes.
+    this.started = false;
+    this.revealAcks = new Set();
+    this.revealDeadline = null;
+    this.revealTimer = null;
+  }
+
+  openReveal(botIds, timeoutMs = gameConfig.revealTimeoutMs) {
+    for (const id of botIds) this.revealAcks.add(id); // bots never watch the wheel
+    this.revealDeadline = Date.now() + timeoutMs;
+    this.revealTimer = setTimeout(() => this.begin(), timeoutMs);
+    this.revealTimer.unref?.();
+  }
+
+  acknowledgeReveal(userId) {
+    if (this.started || this.game.gameOver || !this.getPlayerColor(userId)) return;
+    if (this.revealAcks.has(userId)) return;
+    this.revealAcks.add(userId);
+    if ([this.redUserId, this.blackUserId].every(id => this.revealAcks.has(id))) return this.begin();
+    this.version++;
+    publishGame(this.id);
+  }
+
+  begin() {
+    clearTimeout(this.revealTimer); this.revealTimer = null;
+    if (this.started || this.game.gameOver) return;
+    this.started = true;
+    this.startedAt = new Date();
+    this.version++;
+    this.startTimer();
+    publishGame(this.id);
+    // Small delay so clients can mount the board before the first bot move.
+    setTimeout(() => scheduleBotMoveIfNeeded(this), 500);
   }
 
   getPlayerColor(userId) {
@@ -107,6 +143,7 @@ class GameRoom {
     this.pendingDrawOffer = null;
     this.version++;
     this.stopTimer();
+    clearTimeout(this.revealTimer); this.revealTimer = null;
     // Latch before any asynchronous persistence work or competing terminal event.
     this.finalization = Promise.resolve().then(() => this.persistResult(winner));
 
@@ -431,6 +468,9 @@ class GameRoom {
     return {
       gameId: this.id,
       version: this.version,
+      started: this.started,
+      revealAcks: [...this.revealAcks],
+      revealDeadline: this.revealDeadline,
       turnTime: this.game.turnTime,
       pendingDrawOffer: this.pendingDrawOffer,
       endReason: this.endReason || this.game.drawReason,
@@ -521,6 +561,7 @@ export function createGameActions(actor) {
 
     const color = room.getPlayerColor(actor.userId);
     if (!color || getSession(actor.userId)?.gameId !== gameId) return reject('Not in this game');
+    if (!room.started) return reject('The game has not started yet');
     room.advanceClock();
     if (room.game.gameOver) {
       room.endReason ||= 'timeout';
@@ -582,6 +623,13 @@ export function createGameActions(actor) {
     } else {
       scheduleBotMoveIfNeeded(room);
     }
+  };
+
+  // --- Colour reveal finished or skipped ---
+  actions["game:reveal-done"] = ({ gameId }) => {
+    const room = activeGames.get(gameId);
+    if (!room || !room.getPlayerColor(actor.userId) || getSession(actor.userId)?.gameId !== gameId) return reject('Not in this game');
+    room.acknowledgeReveal(actor.userId); // idempotent; a repeat simply returns the current snapshot
   };
 
   // --- Resign ---
@@ -737,19 +785,10 @@ async function createGameDirect(redUserId, blackUserId, mode, buyIn = 0, turnTim
 
   // Presence is derived from session phase (already set to 'in-game' above)
 
-  // Grace period for the first mover — added before sync so client sees correct time
-  const WHEEL_GRACE = 5;
-  if (turnTime > 0) room.game.redTime += WHEEL_GRACE;
-
-  // Emit sync:state to both players (with grace time included)
+  // The clock and the first bot move wait for the colour reveal (see GameRoom.begin).
+  room.openReveal(room.botIds);
   publishUser(redUserId);
   publishUser(blackUserId);
-
-  // Start immediately — wheel is purely cosmetic on client
-
-  room.startTimer();
-  // Schedule first bot move with a small delay for client to mount
-  setTimeout(() => scheduleBotMoveIfNeeded(room), 500);
 
   return room;
 }

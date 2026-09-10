@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { setupSocket } from '../server/socket/index.js';
 import { connectedUsers } from '../server/socket/connections.js';
-import { activeGames, createGameDirect, stopMatchmaking } from '../server/domain/games.js';
+import { activeGames, createGameDirect, stopMatchmaking, gameConfig } from '../server/domain/games.js';
 import { gameRooms, leaveRoom } from '../server/domain/rooms.js';
 import { getSession, getAllSessions, removeSession } from '../server/domain/sessions.js';
 import { quickPlayPool } from '../server/services/quickPlay.js';
@@ -34,9 +34,17 @@ function envelope(socket, type, data = {}) {
 }
 async function deliver(socket, request) { return socket.timeout(5000).emitWithAck('session:command', request); }
 async function command(socket, type, data = {}) { return deliver(socket, envelope(socket, type, data)); }
-async function newGame(turnTime = 60) {
+async function revealedGame(turnTime = 60) {
   const room = await createGameDirect(users[0].id, users[1].id, 'FRIENDLY', 0, turnTime);
   await Promise.all(clients.slice(0, 2).map(sync)); return room;
+}
+async function finishReveal(room, ...sockets) {
+  for (const socket of sockets) expect((await command(socket, 'game:reveal-done', { gameId: room.id })).ok).toBe(true);
+}
+// A game whose colour reveal both players have completed, so the clock runs and moves are accepted.
+async function newGame(turnTime = 60) {
+  const room = await revealedGame(turnTime);
+  await finishReveal(room, clients[0], clients[1]); return room;
 }
 function move(socket, room, fromRow = 5, fromCol = 0, toRow = 4, toCol = 1, expectedPly = room.game.moveHistory.length) {
   return command(socket, 'game:move', { gameId: room.id, fromRow, fromCol, toRow, toCol, expectedPly });
@@ -209,6 +217,9 @@ describe('single authoritative command protocol', () => {
     const result = await command(clients[0], 'bot:play', { difficulty: 'easy' });
     expect(result.ok).toBe(true); expect(result.snapshot.phase).toBe('in-game');
     const game = activeGames.get(result.snapshot.game.gameId);
+    expect(result.snapshot.game.started).toBe(false);
+    expect(result.snapshot.game.revealAcks).toEqual([game.botIds.values().next().value]); // the bot is already past the wheel
+    expect((await command(clients[0], 'game:reveal-done', { gameId: game.id })).snapshot.game.started).toBe(true);
     if (game.getPlayerColor(users[0].id) === 'red') await move(clients[0], game);
     if (game.game.moveHistory.length < (game.getPlayerColor(users[0].id) === 'red' ? 2 : 1)) await waitFor(clients[0], 'sync:state', s => s.game?.currentPlayer === game.getPlayerColor(users[0].id));
     expect(game.game.currentPlayer).toBe(game.getPlayerColor(users[0].id)); expect(game.game.moveHistory.length).toBeGreaterThan(0);
@@ -229,5 +240,40 @@ describe('single authoritative command protocol', () => {
     await command(replacement, 'room:leave', { roomId: room.id });
     const subscriptions = connectedUsers.get(users[2].id).socket.rooms;
     expect([...subscriptions].some(name => /^(room:|game:|chat:room:|chat:game:)/.test(name))).toBe(false);
+  });
+  it('assigns colours immediately but waits for both players to finish the reveal', async () => {
+    const room = await revealedGame();
+    expect(clients[0].snapshot.game).toMatchObject({ started: false, revealAcks: [] });
+    expect(clients[0].snapshot.game.revealDeadline).toBeGreaterThan(Date.now());
+    expect(room.timerInterval).toBeNull();
+    expect((await move(clients[0], room)).error).toMatch(/not started/);
+    const partial = await command(clients[0], 'game:reveal-done', { gameId: room.id });
+    expect(partial.snapshot.game).toMatchObject({ started: false, revealAcks: [users[0].id] });
+    expect((await command(clients[0], 'game:reveal-done', { gameId: room.id })).snapshot.game.revealAcks).toEqual([users[0].id]);
+    const started = waitFor(clients[0], 'sync:state', s => s.game?.started === true);
+    expect((await command(clients[1], 'game:reveal-done', { gameId: room.id })).snapshot.game.started).toBe(true);
+    await started;
+    expect(room.timerInterval).not.toBeNull();
+    expect(room.game.redTime).toBe(60);
+    expect((await move(clients[0], room)).ok).toBe(true);
+  });
+  it('keeps a finished reveal across reconnect and starts the game when the deadline passes', async () => {
+    gameConfig.revealTimeoutMs = 300;
+    try {
+      const room = await revealedGame();
+      await command(clients[0], 'game:reveal-done', { gameId: room.id });
+      clients[0].disconnect(); const replacement = await connect(users[0]);
+      expect(replacement.snapshot.game).toMatchObject({ started: false, revealAcks: [users[0].id] });
+      await waitFor(replacement, 'sync:state', s => s.game?.started === true);
+      expect(room.started).toBe(true); expect(room.timerInterval).not.toBeNull();
+    } finally { gameConfig.revealTimeoutMs = 12000; }
+  });
+  it('ends a game during the reveal without ever starting its clock', async () => {
+    const room = await revealedGame();
+    const result = await command(clients[1], 'game:resign', { gameId: room.id });
+    expect(result.snapshot.game).toMatchObject({ gameOver: true, started: false, winner: 'red' });
+    await room.finalization;
+    expect(room.revealTimer).toBeNull(); expect(room.timerInterval).toBeNull();
+    expect((await command(clients[0], 'game:reveal-done', { gameId: room.id })).snapshot.game.started).toBe(false);
   });
 });

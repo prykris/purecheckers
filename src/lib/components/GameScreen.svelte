@@ -8,7 +8,9 @@
   import { getSocket } from '$lib/socket.js';
   import { api } from '$lib/api.js';
   import { describeHistory } from '$lib/gamePresentation.js';
+  import { revealView } from '$lib/colorReveal.js';
   import GameBoard from './GameBoard.svelte';
+  import ColorReveal from './ColorReveal.svelte';
   import RoomChat from './chat/RoomChat.svelte';
 
   // The screen is a view of the session. Only presentation state is writable here.
@@ -21,10 +23,13 @@
   $: topColor = myColor === 'red' ? 'black' : 'red';
   $: topTime = topColor === 'red' ? game.redTime : game.blackTime;
   $: bottomTime = myColor === 'red' ? game.redTime : game.blackTime;
-  $: isMyTurn = currentPlayer === myColor && !game.gameOver;
+  // Colour reveal: the server assigned colours but holds the clock until both players are done.
+  $: reveal = revealView(game, $user?.id);
+  let revealFailed = false;
+  $: isMyTurn = game.started && currentPlayer === myColor && !game.gameOver;
   $: canAct = $session.status === 'ready' && !$session.pending;
   $: urgency = game.turnTime && isMyTurn && bottomTime < 10 ? (10-bottomTime)/10 : 0;
-  $: statusText = game.gameOver ? (game.winner === null ? 'Draw' : game.winner === myColor ? 'Victory!' : 'Defeat') : $session.pending === 'game:move' ? 'Confirming move…' : isMyTurn ? 'Your turn' : "Opponent's turn";
+  $: statusText = game.gameOver ? (game.winner === null ? 'Draw' : game.winner === myColor ? 'Victory!' : 'Defeat') : reveal.active ? 'Choosing colours…' : $session.pending === 'game:move' ? 'Confirming move…' : isMyTurn ? 'Your turn' : "Opponent's turn";
   $: gameOverData = game.gameOver ? game.resultData || { winner: game.winner, endReason: game.endReason } : null;
   $: drawOfferPending = game.pendingDrawOffer === $user?.id;
   $: drawOfferReceived = game.pendingDrawOffer != null && !drawOfferPending && !game.gameOver;
@@ -40,6 +45,12 @@
   let desktopChat = typeof window !== 'undefined' && window.innerWidth >= 1100;
   let ownedEmotes = [], activeEmote = null, emoteTimer, socket;
   function move({ detail }) { sendCommand('game:move', { gameId, expectedPly: game.moveHistory.length, ...detail }); }
+  async function revealDone() {
+    revealFailed = false;
+    const result = await sendCommand('game:reveal-done', { gameId });
+    const now = revealView(game, $user?.id);
+    if (!result.ok && now.active && !now.acked) revealFailed = true;
+  }
   function resign() { showResignConfirm = false; sendCommand('game:resign', { gameId }); }
   function offerDraw() { sendCommand('game:draw-offer', { gameId }); }
   function respondDraw(accepted) { sendCommand('game:draw-response', { gameId, accepted }); }
@@ -61,6 +72,14 @@
   onDestroy(() => { socket?.off('emote:show', onEmote); clearTimeout(emoteTimer); });
 </script>
 
+{#if reveal.active}
+  <!-- Nothing that betrays the colour (board orientation, player bars) is shown until the wheel has landed and the game starts. -->
+  {#key gameId}
+    <div class="page-center">
+      <ColorReveal color={myColor} {opponentName} acked={reveal.acked} waiting={reveal.waiting} failed={revealFailed} on:done={revealDone} />
+    </div>
+  {/key}
+{:else}
 <div class="game-layout">
   {#if spectatorCount > 0}
     <div class="spectator-badge">
@@ -166,7 +185,7 @@
     {#if !game.gameOver && mode !== 'spectator'}
       <button class="btn btn-dark btn-small" on:click={()=>showResignConfirm=true}>Resign</button>
       {#if mode === 'online'}
-        <button class="btn btn-dark btn-small" on:click={offerDraw} disabled={!canAct || drawOfferPending || drawOfferCooldown}>
+        <button class="btn btn-dark btn-small" on:click={offerDraw} disabled={!canAct || !game.started || drawOfferPending || drawOfferCooldown}>
           {drawOfferPending ? 'Draw offered' : 'Draw'}
         </button>
       {/if}
@@ -227,6 +246,7 @@
   </div>
 
 </div>
+{/if}
 
 <style>
   .game-layout {

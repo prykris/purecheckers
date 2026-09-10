@@ -8,6 +8,7 @@ export const BOARD_SIZE = 8;
 export const DRAW_REPETITION_COUNT = 3;     // 3-fold repetition → forced draw
 export const DRAW_NO_CAPTURE_MOVES = 50;    // 50 half-moves (25 full) without capture → forced draw
 export const DRAW_OFFER_COOLDOWN_MS = 30000; // 30s cooldown between draw offers
+export const REVEAL_TIMEOUT_MS = 12000;      // colour wheel: game starts anyway after this, even if a player never confirms
 
 // ---- ELO ----
 export const ELO_START = 1000;

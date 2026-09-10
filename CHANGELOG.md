@@ -4,6 +4,15 @@ All notable changes to Pure Checkers.
 
 ---
 
+## 10 September 2026 — Colour Wheel Returns
+
+- Every game, including bot games, quick play and rematches, opens with the colour wheel again. Skip it with the button or Space.
+- The server now owns this stage: colours are assigned up front, the clock stays stopped and moves are refused until both players have finished or skipped the wheel. Bots count as finished, and a 12-second deadline starts the game if a player never responds.
+- Reconnecting during the reveal restores the result instead of spinning again. Reduced-motion users see the result immediately.
+- Removed the old 5-second clock bonus for the first mover, which only existed because the game used to start underneath the wheel.
+
+---
+
 ## 10 September 2026 — PostgreSQL Storage
 
 - Moved all persistence from a SQLite file inside the app container to PostgreSQL. Railway redeploys no longer erase users, games, coins or friendships. See docs/deployment.md.

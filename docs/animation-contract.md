@@ -14,6 +14,8 @@ A snapshot is a state, not an absence of transitions. The pair of consecutive ac
 
 These are logical states, including room status and game-over status nested within the session phase. Bot Challenge may cross the room states so quickly that the client never displays them. Presentation must work from the snapshots it actually receives.
 
+Every new game begins in ColourReveal: the server has assigned colours (`game.yourColor`) but `game.started` is false, the clock is stopped and moves are rejected. Each player's client shows the wheel and sends `game:reveal-done` when the animation ends or the player skips it; bots are recorded as done immediately. The server starts the clock when both players are done or when `game.revealDeadline` passes, whichever comes first. `game.revealAcks` lists who is already done, so a reconnecting client shows the result and waits instead of spinning again.
+
 ~~~mermaid
 stateDiagram-v2
     [*] --> Lobby: authoritative idle snapshot
@@ -22,14 +24,16 @@ stateDiagram-v2
     Searching --> WaitingRoom: paired
     Lobby --> WaitingRoom: create or join accepted
     WaitingRoom --> Starting: both players ready
-    Starting --> Playing: game created
+    Starting --> ColourReveal: game created
+    ColourReveal --> Playing: both players done, or reveal deadline
     Starting --> WaitingRoom: start failed
     WaitingRoom --> Lobby: leave, kick or room expiry
-    Lobby --> Playing: bot challenge succeeds
-    Searching --> Playing: intermediate room not observed
+    Lobby --> ColourReveal: bot challenge succeeds
+    Searching --> ColourReveal: intermediate room not observed
     Playing --> Playing: move / capture / promotion / turn change
     Playing --> Result: terminal snapshot
-    Result --> Playing: rematch accepted
+    Result --> ColourReveal: rematch accepted
+    ColourReveal --> Result: resign or disconnect before the first move
     Result --> Lobby: dismiss or result expiry
     Lobby --> SpectatingRoom: spectate accepted
     SpectatingRoom --> SpectatingGame: game starts

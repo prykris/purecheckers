@@ -10,6 +10,7 @@ export const COMMAND_PHASES = {
   'bot:play': ['idle'],
   'bot:join': ['in-room'],
   'game:move': ['in-game'],
+  'game:reveal-done': ['in-game'],
   'game:resign': ['in-game'],
   'game:draw-offer': ['in-game'],
   'game:draw-response': ['in-game'],
