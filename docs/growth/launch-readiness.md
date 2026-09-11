@@ -1,12 +1,12 @@
 # Launch readiness
 
-Checkpoint: 11 September 2026. **Launch is not cleared.** This is the current acceptance record for plan 05, not evidence that a release has been deployed. No community posts, emails, directory submissions or production changes have been made by this preparation pass.
+Checkpoint: 11 September 2026. **Launch is not cleared.** This is the current acceptance record for plan 05, the broader community-launch checklist. The application is deployed; see [production evidence](../releases/2026-09-11.md). No community posts, emails or directory submissions have been sent.
 
 Use the [consolidated remaining-work queue](remaining-work.md) for current priorities. The numbered growth plans retain their original baseline observations. Use this record for launch gates, [implementation-status.md](implementation-status.md) for implementation checkpoints, [05-backlinks-distribution.md](05-backlinks-distribution.md#phase-2--review-drafts-and-author-brief) for review drafts, and [links-log.md](links-log.md) for actual distribution outcomes. A row marked planned in that log is not a scheduled or sent message.
 
 The [requirement audit](requirement-audit.md) covers all 24 numbered implementation items in plan 01, including 112 local built-app HTTP checks. It leaves deployed crawler/platform checks open and does not yet audit every requirement in the other plans. Local verification is not launch clearance.
 
-Latest local candidate: [11 September release preparation](../releases/2026-09-11.md). The complete 1,149-test Linux suite, clean build, fresh and baseline-upgrade migrations, seed and real production-start smoke pass. Production settings/data and rollout remain unverified.
+Latest local candidate: [11 September release preparation](../releases/2026-09-11.md). The complete 1,149-test Linux suite, clean build, fresh and baseline-upgrade migrations, seed and real production-start smoke pass. Production migrations, backup restore, bot/reconnect/replay, invitations, account upgrade, room and bot-game restart recovery, and puzzle publisher execution now have live evidence in that release record.
 
 ## Release record
 
@@ -14,12 +14,12 @@ Complete this against the exact release being considered; a later code, migratio
 
 | Field | Current record |
 | --- | --- |
-| Candidate commit and clean build | Prepared on `codex/prepare-release-20260911`; clean Linux build verified; see candidate record |
-| Railway deployment ID and public origin | Not verified in this pass |
-| Migration review and production application | Candidate migration review and isolated baseline-upgrade rehearsal passed; production review/application remains pending. Linux applies all 25 migrations, through `20260911140000_game_invitation_entry`. Production review/application is still separate. Follow [deployment.md](../deployment.md) and the linked rollout contracts |
-| Active player/game migration handling | Pending; inspect legacy open runs and drain ambiguous games before replacement |
-| Puzzle publication dates and runner | Local artifact plus status/maintenance commands and runbook; production import, runner activation and monitoring pending |
-| Acceptance executor/date/device | Not recorded for this candidate |
+| Candidate commit and clean build | `c4604e8` pushed to `master`; clean Linux build and 1,149 tests passed |
+| Railway deployment ID and public origin | `db37db50-3f52-4f2c-95b5-f7ae0fb5c582`; https://purecheckers.com |
+| Migration review and production application | Production backup restored successfully; all 25 migrations applied through `20260911140000_game_invitation_entry`. Follow [deployment.md](../deployment.md) and the linked rollout contracts |
+| Active player/game migration handling | Only the release-test player observed online; no public rooms. Actual waiting-room and bot-game restart recovery passed; legacy private/offline-state observation is limited |
+| Puzzle publication dates and runner | 31 dates, 2026-09-11 through 2026-10-11; 02:00 UTC runner enabled; manually triggered run passed; owner monitors first automatic occurrence |
+| Acceptance executor/date/device | Codex, 2026-09-11 UTC; Windows Node client and Chrome desktop/390px mobile emulation |
 | Community account, reply availability and first post date | Owner choices pending; the six-week calendar is relative, not scheduled |
 | Licence and feedback destination | Resolved: no open-source licence; existing GitHub Issues verified enabled and linked. See [owner decisions](owner-decisions.md) |
 
@@ -66,7 +66,7 @@ These five groups organize the manual pass; they do not replace the broader auto
 | Live gameplay commands are accepted by the server and presented through snapshots | `src/lib/sessionClient.js`, `server/domain/games.js`, [game-checkpoints.md](../game-checkpoints.md); animations do not decide legal moves |
 | Shared navigation coordinates routes with accepted session state | `src/lib/navigationController.js`, `src/lib/navigationPolicy.js`; avoid claiming there are no component navigation calls anywhere |
 | Unfinished checkpointed games can be restored with an explicit readiness pause | [game-restoration.md](../game-restoration.md), [deployment.md](../deployment.md); waiting rooms and active-game spectators also restore locally; recorded notices/dismissal survive restart; result views, deadlines and rematch consent now restore locally; Railway continuity remains unverified |
-| Today's eligible registered-human puzzle solve earns one coin, once | `server/services/puzzles.js`, `tests/puzzle.test.js`; UTC dates, no archive rewards, reveal-before-solve ineligible, production publishing still pending |
+| Today's eligible registered-human puzzle solve earns one coin, once | `server/services/puzzles.js`, `tests/puzzle.test.js`; UTC dates, no archive rewards, reveal-before-solve ineligible, production publishing enabled; live coin/ledger acceptance still separate |
 | Recorded games can be shared; indexing follows a stricter public eligibility policy | `shared/gameResult.js`, [share-previews.md](../share-previews.md), sitemap/SEO tests; do not claim every game is indexed or every terminal result has already settled |
 | Analytics events are emitted where the browser permits | `src/lib/analytics.js`, `GameScreen.svelte`, `PuzzleBoard.svelte`; these are browser signals, not exactly-once financial/game receipts. Component remounts can repeat start/end events |
 

@@ -2,7 +2,9 @@
 
 All notable changes to Pure Checkers.
 
-## Unreleased
+## 2026-09-11
+
+- Deployed the integrated gameplay and site release. Daily puzzles are available with a 31-day buffer and a daily publisher. Production checks verified reconnection, invitations, account preservation, saved replays and room/game recovery after a server restart. Hosting now places the web app beside PostgreSQL to prevent cross-region transaction timeouts.
 
 - Release preparation: clean Linux installation/build, all 1,149 tests, migrations from a fresh and previous-schema database, repeated seeding, and actual production-start bot/reconnect/replay checks pass. Rendering test fixtures now include the shared account-aware entry link.
 

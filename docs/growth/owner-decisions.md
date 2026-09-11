@@ -21,7 +21,7 @@ Themes and skins are read together by `/api/shop/appearance`. The accepted theme
 
 Feedback is linked from FAQ, the marketing footer, Profile and README. It requires a GitHub account and is public. The repository's current public visibility is recorded separately from its licence policy.
 
-`railway-puzzles.json` defines the publisher build/start/schedule. Configure only the publisher service to use that file; the web service must keep its existing startup. The chosen schedule is configuration prepared for deployment, not an enabled production service. Before enabling it, import the reviewed buffer beginning on the actual release date, check today plus 30 future dates and run maintenance once. See [puzzle operations](../puzzle-operations.md).
+The publisher is deployed as a separate Railway cron service using the build/start/schedule documented in [puzzle operations](../puzzle-operations.md). Railway rejected the prepared legacy JSON configuration path, so these settings are applied directly to the service. The 31-day release buffer is imported and a manually triggered maintenance run passed; the first automatic 02:00 UTC occurrence remains for owner monitoring.
 
 Railway's Hobby subscription currently starts at $5/month with $5 usage included; total consumption can exceed the owner's $10 budget. Do not infer a bill from resource limits. Inspect the existing account's usage before enabling the publisher and let the owner monitor actual spending. [Railway pricing](https://docs.railway.com/pricing/plans), checked 11 September 2026.
 

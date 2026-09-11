@@ -1,6 +1,6 @@
 # Puzzle publishing operations
 
-Prepared locally on 11 September 2026. The owner delegated the runner choice: use a separate Railway cron service at 02:00 UTC daily, with manual owner monitoring, within the $10/month total hosting budget. First publication starts on the release's UTC date. No production import, service or schedule has been enabled. The same commands work manually from a computer with database access.
+Prepared locally on 11 September 2026. The owner delegated the runner choice: use a separate Railway cron service at 02:00 UTC daily, with manual owner monitoring, within the $10/month total hosting budget. First publication starts on the release's UTC date. Production import and service activation completed on 11 September; see the [release evidence](releases/2026-09-11.md). The same commands work manually from a computer with database access.
 
 ## Commands and availability contract
 
@@ -37,16 +37,17 @@ Quarantine means the stored puzzle requires review; it does not prove that every
 
 ## Selected Railway service
 
-Prepare a separate service from the same repository and reviewed release. Set its configuration path to `/railway-puzzles.json`, leaving the web service's configuration unchanged. The checked-in file uses [Railway config as code](https://docs.railway.com/config-as-code/reference), verified 11 September 2026:
+Use the separate `puzzle-publisher` service from the same repository and `master` branch. Railway rejected the legacy JSON configuration path during the 11 September rollout. The following settings are applied directly to the service; do not configure the web service with these commands:
 
-| Setting | Proposed value |
+| Setting | Deployed value |
 | --- | --- |
 | Service name | `puzzle-publisher` |
 | Build command | `npx prisma generate` after normal dependency installation |
 | Start command | `node scripts/maintain-puzzles.js` |
 | Schedule | Daily at 02:00 UTC (`0 2 * * *`) |
 | Restart policy | Never; investigate failures before rerunning |
-| Database | Reference the same PostgreSQL service as the web app |
+| Database | Reference `${{Postgres.DATABASE_URL}}`; colocate with PostgreSQL in `us-west2` |
+| Node | `RAILPACK_NODE_VERSION=24.21.0` |
 | Public domain / HTTP health check | None; this process has no HTTP listener |
 
 Apply the reviewed schema, including `20260911130000_puzzle_rejections`, through the normal release migration step before running these commands. The additive migration creates the durable rejection catalogue; it does not infer historical failures or alter puzzle content. This start command does not migrate, seed, start gameplay, acquire gameplay ownership or run a second web replica. It requires no JWT secret for puzzle generation. Start with self-play; sourcing real game records remains an explicit generator option.
@@ -61,7 +62,7 @@ Railway cron starts a process on the configured schedule and expects it to exit 
 4. Review each scheduled outcome and its timestamp. Missing runs need attention even if the last report was healthy. A full-target shortage needs replenishment; fewer than 14 consecutive dates warrants prompt investigation, and a missing today requires immediate action. Use the read-only status command to distinguish a stale runner report from current database coverage.
 5. Retain and inspect reverification failures/inconclusive counts and off-rotation generation logs. Review puzzle explanations and play representative new lines before their dates arrive. Never repair a gap by shifting already assigned URLs or overwrite today's puzzle through the importer.
 
-The owner monitors Railway run logs and the status command manually; no email or external paid monitoring integration is planned. Initial production import, host resource/budget verification and a successful scheduled execution remain release work. A one-time healthy status report does not prove continuing operation.
+The owner monitors Railway run logs and the status command manually; no email or external paid monitoring integration is planned. Initial production import, resource-usage review and a manually triggered publisher execution are complete. The first automatic scheduled occurrence remains to be observed by the owner. A one-time healthy status report does not prove continuing operation.
 
 ## Local verification
 
