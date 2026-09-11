@@ -1,33 +1,21 @@
-import prisma from '../db.js';
+import { assertCoinAmount, EconomyError, inEconomyTransaction } from './economy.js';
 
-export async function awardCoins(userId, amount, reason) {
-  const [user, transaction] = await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: { coins: { increment: amount } }
-    }),
-    prisma.coinTransaction.create({
-      data: { receiverId: userId, amount, reason }
-    })
-  ]);
-  return { coins: user.coins, transaction };
+export function awardCoins(userId, amount, reason, transaction = null, occurredAt = new Date()) {
+  assertCoinAmount(amount);
+  return inEconomyTransaction(transaction, async tx => {
+    const user = await tx.user.update({ where: { id: userId }, data: { coins: { increment: amount } } });
+    const entry = amount > 0 ? await tx.coinTransaction.create({ data: { receiverId: userId, amount, reason, createdAt: occurredAt } }) : null;
+    return { coins: user.coins, transaction: entry };
+  });
 }
 
-export async function deductCoins(userId, amount, reason) {
-  // Check balance first
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || user.coins < amount) {
-    throw new Error('Insufficient coins');
-  }
-
-  const [updated, transaction] = await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
-      data: { coins: { decrement: amount } }
-    }),
-    prisma.coinTransaction.create({
-      data: { receiverId: userId, amount: -amount, reason }
-    })
-  ]);
-  return { coins: updated.coins, transaction };
+export function deductCoins(userId, amount, reason, transaction = null) {
+  assertCoinAmount(amount);
+  return inEconomyTransaction(transaction, async tx => {
+    const debit = await tx.user.updateMany({ where: { id: userId, coins: { gte: amount } }, data: { coins: { decrement: amount } } });
+    if (debit.count !== 1) throw new EconomyError('Insufficient coins');
+    const entry = amount > 0 ? await tx.coinTransaction.create({ data: { receiverId: userId, amount: -amount, reason } }) : null;
+    const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    return { coins: user.coins, transaction: entry };
+  });
 }

@@ -1,60 +1,56 @@
 <script>
   import { onMount } from 'svelte';
-  import { user } from '$lib/stores/user.js';
+  import { user, captureSession, isCurrentSession } from '$lib/stores/user.js';
   import { api } from '$lib/api.js';
+  import { ShopClient } from '$lib/shopClient.js';
+  import WalletRecovery from './WalletRecovery.svelte';
+  import BoardAppearance from './BoardAppearance.svelte';
+  import { performWalletAction, walletState } from '$lib/wallet/actions.js';
+  export let appearanceOnly = false;
 
-  let items = [];
-  let inventory = [];
-  let error = '';
-  let buying = null;
-
-  onMount(async () => {
-    try {
-      const [shopData, invData] = await Promise.all([
-        api.get('/shop/items'),
-        api.get('/shop/inventory')
-      ]);
-      items = shopData.items;
-      inventory = invData.inventory;
-    } catch (e) { error = e.message; }
+  let view;
+  const shop = new ShopClient({ readScope: captureSession, isCurrent: isCurrentSession,
+    load: ({ scope, signal }) => api.get('/shop', { authToken: scope.token, signal }),
+    perform: performWalletAction, publish: value => { view = value; }
+  });
+  onMount(() => {
+    let generation;
+    const unsubscribe = user.subscribe(value => {
+      const next = captureSession().generation;
+      if (next === generation) return;
+      generation = next; shop.reset();
+      if (value) void shop.refresh();
+    });
+    const focus = () => { if (view.status !== 'loading') void shop.refresh(); };
+    window.addEventListener('focus', focus);
+    return () => { unsubscribe(); window.removeEventListener('focus', focus); shop.dispose(); };
   });
 
-  function isOwned(id) { return inventory.some(i => i.itemId === id); }
-  function isEquipped(id) { return inventory.some(i => i.itemId === id && i.equipped); }
-
-  async function buy(item) {
-    buying = item.id;
-    error = '';
-    try {
-      const data = await api.post('/shop/purchase', { itemId: item.id });
-      $user = { ...$user, coins: data.coins };
-      const invData = await api.get('/shop/inventory');
-      inventory = invData.inventory;
-    } catch (e) { error = e.message; }
-    buying = null;
-  }
-
-  async function equip(item) {
-    try {
-      await api.patch('/shop/equip', { itemId: item.id });
-      const invData = await api.get('/shop/inventory');
-      inventory = invData.inventory;
-    } catch (e) { error = e.message; }
-  }
-
-  $: themes = items.filter(i => i.type === 'THEME');
+  function isOwned(id) { return view.data?.inventory.some(i => i.itemId === id); }
+  function isEquipped(id) { return view.data?.inventory.some(i => i.itemId === id && i.equipped); }
+  $: items = view.data?.items ?? [];
+  $: themes = items.filter(i => i.type === 'THEME' && (!appearanceOnly || view.data?.inventory.some(row => row.itemId === i.id)));
   $: skins = items.filter(i => i.type === 'SKIN');
   $: emotes = items.filter(i => i.type === 'EMOTE');
+  $: unavailable = view.status !== 'ready' || !!view.action || !!$walletState.pending || $walletState.blocked;
 </script>
 
-<div class="page-scroll">
-  <div class="page-content shop">
-    <h2>Shop</h2>
-    <p class="coins">Your coins: <strong>{$user?.coins || 0}</strong></p>
-    {#if error}<p class="error">{error}</p>{/if}
+<div class:page-scroll={!appearanceOnly}>
+  <div class:page-content={!appearanceOnly} class="shop" aria-busy={view.status === 'loading' || !!view.action}>
+    {#if !appearanceOnly}<h2>Shop</h2>
+    <p class="coins">Your coins: <strong>{$user?.coins || 0}</strong></p>{/if}
+    <BoardAppearance />
+    {#if view.error || view.readError}<p class="error" role="alert">{view.error || view.readError}</p>{/if}
+    <button class="btn btn-dark btn-small" disabled={view.status === 'loading' || !!view.action} on:click={() => shop.refresh()}>
+      {view.status === 'loading' ? 'Refreshing…' : 'Refresh'}
+    </button>
+    {#if !view.data && view.status === 'loading'}<p role="status">Loading shop…</p>{/if}
+    {#if view.data && items.length === 0}<p>No items are available yet.</p>{/if}
+    <WalletRecovery on:confirmed={() => shop.refresh()} />
 
-    {#if themes.length > 0}
       <h3 class="section-title">Themes</h3>
+      <button class="btn btn-dark btn-small" disabled={unavailable} on:click={() => shop.act('equip', null, 'THEME')}>Use basic theme</button>
+    {#if themes.length > 0}
       <div class="items-grid">
         {#each themes as item}
           <div class="card item-card" class:equipped={isEquipped(item.id)}>
@@ -70,11 +66,11 @@
             {#if isEquipped(item.id)}
               <span class="badge equipped">Equipped</span>
             {:else if isOwned(item.id)}
-              <button class="btn btn-secondary btn-small" on:click={() => equip(item)}>Equip</button>
+              <button class="btn btn-secondary btn-small" disabled={unavailable} on:click={() => shop.act('equip', item.id)}>{view.action?.kind === 'equip' && view.action.itemId === item.id ? 'Confirming…' : 'Equip'}</button>
             {:else}
-              <button class="btn btn-primary btn-small" on:click={() => buy(item)}
-                disabled={buying === item.id || ($user?.coins || 0) < item.price}>
-                {buying === item.id ? '...' : 'Buy'}
+              <button class="btn btn-primary btn-small" on:click={() => shop.act('purchase', item.id)}
+                disabled={unavailable || ($user?.coins || 0) < item.price}>
+                {view.action?.kind === 'purchase' && view.action.itemId === item.id ? 'Confirming…' : 'Buy'}
               </button>
             {/if}
           </div>
@@ -82,8 +78,10 @@
       </div>
     {/if}
 
-    {#if skins.length > 0}
+    {#if !appearanceOnly}
       <h3 class="section-title">Piece Skins</h3>
+      <button class="btn btn-dark btn-small" disabled={unavailable} on:click={() => shop.act('equip', null)}>{view.action?.kind === 'equip' && view.action.itemId === null ? 'Confirming…' : 'Use standard pieces'}</button>
+    {#if skins.length > 0}
       <div class="items-grid">
         {#each skins as item}
           <div class="card item-card" class:equipped={isEquipped(item.id)}>
@@ -95,11 +93,11 @@
             {#if isEquipped(item.id)}
               <span class="badge equipped">Equipped</span>
             {:else if isOwned(item.id)}
-              <button class="btn btn-secondary btn-small" on:click={() => equip(item)}>Equip</button>
+              <button class="btn btn-secondary btn-small" disabled={unavailable} on:click={() => shop.act('equip', item.id)}>{view.action?.kind === 'equip' && view.action.itemId === item.id ? 'Confirming…' : 'Equip'}</button>
             {:else}
-              <button class="btn btn-primary btn-small" on:click={() => buy(item)}
-                disabled={buying === item.id || ($user?.coins || 0) < item.price}>
-                {buying === item.id ? '...' : 'Buy'}
+              <button class="btn btn-primary btn-small" on:click={() => shop.act('purchase', item.id)}
+                disabled={unavailable || ($user?.coins || 0) < item.price}>
+                {view.action?.kind === 'purchase' && view.action.itemId === item.id ? 'Confirming…' : 'Buy'}
               </button>
             {/if}
           </div>
@@ -122,14 +120,17 @@
             {:else if isOwned(item.id)}
               <span class="badge owned">Owned</span>
             {:else}
-              <button class="btn btn-primary btn-small" on:click={() => buy(item)}
-                disabled={buying === item.id || ($user?.coins || 0) < item.price}>
-                {buying === item.id ? '...' : 'Buy'}
+              <button class="btn btn-primary btn-small" on:click={() => shop.act('purchase', item.id)}
+                disabled={unavailable || ($user?.coins || 0) < item.price}>
+                {view.action?.kind === 'purchase' && view.action.itemId === item.id ? 'Confirming…' : 'Buy'}
               </button>
             {/if}
           </div>
         {/each}
       </div>
+    {/if}
+    {:else}
+      <p>Your owned themes are listed here. Find more in <a href="/shop">Shop</a>.</p>
     {/if}
   </div>
 </div>

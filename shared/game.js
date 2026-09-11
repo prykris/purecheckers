@@ -6,6 +6,11 @@
 
 import { TURN_TIME, DRAW_REPETITION_COUNT, DRAW_NO_CAPTURE_MOVES } from './constants.js';
 
+// Evaluation features are multiples of 0.05. Accumulate integer units so
+// equivalent positions do not differ solely because pieces were summed in a
+// different board order. Public evaluation scores retain their existing scale.
+export const EVALUATION_SCALE = 20;
+
 export class CheckersGame {
   constructor(turnTime = TURN_TIME) {
     this.turnTime = turnTime;
@@ -291,14 +296,14 @@ export class CheckersGame {
       for (let c = 0; c < 8; c++) {
         const p = this.at(r, c);
         if (!p) continue;
-        const val = p.queen ? 5 : 1;
+        const val = p.queen ? 5 * EVALUATION_SCALE : EVALUATION_SCALE;
         const posBonus = p.queen ? 0 :
-          (p.color === 'red' ? (7 - r) * 0.1 : r * 0.1);
-        const centerBonus = (c >= 2 && c <= 5) ? 0.05 : 0;
+          (p.color === 'red' ? (7 - r) * 2 : r * 2);
+        const centerBonus = (c >= 2 && c <= 5) ? 1 : 0;
         if (p.color === color) score += val + posBonus + centerBonus;
         else score -= val + posBonus + centerBonus;
       }
-    return score;
+    return score / EVALUATION_SCALE;
   }
 
   countPieces(color) {

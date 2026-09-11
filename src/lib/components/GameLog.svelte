@@ -1,119 +1,66 @@
 <script>
-  import { browseTo } from '$lib/stores/navigation.js';
+  import GameHistory from './GameHistory.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { getSocket } from '$lib/socket.js';
-  import { user } from '$lib/stores/user.js';
-  import { browseTab } from '$lib/stores/app.js';
-  import { openReplay } from '$lib/stores/navigation.js';
+  import { user, captureSession, isCurrentSession } from '$lib/stores/user.js';
+  import { GameLogFeed } from '$lib/gameLogFeed.js';
+  import { browseTo, openReplay } from '$lib/stores/navigation.js';
   import { api } from '$lib/api.js';
 
-  export let mode = 'global'; // 'global' | 'personal'
+  // Recent games. `global:game-ended` carries the database replay id (the broadcast is
+  // skipped when persistence failed), bot games stay visible and are tagged, and a
+  // tombstoned guest reads "Guest" instead of its expiry marker.
+  let { mode = 'global', onplaybot = null } = $props(); // 'global' | 'personal'
 
-  let allGames = [];
-  let loading = true;
-  let socket;
-  let showMineOnly = false;
+  let log = $state({ data: null, status: 'idle', error: null });
+  let showMineOnly = $state(false);
+  let unsubscribe;
+  const personal = $derived(mode === 'personal' || showMineOnly);
+  const games = $derived(log.data || []);
+  const feed = new GameLogFeed({ request: api.get, isCurrent: isCurrentSession, publish: value => log = value });
+  $effect(() => { feed.setQuery(personal, { id: $user?.id, ...captureSession() }); });
 
-  $: games = (mode === 'personal' || showMineOnly)
-    ? allGames.filter(g => g.redPlayer === $user?.username || g.blackPlayer === $user?.username)
-    : allGames;
-
-  function fmtAgo(d) {
-    const ms = Date.now() - new Date(d).getTime();
-    if (ms < 60000) return 'just now';
-    if (ms < 3600000) return `${Math.floor(ms / 60000)}m ago`;
-    if (ms < 86400000) return `${Math.floor(ms / 3600000)}h ago`;
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
-
-  function resultFor(g) {
-    if (!$user) return '';
-    const isRed = g.redPlayer === $user.username;
-    const isBlack = g.blackPlayer === $user.username;
-    if (!isRed && !isBlack) return '';
-    if (g.result === 'DRAW') return 'draw';
-    if (isRed && g.result === 'RED_WIN') return 'win';
-    if (isBlack && g.result === 'BLACK_WIN') return 'win';
-    return 'loss';
-  }
-
-  function onGameEnded(game) {
-    allGames = [game, ...allGames].slice(0, 50);
-  }
-
-  function goToQuickPlay() {
-    browseTo('lobby');
-  }
-
-  onMount(async () => {
-    try {
-      const data = await api.get('/leaderboard/games');
-      allGames = data.games || [];
-    } catch {}
-    loading = false;
-
-    if (mode === 'global') {
-      socket = getSocket();
-      if (socket) socket.on('global:game-ended', onGameEnded);
-    }
+  onMount(() => {
+    unsubscribe = user.subscribe(value => feed.setQuery(personal, { id: value?.id, ...captureSession() }));
+    feed.start(getSocket());
   });
-
-  onDestroy(() => {
-    if (socket) socket.off('global:game-ended', onGameEnded);
-  });
-
-
+  onDestroy(() => { unsubscribe?.(); feed.dispose(); });
 </script>
 
 <div class="game-log">
   <div class="log-header">
     <h3 class="log-title">{mode === 'personal' ? 'Your Games' : 'Recent Games'}</h3>
     {#if mode === 'global'}
-      <button class="filter-toggle" class:active={showMineOnly} onclick={() => showMineOnly = !showMineOnly}>
+      <button type="button" class="filter-toggle" class:active={showMineOnly} aria-pressed={showMineOnly} onclick={() => showMineOnly = !showMineOnly}>
         {showMineOnly ? 'Show all' : 'My games'}
       </button>
     {/if}
   </div>
 
-  {#if loading}
-    <div class="log-placeholder">
+  {#if log.status === 'error' && log.data !== null}
+    <div class="log-placeholder" role="status"><span>Could not refresh recent games.</span><button type="button" class="play-link" onclick={() => feed.refresh()}>Retry</button></div>
+  {/if}
+  {#if log.data === null && (log.status === 'idle' || log.status === 'loading')}
+    <div class="log-placeholder" role="status">
       <div class="spinner-small"></div>
+      <span>Loading games…</span>
+    </div>
+  {:else if log.status === 'error' && log.data === null}
+    <div class="log-placeholder" role="status">
+      <span>{log.error}</span>
+      <button type="button" class="play-link" onclick={() => feed.refresh()}>Retry</button>
     </div>
   {:else if games.length === 0}
     <div class="log-placeholder">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      {#if mode === 'personal'}
-        <span>You haven't played any games yet</span>
-        <!-- svelte-ignore a11y_invalid_attribute -->
-        <!-- svelte-ignore a11y_invalid_attribute -->
-        <a href="#" class="play-link" onclick={(e) => { e.preventDefault(); goToQuickPlay(); }}>Find an opponent</a>
-      {:else if showMineOnly}
-        <span>You haven't played any games yet</span>
+      {#if mode === 'personal' || showMineOnly}
+        <span>You haven't played any games yet.</span>
       {:else}
-        <span>No games played yet</span>
+        <span>No games yet. Yours will be the first.</span>
       {/if}
+      <button type="button" class="play-link" onclick={() => onplaybot ? onplaybot() : browseTo('lobby')}>{onplaybot ? 'Play a bot' : 'Go to Play'}</button>
     </div>
   {:else}
-    <div class="log-list">
-      {#each games as g}
-        {@const myResult = resultFor(g)}
-        <div class="log-row" class:my-win={myResult === 'win'} class:my-loss={myResult === 'loss'}>
-          <div class="log-players">
-            <span class="log-name" class:winner={g.result === 'RED_WIN'}>{g.redPlayer}</span>
-            <span class="log-vs">vs</span>
-            <span class="log-name" class:winner={g.result === 'BLACK_WIN'}>{g.blackPlayer}</span>
-          </div>
-          <div class="log-meta">
-            <span class="log-mode {g.mode === 'RANKED' ? 'ranked' : 'friendly'}">{g.mode === 'RANKED' ? 'Ranked' : 'Friendly'}</span>
-            <span class="log-time">{fmtAgo(g.date)}</span>
-            <button class="log-replay" onclick={() => openReplay(g.id)} title="Watch replay">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Replay
-            </button>
-          </div>
-        </div>
-      {/each}
-    </div>
+    <GameHistory {games} playerId={$user?.id} opponentsOnly={personal} scrollable onreplay={openReplay} />
   {/if}
 </div>
 
@@ -133,7 +80,7 @@
   .filter-toggle {
     background: none; border: 1px solid var(--surface2); color: var(--text-dim);
     font-family: var(--font); font-size: 0.6rem; font-weight: 600;
-    padding: 2px 8px; border-radius: var(--radius-pill); cursor: pointer;
+    min-height: 28px; padding: 2px 8px; border-radius: var(--radius-pill); cursor: pointer;
     transition: color 0.15s, border-color 0.15s;
   }
   .filter-toggle:hover { color: var(--text); border-color: var(--text-dim); }
@@ -141,15 +88,16 @@
 
   .log-placeholder {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: var(--sp-sm); padding: var(--sp-xl);
-    min-height: 160px;
-    color: var(--text-dim); font-size: var(--fs-caption);
+    gap: var(--sp-sm); padding: var(--sp-lg);
+    min-height: 96px;
+    color: var(--text-dim); font-size: var(--fs-caption); text-align: center;
     background: var(--surface); border: 1px solid var(--surface2);
     border-radius: var(--radius-md);
   }
   .play-link {
+    background: none; border: none; font-family: var(--font);
     color: var(--accent); font-size: var(--fs-caption); text-decoration: underline;
-    cursor: pointer;
+    cursor: pointer; min-height: 32px;
   }
   .play-link:hover { color: var(--text); }
 
@@ -158,51 +106,5 @@
     border: 2px solid var(--surface2); border-top-color: var(--accent);
     border-radius: 50%; animation: spin 0.8s linear infinite;
   }
-  .log-list {
-    display: flex; flex-direction: column; gap: 1px;
-    background: transparent; border-radius: var(--radius-md);
-    overflow-y: auto; overflow-x: hidden;
-    flex: 1; min-height: 0; max-height: 400px;
-    scrollbar-width: thin; scrollbar-color: var(--surface2) transparent;
-  }
-  .log-list::-webkit-scrollbar { width: 4px; }
-  .log-list::-webkit-scrollbar-track { background: transparent; }
-  .log-list::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
-  .log-list::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
-  .log-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: var(--sp-sm) var(--sp-md);
-    border-bottom: 1px solid var(--surface2);
-  }
-  .log-row:last-child { border-bottom: none; }
-  .log-time { transition: opacity 0.15s; }
-  .log-replay {
-    display: none; align-items: center; gap: 3px;
-    color: var(--accent); background: none; border: none;
-    font-family: var(--font); font-size: 0.6rem; font-weight: 600;
-    cursor: pointer; padding: 0;
-  }
-  .log-replay:hover { color: var(--text); }
-  .log-row:hover .log-time,
-  .log-row:hover .log-mode { display: none; }
-  .log-row:hover .log-replay { display: flex; }
-  .log-row.my-win { border-left: 2px solid var(--success); }
-  .log-row.my-loss { border-left: 2px solid var(--accent); }
-  .log-players {
-    display: flex; align-items: center; gap: var(--sp-xs);
-    font-size: var(--fs-caption); font-weight: 500;
-  }
-  .log-name { color: var(--text-dim); }
-  .log-name.winner { color: var(--text); font-weight: 700; }
-  .log-vs { color: var(--text-dim); font-size: 0.6rem; opacity: 0.5; }
-  .log-meta {
-    display: flex; align-items: center; gap: var(--sp-sm);
-    font-size: 0.6rem;
-  }
-  .log-mode {
-    padding: 1px 6px; border-radius: var(--radius-pill); font-weight: 600;
-  }
-  .log-mode.ranked { color: var(--success); background: rgba(34,197,94,0.1); }
-  .log-mode.friendly { color: var(--text-dim); background: var(--surface2); }
-  .log-time { color: var(--text-dim); }
+  @media (prefers-reduced-motion: reduce) { .spinner-small { animation-duration: 2s; } .filter-toggle { transition: none; } }
 </style>

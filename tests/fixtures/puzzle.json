@@ -1,0 +1,292 @@
+{
+  "positionHash": "..........bM.bM.bM....bM...bMbM.rM.bM....rM...rM.rM..rM...rM........rM........red",
+  "position": {
+    "board": [
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        {
+          "color": "black",
+          "queen": false
+        },
+        null,
+        {
+          "color": "black",
+          "queen": false
+        },
+        null,
+        {
+          "color": "black",
+          "queen": false
+        },
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        {
+          "color": "black",
+          "queen": false
+        },
+        null,
+        null,
+        null,
+        {
+          "color": "black",
+          "queen": false
+        }
+      ],
+      [
+        {
+          "color": "black",
+          "queen": false
+        },
+        null,
+        {
+          "color": "red",
+          "queen": false
+        },
+        null,
+        {
+          "color": "black",
+          "queen": false
+        },
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        {
+          "color": "red",
+          "queen": false
+        },
+        null,
+        null,
+        null,
+        {
+          "color": "red",
+          "queen": false
+        },
+        null,
+        {
+          "color": "red",
+          "queen": false
+        }
+      ],
+      [
+        null,
+        null,
+        {
+          "color": "red",
+          "queen": false
+        },
+        null,
+        null,
+        null,
+        {
+          "color": "red",
+          "queen": false
+        },
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "color": "red",
+          "queen": false
+        }
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    ],
+    "currentPlayer": "red"
+  },
+  "solution": [
+    {
+      "fromRow": 3,
+      "fromCol": 2,
+      "toRow": 2,
+      "toCol": 1,
+      "hops": [
+        {
+          "fromRow": 3,
+          "fromCol": 2,
+          "toRow": 2,
+          "toCol": 1
+        }
+      ],
+      "captured": [],
+      "promoted": false
+    },
+    {
+      "fromRow": 1,
+      "fromCol": 4,
+      "toRow": 2,
+      "toCol": 5,
+      "hops": [
+        {
+          "fromRow": 1,
+          "fromCol": 4,
+          "toRow": 2,
+          "toCol": 5
+        }
+      ],
+      "captured": [],
+      "promoted": false
+    },
+    {
+      "fromRow": 2,
+      "fromCol": 1,
+      "toRow": 0,
+      "toCol": 3,
+      "hops": [
+        {
+          "fromRow": 2,
+          "fromCol": 1,
+          "toRow": 0,
+          "toCol": 3
+        }
+      ],
+      "captured": [
+        {
+          "row": 1,
+          "col": 2,
+          "color": "black",
+          "queen": false
+        }
+      ],
+      "promoted": true
+    },
+    {
+      "fromRow": 2,
+      "fromCol": 3,
+      "toRow": 3,
+      "toCol": 2,
+      "hops": [
+        {
+          "fromRow": 2,
+          "fromCol": 3,
+          "toRow": 3,
+          "toCol": 2
+        }
+      ],
+      "captured": [],
+      "promoted": false
+    },
+    {
+      "fromRow": 4,
+      "fromCol": 1,
+      "toRow": 2,
+      "toCol": 3,
+      "hops": [
+        {
+          "fromRow": 4,
+          "fromCol": 1,
+          "toRow": 2,
+          "toCol": 3
+        }
+      ],
+      "captured": [
+        {
+          "row": 3,
+          "col": 2,
+          "color": "black",
+          "queen": false
+        }
+      ],
+      "promoted": false
+    },
+    {
+      "fromRow": 3,
+      "fromCol": 4,
+      "toRow": 1,
+      "toCol": 2,
+      "hops": [
+        {
+          "fromRow": 3,
+          "fromCol": 4,
+          "toRow": 1,
+          "toCol": 2
+        }
+      ],
+      "captured": [
+        {
+          "row": 2,
+          "col": 3,
+          "color": "red",
+          "queen": false
+        }
+      ],
+      "promoted": false
+    },
+    {
+      "fromRow": 0,
+      "fromCol": 3,
+      "toRow": 3,
+      "toCol": 6,
+      "hops": [
+        {
+          "fromRow": 0,
+          "fromCol": 3,
+          "toRow": 3,
+          "toCol": 6
+        }
+      ],
+      "captured": [
+        {
+          "row": 2,
+          "col": 5,
+          "color": "black",
+          "queen": false
+        }
+      ],
+      "promoted": false
+    }
+  ],
+  "sideToMove": "red",
+  "difficulty": "HARD",
+  "theme": "shot",
+  "themes": [
+    "breakthrough",
+    "quiet-move"
+  ],
+  "solutionPlies": 7,
+  "legalMoves": 4,
+  "scoreGap": 1.5,
+  "verifiedDepth": 9,
+  "commentary": {
+    "theme": "A shot is a forcing combination that begins by giving something away. The first move offers a piece, or allows an exchange, and because captures are compulsory the opponent has no choice but to take it. That forced capture drags a piece onto a square where it can be jumped, opens a diagonal, or leaves a second piece without support, and the next move collects more than was invested. Shots are the heart of checkers tactics. To find one, do not start by asking which of your moves is safe. Ask instead where the opponent's pieces would have to go if you gave them a capture, and whether that new arrangement can be punished.",
+    "position": "Red to move. Red has 7 men on 5, 9, 11, 13, 14, 16 and 19; Black has 7 men on 18, 20, 21, 23, 25, 26 and 27. Material is level. Red has a man in Black's half of the board against 0 coming the other way, so Red is the side pressing.",
+    "solution": "Solution: 19-24 26-22 24x31 23-19 16x23 18x27 31x17. Red plays 19-24. Black's best reply is 26-22. Red takes 24x31, removing the man on 27 and crowning on 31. Black's best reply is 23-19. Red takes 16x23, removing the man on 19. Black must take 18x27. Red takes 31x17, removing the man on 22. Red ends up 2 men ahead, with a new king as well. The follow-up runs 27-23 11-15 20-16.",
+    "alternatives": "The natural 14-17 runs into 21x14 and 19-24: Red wins only a man. 13-17 runs into 18-15 and 19x10: Red wins only a man."
+  },
+  "sourceGameId": null,
+  "generatorVersion": "1.1.0",
+  "date": "2026-09-10T00:00:00.000Z"
+}

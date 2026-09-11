@@ -1,4 +1,26 @@
 <script>
+  import GameEntryLink from '$lib/components/GameEntryLink.svelte';
+  import JsonLd from '$lib/components/JsonLd.svelte';
+
+  const siteUrl = 'https://purecheckers.com';
+  const appSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "@id": `${siteUrl}/#app`,
+    "name": "Pure Checkers",
+    "url": `${siteUrl}/`,
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Any",
+    "browserRequirements": "Requires a modern web browser",
+    "inLanguage": "en",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "Free online checkers. No ads, no paywalls. Play with friends or strangers worldwide.",
+    "screenshot": `${siteUrl}/og-image.png`,
+    "publisher": { "@id": `${siteUrl}/#organization` },
+    "isPartOf": { "@id": `${siteUrl}/#website` }
+  };
+
   const boardCells = Array.from({ length: 64 }, (_, i) => {
     const row = Math.floor(i / 8);
     const col = i % 8;
@@ -19,24 +41,18 @@
   <meta property="og:url" content="https://purecheckers.com/" />
   <meta name="twitter:title" content="Pure Checkers — Free Online Checkers" />
   <meta name="twitter:description" content="Play checkers online for free. No ads, no paywalls. Create rooms, play with friends, earn ELO." />
-  <script type="application/ld+json">
-  {JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Pure Checkers",
-    "url": "https://purecheckers.com",
-    "applicationCategory": "GameApplication",
-    "operatingSystem": "Any",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "description": "Free online checkers. No ads, no paywalls. Play with friends or strangers worldwide.",
-    "screenshot": "https://purecheckers.com/og-image.png"
-  })}
-  </script>
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="es_ES" />
+  <link rel="alternate" hreflang="en" href="https://purecheckers.com/" />
+  <link rel="alternate" hreflang="es" href="https://purecheckers.com/es" />
+  <link rel="alternate" hreflang="x-default" href="https://purecheckers.com/" />
 </svelte:head>
+
+<JsonLd data={appSchema} />
 
 <!-- ===== HERO ===== -->
 <section class="hero" id="top">
-  <h1 class="hero-logo"><span class="shimmer">Pure</span> Checkers</h1>
+  <p class="hero-logo"><span class="shimmer">Pure</span> Checkers</p>
 
   <div class="board" aria-label="Checkerboard with pieces in starting position">
     {#each boardCells as cell}
@@ -48,7 +64,8 @@
     {/each}
   </div>
 
-  <a href="/auth" class="play-btn">Play Now — It's Free</a>
+  <h1 class="hero-title">Play Checkers Online — Free, No Ads, No Paywalls</h1>
+  <GameEntryLink class="play-btn" label="Play Now — It's Free" language="en" />
   <p class="hero-note">No account required. Pick a nickname and go.</p>
 </section>
 
@@ -73,7 +90,7 @@
     <div class="feature-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><div><h3>Works on Any Device</h3><p>Anyone with a browser can play — PC, phone, tablet. No app to download.</p></div></div>
     <div class="feature-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><div><h3>Room System</h3><p>Create a room, let your friend scan a QR code, and you're playing.</p></div></div>
     <div class="feature-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div><h3>In-Game & Global Chat</h3><p>Talk to your opponent mid-game or hang out in global chat between matches.</p></div></div>
-    <div class="feature-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><div><h3>ELO Rating & Leaderboard</h3><p>Earn your ranking with every win. Climb the board and see where you stand.</p></div></div>
+    <div class="feature-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><div><h3><a href="/leaderboard">ELO Rating &amp; Leaderboard</a></h3><p>Registered players earn rating in ranked games against other players. Bot and friendly games are unrated.</p></div></div>
     <div class="feature-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg><div><h3>Spectator Mode</h3><p>Watch other players' games live. Learn from the best or just enjoy the show.</p></div></div>
     <div class="feature-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><div><h3>Cosmetic Shop</h3><p>Earn coins by playing. Spend them on board themes and piece skins. Nothing that affects gameplay.</p></div></div>
     <div class="feature-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><div><h3>Closed Economy</h3><p>Coins stay in the game. Exchange with other players. No real money involved.</p></div></div>
@@ -89,10 +106,19 @@
   <p class="section-sub">Learn the basics in 2 minutes — or jump right in</p>
   <div class="steps">
     <div class="step"><div class="step-num">1</div><div class="step-body"><h3>Set Up the Board</h3><p>Checkers is played on the dark squares of an 8×8 board. Each player starts with 12 pieces on the three rows closest to them. Red always moves first.</p></div></div>
-    <div class="step"><div class="step-num">2</div><div class="step-body"><h3>Move Diagonally</h3><p>Regular pieces move one square diagonally forward. When your piece reaches the opposite end, it becomes a <strong>king</strong> and can move in both directions.</p></div></div>
-    <div class="step"><div class="step-num">3</div><div class="step-body"><h3>Jump to Capture</h3><p>Capture opponent pieces by jumping over them diagonally. If a jump is available, you <strong>must</strong> take it. Chain multiple jumps for combos.</p></div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-body"><h3>Move Diagonally</h3><p>Regular pieces move one square diagonally forward. When your piece reaches the far end, it becomes a <strong>king</strong>: kings slide any distance along a diagonal, forwards or backwards.</p></div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-body"><h3>Jump to Capture</h3><p>Capture by jumping over an enemy piece to the empty square beyond. Regular pieces can capture in all four diagonal directions, and kings can capture from a distance. If a jump is available you <strong>must</strong> take one, but you choose which. Keep jumping with the same piece while more captures are available; a piece that is crowned mid-chain stops there.</p></div></div>
     <div class="step"><div class="step-num">4</div><div class="step-body"><h3>Win the Game</h3><p>Win by capturing all opponent pieces or blocking them so they can't move. Strategy, positioning, and patience are key.</p></div></div>
   </div>
+  <p class="section-more"><a href="/strategy/checkers-rules">Read the full rules</a></p>
+</section>
+
+<section class="section puzzle-teaser">
+  <svg viewBox="0 0 80 80" width="128" height="128" aria-hidden="true">
+    {#each boardCells as cell, i}<rect x={(i % 8) * 10} y={Math.floor(i / 8) * 10} width="10" height="10" fill={cell.isDark ? 'var(--board-dark)' : 'var(--board-light)'} />{/each}
+    <circle cx="25" cy="45" r="3.5" fill="#ef4444" /><circle cx="35" cy="35" r="3.5" fill="#292524" /><circle cx="55" cy="15" r="3.5" fill="#292524" />
+  </svg>
+  <div><h2 class="section-title">Today’s puzzle</h2><p class="hero-note">Find the combination. One position a day, unlimited practice in the archive.</p><a href="/puzzle" class="btn btn-primary">Try the daily puzzle</a></div>
 </section>
 
 <!-- ===== ABOUT ===== -->
@@ -111,11 +137,15 @@
 </section>
 
 <style>
+  .puzzle-teaser { display: flex; align-items: center; gap: var(--sp-lg); flex-wrap: wrap; }
+  .puzzle-teaser svg { flex-shrink: 0; border-radius: var(--radius-md); }
+  .puzzle-teaser .hero-note { margin-bottom: var(--sp-md); }
   .hero {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     height: 100dvh; padding: var(--sp-lg) var(--sp-md); gap: var(--sp-lg);
   }
-  .hero-logo { font-size: var(--fs-title); letter-spacing: 2px; color: var(--text); text-align: center; }
+  .hero-logo { font-size: var(--fs-title); font-weight: 700; letter-spacing: 2px; color: var(--text); text-align: center; }
+  .hero-title { font-size: var(--fs-heading); font-weight: 600; color: var(--text); text-align: center; max-width: 520px; line-height: 1.4; }
 
   .shimmer { color: var(--accent); background: linear-gradient(120deg, var(--accent) 0%, #ff8a8a 40%, #fff 50%, #ff8a8a 60%, var(--accent) 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 2.5s ease-in-out forwards; }
   @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
@@ -128,13 +158,16 @@
   .piece-red { background: radial-gradient(circle at 35% 35%, #f87171, #dc2626); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
   .piece-black { background: radial-gradient(circle at 35% 35%, #44403c, #1c1917); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
 
-  .play-btn { display: inline-block; padding: var(--sp-md) var(--sp-xl); font-size: 1.2rem; font-weight: 700; font-family: var(--font); background: linear-gradient(135deg, var(--accent), #dc2626); color: #fff; border-radius: var(--radius-sm); text-decoration: none; box-shadow: 0 4px 16px rgba(239,68,68,0.25); transition: transform 0.2s, box-shadow 0.2s; }
-  .play-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(239,68,68,0.35); }
+  :global(.hero .play-btn) { display: inline-block; padding: var(--sp-md) var(--sp-xl); font-size: 1.2rem; font-weight: 700; font-family: var(--font); background: linear-gradient(135deg, var(--accent), #dc2626); color: #fff; border-radius: var(--radius-sm); text-decoration: none; box-shadow: 0 4px 16px rgba(239,68,68,0.25); transition: transform 0.2s, box-shadow 0.2s; }
+  :global(.hero .play-btn):hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(239,68,68,0.35); }
   .hero-note { font-size: var(--fs-caption); color: var(--text-dim); text-align: center; }
 
   .section { padding: 64px var(--sp-md); max-width: 800px; margin: 0 auto; }
   .section-title { font-size: var(--fs-title); font-weight: 700; text-align: center; margin-bottom: var(--sp-sm); }
   .section-sub { text-align: center; color: var(--text-dim); font-size: var(--fs-body); margin-bottom: var(--sp-xl); }
+  .section-more { text-align: center; margin-top: var(--sp-xl); font-size: var(--fs-body); }
+  .section-more a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .section-more a:hover { text-decoration: underline; }
 
   .prose { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--sp-lg); }
   .prose p { color: var(--text-dim); font-size: var(--fs-body); line-height: 1.8; }

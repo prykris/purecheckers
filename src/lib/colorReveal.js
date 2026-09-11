@@ -29,7 +29,7 @@ export function revealDuration(reducedMotion) {
 
 // What the reveal overlay should show for this viewer given the accepted snapshot.
 export function revealView(game, userId) {
-  if (!game || game.started || game.gameOver) return { active: false, acked: false, waiting: false };
+  if (!game || game.recovery || game.started || game.gameOver) return { active: false, acked: false, waiting: false };
   const acked = game.revealAcks?.includes(userId) ?? false;
   return { active: true, acked, waiting: acked };
 }

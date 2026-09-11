@@ -3,7 +3,7 @@
   import { gameScreen } from '$lib/stores/navigation.js';
   import { user } from '$lib/stores/user.js';
   import { getSocket } from '$lib/socket.js';
-  import { api } from '$lib/api.js';
+  import { adminState, initializeAdminActions, performAdminAction, retryAdminAction } from '$lib/admin/actions.js';
   import { onMount, onDestroy } from 'svelte';
 
   let open = false;
@@ -16,6 +16,10 @@
   let coinAmount = 100;
   let eloAmount = 1000;
   let adminMsg = '';
+  let adminReason = '';
+  let adminIdentity = null;
+  $: if (adminIdentity !== $user?.id) { adminIdentity = $user?.id; adminMsg = ''; targetUserId = ''; adminReason = ''; }
+  $: adminDisabled = $adminState.busy || !!$adminState.pending || $adminState.blocked;
 
   $: targetId = targetUserId ? Number(targetUserId) : undefined;
   const MAX_EVENTS = 40;
@@ -40,6 +44,7 @@
   function hookSocket(sock) { sock.onAny(onIncoming); sock.onAnyOutgoing(onOutgoing); }
 
   onMount(() => {
+    initializeAdminActions();
     window.addEventListener('keydown', onKeyDown);
     socket = getSocket();
     if (socket) hookSocket(socket);
@@ -121,15 +126,11 @@
   async function adminAction(endpoint, body) {
     adminMsg = '';
     try {
-      const res = await api.post(`/admin/${endpoint}`, body);
-      adminMsg = JSON.stringify(res.user || res, null, 0);
-      // Refresh user data
-      const me = await api.get('/auth/me');
-      $user = me.user;
+      const res = endpoint ? await performAdminAction(endpoint, { ...body, userId: targetId ?? $user.id, reason: adminReason }) : await retryAdminAction();
+      if (res) adminMsg = `Confirmed ${res.kind} for ${res.user.username}.`;
     } catch (err) {
       adminMsg = err.message || 'Failed';
     }
-    setTimeout(() => adminMsg = '', 3000);
   }
 </script>
 
@@ -192,23 +193,27 @@
       <div class="dev-row"><span class="dev-key">id</span><span class="dev-val">{socket?.id?.slice(0,8)}</span></div>
     </div>
 
-    {#if $user?.isAdmin}
+    {#if $user?.isAdmin || $adminState.pending}
       <div class="dev-section">
         <div class="dev-label">Admin Tools</div>
         <div class="dev-tool">
-          <input type="text" bind:value={targetUserId} class="dev-input" placeholder="User ID (blank=self)" />
+          <input type="text" bind:value={targetUserId} class="dev-input" placeholder="User ID (blank=self)" aria-label="Target user ID (blank for yourself)" disabled={adminDisabled} />
+        </div>
+        <div class="dev-tool"><input type="text" bind:value={adminReason} maxlength="300" class="dev-input" placeholder="Reason (optional)" aria-label="Reason for admin action" disabled={adminDisabled} /></div>
+        <div class="dev-tool">
+          <input type="number" bind:value={coinAmount} class="dev-input" aria-label="Coin adjustment" disabled={adminDisabled} />
+          <button class="dev-btn" disabled={adminDisabled} on:click={() => adminAction('give-coins', { amount: coinAmount })}>Adjust Coins</button>
         </div>
         <div class="dev-tool">
-          <input type="number" bind:value={coinAmount} class="dev-input" />
-          <button class="dev-btn" on:click={() => adminAction('give-coins', { userId: targetId, amount: coinAmount })}>Give Coins</button>
+          <input type="number" bind:value={eloAmount} class="dev-input" min="0" max="100000" aria-label="New ELO" disabled={adminDisabled} />
+          <button class="dev-btn" disabled={adminDisabled} on:click={() => adminAction('set-elo', { elo: eloAmount })}>Set ELO</button>
         </div>
         <div class="dev-tool">
-          <input type="number" bind:value={eloAmount} class="dev-input" />
-          <button class="dev-btn" on:click={() => adminAction('set-elo', { userId: targetId, elo: eloAmount })}>Set ELO</button>
+          <button class="dev-btn warn" disabled={adminDisabled} on:click={() => adminAction('reset-stats', {})}>Reset Stats</button>
         </div>
-        <div class="dev-tool">
-          <button class="dev-btn warn" on:click={() => adminAction('reset-stats', { userId: targetId })}>Reset Stats</button>
-        </div>
+        <p>Ratings and stats require leaving rooms/results and settling games. Reward history is preserved.</p>
+        {#if $adminState.pending}<p>Pending: {$adminState.pending.kind} for account {$adminState.pending.payload.userId}.</p><button class="dev-btn" disabled={$adminState.busy || $adminState.blocked} on:click={() => adminAction(null)}>{$adminState.busy ? 'Confirming…' : 'Confirm pending action'}</button>{/if}
+        {#if $adminState.error}<div class="dev-msg" role="status">{$adminState.error}</div>{/if}
         {#if adminMsg}<div class="dev-msg">{adminMsg}</div>{/if}
       </div>
     {/if}

@@ -1,100 +1,50 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
-  import { onMount, tick } from 'svelte';
+  import PlayerLink from '../PlayerLink.svelte';
+  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
+  import { mentionSegments } from '../../../../shared/chat.js';
+  import { emptyChat } from '$lib/chat/client.js';
 
-  export let messages = [];
+  export let client = null;
+  export let state = emptyChat();
   export let currentUserId = null;
+  export let visible = true;
   export let readOnly = false;
   export let closeable = false;
-
+  export let emptyText = 'No messages yet';
   const dispatch = createEventDispatcher();
-
-  let input = '';
-  let messagesEl;
-  let lastSendTime = 0;
-  let userScrolledUp = false;
-  let loadingOlder = false;
-  let allOlderLoaded = false;
-  let prevMsgCount = 0;
-
-  onMount(() => {
-    scrollToBottom();
-  });
-
-  // Reactive: when messages change, auto-scroll if user is at bottom
-  $: if (messages.length > prevMsgCount) {
-    const newestMsg = messages[messages.length - 1];
-    const isOwnMsg = newestMsg?.senderId === currentUserId;
-    if (isOwnMsg || !userScrolledUp) {
-      tick().then(() => scrollToBottom());
-    }
-    prevMsgCount = messages.length;
+  let messagesEl, mounted = false, alive = true, frame = null;
+  let userScrolledUp = false, restoring = false, previousLastId = null;
+  $: messages = state.messages;
+  $: if (mounted) client?.setVisible(visible);
+  $: if (messages.at(-1)?.id !== previousLastId) {
+    previousLastId = messages.at(-1)?.id;
+    if (!restoring && !userScrolledUp) tick().then(scrollToBottom);
   }
-
+  onMount(() => { mounted = true; scrollToBottom(); });
+  onDestroy(() => { alive = false; if (frame) cancelAnimationFrame(frame); client?.setVisible(false); });
   function scrollToBottom() {
-    if (messagesEl) {
-      requestAnimationFrame(() => {
-        if (!messagesEl) return;
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-        userScrolledUp = false;
-      });
-    }
+    if (!alive || !messagesEl) return;
+    if (frame) cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      frame = null;
+      if (!alive || !messagesEl) return;
+      messagesEl.scrollTop = messagesEl.scrollHeight; userScrolledUp = false;
+    });
   }
-
   function onScroll() {
-    if (!messagesEl) return;
-    const distFromBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight;
-    userScrolledUp = distFromBottom > 40;
-
-    // Infinite scroll: load older when near top
-    if (messagesEl.scrollTop < 30 && !loadingOlder && !allOlderLoaded && messages.length > 0) {
-      loadOlder();
-    }
+    if (!messagesEl || restoring) return;
+    userScrolledUp = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight > 40;
   }
-
-  function loadOlder() {
-    const oldest = messages[0];
-    if (!oldest?.id) return;
-    loadingOlder = true;
-
-    const prevCount = messages.length;
-    const prevScrollH = messagesEl.scrollHeight;
-
-    dispatch('load-older', { beforeId: oldest.id });
-
-    // Wait for prepended messages to render, then restore scroll position
-    const check = () => {
-      if (messages.length > prevCount) {
-        tick().then(() => {
-          if (messagesEl) {
-            const newScrollH = messagesEl.scrollHeight;
-            messagesEl.scrollTop = newScrollH - prevScrollH;
-          }
-          loadingOlder = false;
-          if (messages.length - prevCount < 50) allOlderLoaded = true;
-        });
-      } else {
-        // If nothing loaded after a delay, mark done
-        setTimeout(() => {
-          loadingOlder = false;
-          if (messages.length === prevCount) allOlderLoaded = true;
-        }, 1000);
-      }
-    };
-    // Check after a frame to let the store update propagate
-    setTimeout(check, 300);
+  async function loadOlder() {
+    if (!client || state.loading) return;
+    const height = messagesEl?.scrollHeight || 0, top = messagesEl?.scrollTop || 0;
+    restoring = true;
+    await client.load(true); await tick();
+    if (alive && messagesEl) messagesEl.scrollTop = top + messagesEl.scrollHeight - height;
+    restoring = false;
   }
-
-  function send() {
-    if (!input.trim()) return;
-    const now = Date.now();
-    if (now - lastSendTime < 1000) return;
-    lastSendTime = now;
-    const content = input.trim().slice(0, 300);
-    input = '';
-    dispatch('send', { content });
-    // Always scroll to bottom on own send
-    requestAnimationFrame(() => scrollToBottom());
+  async function send() {
+    if (await client?.send()) { await tick(); scrollToBottom(); }
   }
 </script>
 
@@ -102,54 +52,44 @@
   {#if closeable}
     <div class="chat-header">
       <span class="chat-title">Chat</span>
-      <button class="close-btn" on:click={() => dispatch('close')} aria-label="Close chat">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <button class="close-btn" on:click={() => dispatch('close')} aria-label="Close chat">✕</button>
     </div>
   {/if}
   <div class="msgs" bind:this={messagesEl} on:scroll={onScroll}>
-    {#if loadingOlder}
-      <div class="loading-older">Loading...</div>
+    {#if state.hasMore}
+      <button class="history-action" disabled={state.loading} on:click={loadOlder}>Load older messages</button>
     {/if}
-    {#if messages.length === 0}
-      <p class="empty">No messages yet</p>
-    {:else}
-      {#each messages as msg}
-        {#if msg.system || msg.senderId === 0}
-          <div class="msg system">
-            <span>{msg.content}</span>
-          </div>
-        {:else}
-          <div class="msg" class:own={msg.senderId === currentUserId} class:spectator={msg.spectator}>
-            <strong>{msg.username}</strong>
-            <span>{@html highlightMentions(msg.content)}</span>
-          </div>
-        {/if}
-      {/each}
-    {/if}
+    {#if state.loading}<p class="loading-older" role="status">Loading messages…</p>{/if}
+    {#if state.historyError}
+      <div class="chat-feedback" role="status">{state.historyError}
+        <button class="history-action" disabled={state.loading} on:click={() => client?.load()}>Retry history</button>
+      </div>
+    {:else if state.loaded && messages.length === 0}<p class="empty">{emptyText}</p>{/if}
+    {#each messages as msg (msg.id)}
+      {#if msg.system || msg.senderId === 0}
+        <div class="msg system"><span>{msg.content}</span></div>
+      {:else}
+        <div class="msg" class:own={msg.senderId === currentUserId} class:spectator={msg.spectator}>
+          <strong><PlayerLink username={msg.username} profileUrl={msg.profileUrl} /></strong>
+          <span>{#each mentionSegments(msg.content) as segment}<span class:mention={segment.mention}>{#if segment.mention}@<PlayerLink username={segment.text.slice(1)} />{:else}{segment.text}{/if}</span>{/each}</span>
+        </div>
+      {/if}
+    {/each}
   </div>
-  {#if userScrolledUp}
-    <button class="scroll-bottom" on:click={scrollToBottom} aria-label="Scroll to latest">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
-    </button>
-  {/if}
+  {#if userScrolledUp}<button class="scroll-bottom" on:click={scrollToBottom} aria-label="Scroll to latest">↓</button>{/if}
   {#if !readOnly}
-  <div class="input-row">
-    <input class="input" type="text" bind:value={input} placeholder="Message..."
-      maxlength="300" on:keydown={(e) => e.key === 'Enter' && send()} />
-    <button class="btn btn-primary btn-small send-btn" on:click={send} aria-label="Send">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </button>
-  </div>
+    {#if state.sendError}<p class="chat-feedback" role="status">{state.sendError}</p>
+    {:else if !state.connected}<p class="chat-feedback" role="status">Chat is reconnecting…</p>{/if}
+    <form class="input-row" on:submit|preventDefault={send}>
+      <input class="input" type="text" value={state.draft} on:input={event => client?.setDraft(event.currentTarget.value)}
+        readonly={state.delivery !== 'idle'} placeholder="Message…" aria-label="Chat message" maxlength="300" />
+      <button class="btn btn-primary btn-small send-btn" type="submit"
+        disabled={!client || !state.connected || state.delivery === 'sending' || !state.draft.trim()}>
+        {state.delivery === 'sending' ? 'Sending…' : state.delivery === 'uncertain' ? 'Retry' : 'Send'}
+      </button>
+    </form>
   {/if}
 </div>
-
-<script context="module">
-  function highlightMentions(content) {
-    if (!content) return '';
-    return content.replace(/@(\w+)/g, '<span class="mention">@$1</span>');
-  }
-</script>
 
 <style>
   .chat-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; width: 100%; position: relative; }
@@ -183,7 +123,7 @@
   .msg.spectator strong { color: var(--text-dim); }
   .msg strong { margin-right: var(--sp-xs); font-weight: 600; font-size: 0.65rem; }
   .msg span { color: var(--text); }
-  .msg :global(.mention) { color: var(--accent2); font-weight: 600; }
+  .msg .mention { color: var(--accent2); font-weight: 600; }
 
   .scroll-bottom {
     position: absolute; bottom: 44px; right: var(--sp-sm);
@@ -200,4 +140,6 @@
   .input-row { display: flex; gap: var(--sp-xs); padding: var(--sp-xs) var(--sp-sm); border-top: 1px solid var(--surface2); flex-shrink: 0; width: 100%; }
   .input-row .input { font-size: var(--fs-caption); padding: var(--sp-xs) var(--sp-sm); flex: 1; min-width: 0; }
   .send-btn { padding: var(--sp-xs) var(--sp-sm); flex-shrink: 0; }
+  .chat-feedback { font-size: var(--fs-caption); color: var(--text-dim); padding: var(--sp-xs) var(--sp-sm); margin: 0; }
+  .history-action { align-self: center; background: none; color: var(--text-dim); border: 0; text-decoration: underline; cursor: pointer; font-size: var(--fs-caption); padding: var(--sp-xs); }
 </style>

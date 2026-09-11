@@ -1,0 +1,5835 @@
+[
+  {
+    "positionHash": "..........bM.bM.bM....bM...bMbM.rM.bM....rM...rM.rM..rM...rM........rM........red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 3,
+        "fromCol": 2,
+        "toRow": 2,
+        "toCol": 1,
+        "hops": [
+          {
+            "fromRow": 3,
+            "fromCol": 2,
+            "toRow": 2,
+            "toCol": 1
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 1,
+        "fromCol": 4,
+        "toRow": 2,
+        "toCol": 5,
+        "hops": [
+          {
+            "fromRow": 1,
+            "fromCol": 4,
+            "toRow": 2,
+            "toCol": 5
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 2,
+        "fromCol": 1,
+        "toRow": 0,
+        "toCol": 3,
+        "hops": [
+          {
+            "fromRow": 2,
+            "fromCol": 1,
+            "toRow": 0,
+            "toCol": 3
+          }
+        ],
+        "captured": [
+          {
+            "row": 1,
+            "col": 2,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "HARD",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 3,
+    "legalMoves": 4,
+    "scoreGap": 1.5,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Red to move. Red has 7 men on 5, 9, 11, 13, 14, 16 and 19; Black has 7 men on 18, 20, 21, 23, 25, 26 and 27. Both sides have the same number of men and kings. Red has a man in Black's half of the board against 0 coming the other way. Red has 4 legal full turns to compare: 0 capture lines and 4 quiet choices.",
+      "solution": "Solution: 19-24 26-22 24x31. Red plays 19-24. Black's best reply is 26-22. Red takes 24x31, removing the man on 27 and crowning on 31. After this combination, Red has 6 men and a king and Black has 6 men. The game continues from this position. One continuation from the search is 23-19 16x23 18x27 31x17 27-23 11-15. The important change is the route of the man from 19 through 24 to 31. The first step takes nothing; the later jump removes the defender on 27 and reaches the crown row. Keep those two jobs separate when calculating. Black has several choices after 19-24, so 26-22 is the selected defence, not a compulsory quiet reply.",
+      "alternatives": "Alternative 14-17: one sample line is 14-17 21x14 19-24. Black's 21x14 removes the man on 17. The board then has 6 men for Red and 7 men for Black. Alternative 13-17: one sample line is 13-17 18-15 19x10. Red's 19x10 removes the man on 15. The board then has 7 men for Red and 6 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-10T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".....bM.bMbM.bM.bM......bM...rM....bM.bQ........rM..rM............rM........red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": true
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 4,
+        "fromCol": 7,
+        "toRow": 0,
+        "toCol": 3,
+        "hops": [
+          {
+            "fromRow": 4,
+            "fromCol": 7,
+            "toRow": 2,
+            "toCol": 5
+          },
+          {
+            "fromRow": 2,
+            "fromCol": 5,
+            "toRow": 0,
+            "toCol": 3
+          }
+        ],
+        "captured": [
+          {
+            "row": 3,
+            "col": 6,
+            "color": "black",
+            "queen": true
+          },
+          {
+            "row": 1,
+            "col": 4,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "EASY",
+    "theme": "breakthrough",
+    "themes": [
+      "king-trap",
+      "multi-jump"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 3,
+    "scoreGap": 1.7,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Red to move. Red has 4 men on 5, 11, 13 and 21; Black has 7 men and a king on 17, 18, 23, 26, 27, 28, 29 and 30 (king on 17). Red has 3 fewer men and 1 fewer king than Black. Red has a man in Black's half of the board against 0 coming the other way. Red has 3 legal full turns to compare: 3 capture lines and 0 quiet choices.",
+      "solution": "Solution: 13x22x31. Red jumps 13x22x31, removing the man on 26 and the king on 17 and crowning on 31. After this combination, Red has 3 men and a king and Black has 6 men. The game continues from this position. One continuation from the search is 28-24 11-15 18x11 31-26 23-18 26-23 18-15 23x32. Trace both landings, 22 and 31, before moving the man on 13. This route removes a king on 17 as well as the man on 26, then crowns the capturing piece. Red still has fewer pieces afterward. The point is the change in the kinds of pieces on the board, not a claim that Red has won a simple counting contest.",
+      "alternatives": "Alternative 13x22x15: one sample line is 13x22x15 28-24 5-9. Red's 13x22x15 removes the man on 18 and the king on 17. The board then has 4 men for Red and 6 men for Black. Alternative 21x14: one sample line is 21x14 18x9 5x14. Red's 21x14 removes the king on 17. Black's 18x9 removes the man on 14. Red's 5x14 removes the man on 9. The board then has 3 men for Red and 6 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-11T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...bM.bM.rQbM.bM............bM.........................bM.....rMrM.....rM.black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": true
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 1,
+        "toRow": 7,
+        "toCol": 2,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 1,
+            "toRow": 7,
+            "toCol": 2
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 8,
+    "scoreGap": 5.2,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 6 men on 8, 21, 27, 28, 30 and 31; Red has 3 men and a king on 1, 4, 5 and 29 (king on 29). Black has 3 more men and 1 fewer king than Red. Black has a man in Red's half of the board against 0 coming the other way. Black has 8 legal full turns to compare: 0 capture lines and 8 quiet choices.",
+      "solution": "Solution: 8-3. Black plays 8-3, crowning on 3. After this combination, Black has 5 men and a king and Red has 3 men and a king. The game continues from this position. One continuation from the search is 5-9 27-23 9-13 30-26 1-6 23-19 6-9 21-17 13x22 26x17. Here the task is completed by a single quiet step from 8 to 3. Black gains a king without removing a red piece, while Red already has a king. Compare what the newly crowned piece can reach with what it could do as a man. The displayed follow-up is a continuation to explore, not an extra sequence required to solve the puzzle.",
+      "alternatives": "Alternative 28-24: one sample line is 28-24 4x11 24-19. Red's 4x11 removes the man on 8. The board then has 5 men for Black and 3 men and a king for Red. Alternative 30-26: one sample line is 30-26 4x11 28-24. Red's 4x11 removes the man on 8. The board then has 5 men for Black and 3 men and a king for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-12T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".....bM.bM....bM.bM....bM.bM.bMrM.....rM......rM.rMbM...rM.rM..rM........rM.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 2,
+        "fromCol": 3,
+        "toRow": 3,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 2,
+            "fromCol": 3,
+            "toRow": 3,
+            "toCol": 4
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 4,
+        "fromCol": 5,
+        "toRow": 2,
+        "toCol": 3,
+        "hops": [
+          {
+            "fromRow": 4,
+            "fromCol": 5,
+            "toRow": 2,
+            "toCol": 3
+          }
+        ],
+        "captured": [
+          {
+            "row": 3,
+            "col": 4,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 2,
+        "fromCol": 7,
+        "toRow": 6,
+        "toCol": 3,
+        "hops": [
+          {
+            "fromRow": 2,
+            "fromCol": 7,
+            "toRow": 4,
+            "toCol": 5
+          },
+          {
+            "fromRow": 4,
+            "fromCol": 5,
+            "toRow": 6,
+            "toCol": 3
+          }
+        ],
+        "captured": [
+          {
+            "row": 3,
+            "col": 6,
+            "color": "red",
+            "queen": false
+          },
+          {
+            "row": 5,
+            "col": 4,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 7,
+        "fromCol": 2,
+        "toRow": 5,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 7,
+            "fromCol": 2,
+            "toRow": 5,
+            "toCol": 4
+          }
+        ],
+        "captured": [
+          {
+            "row": 6,
+            "col": 3,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 5,
+        "fromCol": 0,
+        "toRow": 7,
+        "toCol": 2,
+        "hops": [
+          {
+            "fromRow": 5,
+            "fromCol": 0,
+            "toRow": 7,
+            "toCol": 2
+          }
+        ],
+        "captured": [
+          {
+            "row": 6,
+            "col": 1,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "HARD",
+    "theme": "shot",
+    "themes": [
+      "breakthrough",
+      "quiet-move"
+    ],
+    "solutionPlies": 5,
+    "legalMoves": 3,
+    "scoreGap": 3.15,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A shot uses a sacrifice to change the arrangement of the opposing pieces. Offering a capture can draw a defender away, clear a diagonal or place a target where a second piece can reach it. Captures are compulsory, but that does not mean the opponent must take the particular piece you offered: another capture or another branch may be available. Check every legal reply before calling a sacrifice forced. Then follow your intended recapture to its final landing. Count what both sides have given up, and check for crowning or another compulsory capture before deciding whether the combination has paid off.",
+      "position": "Black to move. Black has 8 men on 12, 21, 22, 23, 25, 26, 29 and 30; Red has 8 men on 3, 8, 9, 10, 13, 14, 17 and 20. Both sides have the same number of men and kings. Red has 2 men in Black's half against 1 coming the other way. Black has 3 legal full turns to compare: 0 capture lines and 3 quiet choices.",
+      "solution": "Solution: 23-18 14x23 21x14x7 3x10 12x3. Black plays 23-18, offering the man on 18. Red must take 14x23. Black jumps 21x14x7, removing the men on 17 and 10. Red must take 3x10. Black takes 12x3, removing the man on 8 and crowning on 3. After this combination, Black has 5 men and a king and Red has 5 men. The game continues from this position. One continuation from the search is 9-14 26x19 20-24 19x28. The sacrifice on 18 starts a five-turn sequence. After Red takes it, Black jumps from 21 through 14 to 7; that piece is itself taken before the man on 12 captures onto 3 and crowns. Follow both black pieces rather than expecting the original sacrifice to survive. Each of the two red replies in the solution is a compulsory single legal turn.",
+      "alternatives": "Alternative 23-19: one sample line is 23-19 8-11 19-15. The board then has 8 men for Black and 8 men for Red. Alternative 22-18: one sample line is 22-18 17-22 26x17. Black's 26x17 removes the man on 22. The board then has 8 men for Black and 7 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-13T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".....bM.bM....bM.bM....rM.bM.bMrM.....rM........rMbM...rM.rM..rM........rM.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 2,
+        "fromCol": 7,
+        "toRow": 6,
+        "toCol": 3,
+        "hops": [
+          {
+            "fromRow": 2,
+            "fromCol": 7,
+            "toRow": 4,
+            "toCol": 5
+          },
+          {
+            "fromRow": 4,
+            "fromCol": 5,
+            "toRow": 6,
+            "toCol": 3
+          }
+        ],
+        "captured": [
+          {
+            "row": 3,
+            "col": 6,
+            "color": "red",
+            "queen": false
+          },
+          {
+            "row": 5,
+            "col": 4,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 7,
+        "fromCol": 2,
+        "toRow": 5,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 7,
+            "fromCol": 2,
+            "toRow": 5,
+            "toCol": 4
+          }
+        ],
+        "captured": [
+          {
+            "row": 6,
+            "col": 3,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 5,
+        "fromCol": 0,
+        "toRow": 7,
+        "toCol": 2,
+        "hops": [
+          {
+            "fromRow": 5,
+            "fromCol": 0,
+            "toRow": 7,
+            "toCol": 2
+          }
+        ],
+        "captured": [
+          {
+            "row": 6,
+            "col": 1,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "EASY",
+    "theme": "breakthrough",
+    "themes": [
+      "multi-jump"
+    ],
+    "solutionPlies": 3,
+    "legalMoves": 3,
+    "scoreGap": 1.55,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 7 men on 12, 21, 22, 25, 26, 29 and 30; Red has 8 men on 3, 8, 9, 10, 13, 17, 20 and 23. Black has 1 fewer man than Red. Red has 3 men in Black's half against 1 coming the other way. Black has 3 legal full turns to compare: 3 capture lines and 0 quiet choices.",
+      "solution": "Solution: 21x14x7 3x10 12x3. Black jumps 21x14x7, removing the men on 17 and 10. Red must take 3x10. Black takes 12x3, removing the man on 8 and crowning on 3. After this combination, Black has 5 men and a king and Red has 5 men. The game continues from this position. One continuation from the search is 9-14 26x19 20-24 19x28 10-15 3x17. The first double jump is only the beginning. Black lands on 7, Red recaptures from 3, and a different black man then jumps from 12 to 3 to crown. Stopping the calculation after two captures would miss the point of the exchange. Track which piece occupies each landing square after every complete turn.",
+      "alternatives": "Alternative 21x14x5: one sample line is 21x14x5 23-27 5-1. Black's 21x14x5 removes the men on 17 and 9. Black crowns on 1. The board then has 6 men and a king for Black and 6 men for Red. Alternative 26x19: one sample line is 26x19 17x26 30x23. Black's 26x19 removes the man on 23. Red's 17x26 removes the man on 22. Black's 30x23 removes the man on 26. The board then has 6 men for Black and 6 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-14T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".bM.bM.bM.bM....bM.bM........bM.........rM.....rMrM...rM......rM.rM.bM..rM.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 7,
+        "toRow": 7,
+        "toCol": 6,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 7,
+            "toRow": 7,
+            "toCol": 6
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 8,
+    "scoreGap": 3.75,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 8 men on 5, 21, 25, 26, 29, 30, 31 and 32; Red has 7 men on 3, 6, 7, 10, 12, 13 and 16. Black has 1 more man than Red. Black has a man in Red's half of the board against 0 coming the other way. Black has 8 legal full turns to compare: 0 capture lines and 8 quiet choices.",
+      "solution": "Solution: 5-1. Black plays 5-1, crowning on 1. After this combination, Black has 7 men and a king and Red has 7 men. The game continues from this position. One continuation from the search is 16-20 21-17 13x22 25x18 12-16 32-27 16-19 18-14 10x17 1x10x24. The man on 5 is already one step from the crown row. Moving it to 1 changes its mobility without changing the total number of pieces. Black finishes with seven men and a king against seven men, but still has a game to play. Inspect the new king’s diagonals before returning to the moves of the remaining men. In both alternatives shown below, Black spends its two turns moving other men and still has no king at the end of the sample.",
+      "alternatives": "Alternative 31-27: one sample line is 31-27 10-15 27-24. The board then has 8 men for Black and 7 men for Red. Alternative 25-22: one sample line is 25-22 16-19 21-17. The board then has 8 men for Black and 7 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-15T00:00:00.000Z"
+  },
+  {
+    "positionHash": "........bM.bM...rM..bM.bM.bM......bM....rM......rM.rM.............rM.rM.....red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 1,
+        "fromCol": 6,
+        "toRow": 0,
+        "toCol": 7,
+        "hops": [
+          {
+            "fromRow": 1,
+            "fromCol": 6,
+            "toRow": 0,
+            "toCol": 7
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 8,
+    "scoreGap": 1.6,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Red to move. Red has 6 men on 3, 4, 11, 12, 16 and 25; Black has 6 men on 18, 22, 23, 24, 27 and 28. Both sides have the same number of men and kings. Red has a man in Black's half of the board against 0 coming the other way. Red has 8 legal full turns to compare: 0 capture lines and 8 quiet choices.",
+      "solution": "Solution: 25-29. Red plays 25-29, crowning on 29. After this combination, Red has 5 men and a king and Black has 6 men. The game continues from this position. One continuation from the search is 24-19 16-20 27-24 20x27 23x32 11-16 19-15 16-20. Moving 25-29 turns one of Red’s six men into a king. It does not capture a defender, so both sides still have six pieces at the end of the solution. The new distribution is five men and a king against six men. This is a useful reminder to distinguish a promotion from a material gain measured only in piece count.",
+      "alternatives": "Alternative 25-30: one sample line is 25-30 18-14 30x19. Red crowns on 30. Red's 30x19 removes the man on 23. The board then has 5 men and a king for Red and 5 men for Black. Alternative 16-20: one sample line is 16-20 22x29 3-7. Black's 22x29 removes the man on 25. The board then has 5 men for Red and 6 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-16T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...bM...bM..bM.bM....bM.bM.bM.bM..bM...bM..bM.rM.rM.rMrM...rM.rM..rM.rM.rM....rM...rM.red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 1,
+        "toRow": 5,
+        "toCol": 2,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 1,
+            "toRow": 5,
+            "toCol": 2
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 2,
+        "fromCol": 1,
+        "toRow": 3,
+        "toCol": 0,
+        "hops": [
+          {
+            "fromRow": 2,
+            "fromCol": 1,
+            "toRow": 3,
+            "toCol": 0
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 4,
+        "fromCol": 3,
+        "toRow": 2,
+        "toCol": 1,
+        "hops": [
+          {
+            "fromRow": 4,
+            "fromCol": 3,
+            "toRow": 2,
+            "toCol": 1
+          }
+        ],
+        "captured": [
+          {
+            "row": 3,
+            "col": 2,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "HARD",
+    "theme": "quiet-move",
+    "themes": [],
+    "solutionPlies": 3,
+    "legalMoves": 5,
+    "scoreGap": 2.45,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A quiet move changes the position without taking a piece. It can prepare a capture, improve a landing square, protect a route to promotion or offer a sacrifice. First check that no capture is available, since captures are compulsory on this site. Then examine the opponent's replies instead of assuming that your threat will be ignored. A move that works against one reply may fail against another. In these puzzles, the verified line shows the selected defence and the tactical gain that follows. Compare the resulting board with the starting position, including kings and possible recaptures, rather than counting only the first piece won.",
+      "position": "Red to move. Red has 11 men on 1, 3, 6, 7, 8, 9, 10, 12, 13, 14 and 15; Black has 11 men on 16, 17, 19, 21, 22, 23, 24, 26, 27, 29 and 31. Both sides have the same number of men and kings. Black has a man in Red's half against 0 coming the other way. Red has 5 legal full turns to compare: 0 capture lines and 5 quiet choices.",
+      "solution": "Solution: 8-11 24-20 15x24. Red plays 8-11. Black's best reply is 24-20. Red takes 15x24, removing the man on 19. After this combination, Red has 11 men and Black has 10 men. The game continues from this position. One continuation from the search is 23-19 24x15 29-25 12x19 27-23 19-24 20x27. The piece that makes the quiet move is not the piece that collects the capture. Red steps from 8 to 11; after the selected reply 24-20, the man on 15 jumps to 24 over the black man on 19. Keep your attention on the whole position after the preparatory move, rather than continuing to move the same piece automatically.",
+      "alternatives": "Alternative 15-18: one sample line is 15-18 22x15 13x22. Black's 22x15 removes the man on 18. Red's 13x22 removes the man on 17. The board then has 10 men for Red and 10 men for Black. Alternative 7-11: one sample line is 7-11 16x7 12-16. Black's 16x7 removes the man on 11. The board then has 10 men for Red and 11 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-17T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...bM......bM......bM.bM.rM.bMbM.....rM....bM.rM.rMbM.rM.rM.............rM.rM...red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 5,
+        "fromCol": 4,
+        "toRow": 1,
+        "toCol": 0,
+        "hops": [
+          {
+            "fromRow": 5,
+            "fromCol": 4,
+            "toRow": 3,
+            "toCol": 2
+          },
+          {
+            "fromRow": 3,
+            "fromCol": 2,
+            "toRow": 1,
+            "toCol": 0
+          }
+        ],
+        "captured": [
+          {
+            "row": 4,
+            "col": 3,
+            "color": "black",
+            "queen": false
+          },
+          {
+            "row": 2,
+            "col": 1,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "EASY",
+    "theme": "multi-jump",
+    "themes": [],
+    "solutionPlies": 1,
+    "legalMoves": 3,
+    "scoreGap": 1.55,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A multi-jump lets one piece capture several opponents in a single turn. Follow every landing square before choosing the first jump: removing a piece can open a new diagonal or make a backward capture available. Men may capture backward, and flying kings may have several landing choices beyond an enemy piece. A capture must continue while another jump is available, except that crowning ends the turn. You may choose among legal branches; you do not have to take the branch with the most captures. Compare the complete routes, the pieces removed and the safety of the final square.",
+      "position": "Red to move. Red has 8 men on 2, 3, 10, 11, 13, 14, 17 and 22; Black has 8 men on 12, 15, 20, 21, 23, 24, 27 and 31. Both sides have the same number of men and kings. Both sides have 2 men across the middle. Red has 3 legal full turns to compare: 3 capture lines and 0 quiet choices.",
+      "solution": "Solution: 10x19x28. Red jumps 10x19x28, removing the men on 15 and 24. After this combination, Red has 8 men and Black has 6 men. The game continues from this position. One continuation from the search is 20-16 11x20 23-19 28-32 27-24 20x27 31x24 22-26. Read 10x19x28 as one turn with two landings. The first jump removes the man on 15, and the second removes the man on 24. The capturing man ends on 28 without crowning. Red’s eight pieces remain on the board while Black is reduced to six; check the final square before treating the two jumps as a completed combination.",
+      "alternatives": "Alternative 10x19x26: one sample line is 10x19x26 24-19 3-7. Red's 10x19x26 removes the men on 15 and 23. The board then has 8 men for Red and 6 men for Black. Alternative 11x18: one sample line is 11x18 24-19 2-6. Red's 11x18 removes the man on 15. The board then has 8 men for Red and 7 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-18T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...bM...bMbM.bM.bM.bM........bM..rM...bM..rM......rM........rM.rM.rM.bM..rM.rM...black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 7,
+        "toRow": 7,
+        "toCol": 6,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 7,
+            "toRow": 7,
+            "toCol": 6
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 9,
+    "scoreGap": 2.55,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 9 men on 5, 17, 21, 25, 26, 27, 28, 29 and 31; Red has 8 men on 2, 3, 6, 7, 8, 12, 16 and 19. Black has 1 more man than Red. Both sides have a man across the middle. Black has 9 legal full turns to compare: 0 capture lines and 9 quiet choices.",
+      "solution": "Solution: 5-1. Black plays 5-1, crowning on 1. After this combination, Black has 8 men and a king and Red has 8 men. The game continues from this position. One continuation from the search is 6-9 1x24 8-11 17-14 9x18 26-23 2-6 23x14. Black crowns on 1 while retaining nine pieces in total. The first move does not capture anything, even though the sample continuation later contains a long king capture. Separate the one-turn puzzle solution from that longer example: the solve ends at the promotion, and subsequent choices belong to the continuing game. The 28-24 example instead gives up the man on 24 and leaves the man on 5 unpromoted.",
+      "alternatives": "Alternative 28-24: one sample line is 28-24 19x28 27-24. Red's 19x28 removes the man on 24. The board then has 8 men for Black and 8 men for Red. Alternative 26-23: one sample line is 26-23 19x26 31x22. Red's 19x26 removes the man on 23. Black's 31x22 removes the man on 26. The board then has 8 men for Black and 7 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-19T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".......bM....bM..........rM..bM.bM.rM...........rM.....................red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 3,
+        "fromCol": 6,
+        "toRow": 2,
+        "toCol": 5,
+        "hops": [
+          {
+            "fromRow": 3,
+            "fromCol": 6,
+            "toRow": 2,
+            "toCol": 5
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 1,
+        "fromCol": 4,
+        "toRow": 3,
+        "toCol": 6,
+        "hops": [
+          {
+            "fromRow": 1,
+            "fromCol": 4,
+            "toRow": 3,
+            "toCol": 6
+          }
+        ],
+        "captured": [
+          {
+            "row": 2,
+            "col": 5,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 2,
+        "fromCol": 7,
+        "toRow": 4,
+        "toCol": 1,
+        "hops": [
+          {
+            "fromRow": 2,
+            "fromCol": 7,
+            "toRow": 4,
+            "toCol": 5
+          },
+          {
+            "fromRow": 4,
+            "fromCol": 5,
+            "toRow": 2,
+            "toCol": 3
+          },
+          {
+            "fromRow": 2,
+            "fromCol": 3,
+            "toRow": 4,
+            "toCol": 1
+          }
+        ],
+        "captured": [
+          {
+            "row": 3,
+            "col": 6,
+            "color": "black",
+            "queen": false
+          },
+          {
+            "row": 3,
+            "col": 4,
+            "color": "black",
+            "queen": false
+          },
+          {
+            "row": 3,
+            "col": 2,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "HARD",
+    "theme": "shot",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 3,
+    "legalMoves": 4,
+    "scoreGap": 2.6,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A shot uses a sacrifice to change the arrangement of the opposing pieces. Offering a capture can draw a defender away, clear a diagonal or place a target where a second piece can reach it. Captures are compulsory, but that does not mean the opponent must take the particular piece you offered: another capture or another branch may be available. Check every legal reply before calling a sacrifice forced. Then follow your intended recapture to its final landing. Count what both sides have given up, and check for crowning or another compulsory capture before deciding whether the combination has paid off.",
+      "position": "Red to move. Red has 3 men on 11, 17 and 21; Black has 4 men on 18, 19, 26 and 29. Red has 1 fewer man than Black. Red has 2 men in Black's half of the board against 0 coming the other way. Red has 4 legal full turns to compare: 0 capture lines and 4 quiet choices.",
+      "solution": "Solution: 17-22 26x17 21x14x23x16. Red plays 17-22, offering the man on 22. Black has to capture, and the best try is 26x17. Red jumps 21x14x23x16, removing the men on 17, 18 and 19. After this combination, Red has 2 men and Black has a man. The game continues from this position. One continuation from the search is 29-25 16-19 25-22 19-23 22-17 23-27. The man offered on 22 is taken in the displayed defence, bringing a black piece onto 17. A different red man then follows 21x14x23x16 and removes three targets. Black has more than one legal capture reply at the sacrifice, so do not describe 26x17 as the only possible move. The surviving position has two red men against one black man.",
+      "alternatives": "Alternative 11-16: one sample line is 11-16 19x12 17-22. Black's 19x12 removes the man on 16. The board then has 2 men for Red and 4 men for Black. Alternative 11-15: one sample line is 11-15 18x11 17-22. Black's 18x11 removes the man on 15. The board then has 2 men for Red and 4 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-20T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".......rQbM........bM...bM..bM...............rM.....bM.........rM.......red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": true
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 0,
+        "fromCol": 7,
+        "toRow": 6,
+        "toCol": 7,
+        "hops": [
+          {
+            "fromRow": 0,
+            "fromCol": 7,
+            "toRow": 3,
+            "toCol": 4
+          },
+          {
+            "fromRow": 3,
+            "fromCol": 4,
+            "toRow": 6,
+            "toCol": 7
+          }
+        ],
+        "captured": [
+          {
+            "row": 2,
+            "col": 5,
+            "color": "black",
+            "queen": false
+          },
+          {
+            "row": 5,
+            "col": 6,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "EASY",
+    "theme": "multi-jump",
+    "themes": [],
+    "solutionPlies": 1,
+    "legalMoves": 4,
+    "scoreGap": 2.4,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A multi-jump lets one piece capture several opponents in a single turn. Follow every landing square before choosing the first jump: removing a piece can open a new diagonal or make a backward capture available. Men may capture backward, and flying kings may have several landing choices beyond an enemy piece. A capture must continue while another jump is available, except that crowning ends the turn. You may choose among legal branches; you do not have to take the branch with the most captures. Compare the complete routes, the pieces removed and the safety of the final square.",
+      "position": "Red to move. Red has 2 men and a king on 4, 12 and 29 (king on 29); Black has 5 men on 9, 20, 22, 24 and 28. Red has 3 fewer men and 1 more king than Black. Black has a man in Red's half against 0 coming the other way. Red has 4 legal full turns to compare: 4 capture lines and 0 quiet choices.",
+      "solution": "Solution: 29x18x5. Red jumps 29x18x5, removing the men on 22 and 9. After this combination, Red has 2 men and a king and Black has 3 men. The game continues from this position. One continuation from the search is 20-16 12x19 24x15 5-1 15-11 1-10 28-24 10x28. This route belongs to a king: the jumps from 29 to 18 and then to 5 cover longer distances than a man’s jumps. The captured men are on 22 and 9, not necessarily next to the starting squares. Choose the complete landing route carefully. Red keeps two men and its king, while Black is left with three men.",
+      "alternatives": "Alternative 29x11: one sample line is 29x11 9-6 11-2. Red's 29x11 removes the man on 22. The board then has 2 men and a king for Red and 4 men for Black. Alternative 29x8: one sample line is 29x8 9-5 12-16. Red's 29x8 removes the man on 22. The board then has 2 men and a king for Red and 4 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-21T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...................bM....bM.....rM..bM........rM......rM.rM............black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 4,
+        "fromCol": 1,
+        "toRow": 5,
+        "toCol": 0,
+        "hops": [
+          {
+            "fromRow": 4,
+            "fromCol": 1,
+            "toRow": 5,
+            "toCol": 0
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 6,
+        "fromCol": 3,
+        "toRow": 5,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 3,
+            "toRow": 5,
+            "toCol": 4
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 5,
+        "fromCol": 0,
+        "toRow": 7,
+        "toCol": 2,
+        "hops": [
+          {
+            "fromRow": 5,
+            "fromCol": 0,
+            "toRow": 7,
+            "toCol": 2
+          }
+        ],
+        "captured": [
+          {
+            "row": 6,
+            "col": 1,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 3,
+    "legalMoves": 3,
+    "scoreGap": 997.4,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 3 men on 16, 20 and 23; Red has 4 men on 7, 8, 11 and 17. Black has 1 fewer man than Red. Both sides have a man across the middle. Black has 3 legal full turns to compare: 0 capture lines and 3 quiet choices.",
+      "solution": "Solution: 16-12 7-10 12x3. Black plays 16-12. Red's best reply is 7-10. Black takes 12x3, removing the man on 8 and crowning on 3. After this combination, Black has 2 men and a king and Red has 3 men. The game continues from this position. One continuation from the search is 17-21 3x14 21-25 20-16 11x20 23-19. The step to 12 prepares a jump onto the crown row rather than crowning immediately. After Red’s selected reply, Black captures the man on 8 and lands on 3. Follow the same black man through both of its turns, and distinguish the quiet preparation from the capture that completes the task. The resulting king still needs to play out the ending. Both other legal choices start with the man on 23. The samples move that man twice without a capture or a crown, leaving the original piece counts unchanged.",
+      "alternatives": "Alternative 23-19: one sample line is 23-19 8-12 19-15. The board then has 3 men for Black and 4 men for Red. Alternative 23-18: one sample line is 23-18 8-12 18-15. The board then has 3 men for Black and 4 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-22T00:00:00.000Z"
+  },
+  {
+    "positionHash": "........rM.bM.bM......bM...bM.............rM.bMrM.rM.rM......rM.rM..........red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 1,
+        "fromCol": 0,
+        "toRow": 0,
+        "toCol": 1,
+        "hops": [
+          {
+            "fromRow": 1,
+            "fromCol": 0,
+            "toRow": 0,
+            "toCol": 1
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 8,
+    "scoreGap": 1.95,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Red to move. Red has 7 men on 6, 7, 10, 11, 12, 14 and 28; Black has 5 men on 13, 21, 23, 26 and 27. Red has 2 more men than Black. Both sides have a man across the middle. Red has 8 legal full turns to compare: 0 capture lines and 8 quiet choices.",
+      "solution": "Solution: 28-32. Red plays 28-32, crowning on 32. After this combination, Red has 6 men and a king and Black has 5 men. The game continues from this position. One continuation from the search is 27-24 32x18 26-22 18x29 21-17 14x21 24-19 21-25. The quiet promotion on 32 gives Red a king while leaving Black’s five men untouched. Later captures in the example line illustrate possible use of the flying king, but they are not part of the required answer. Confirm the promotion first, then study those diagonals from the resulting board instead of assuming that every opponent reply permits the same route.",
+      "alternatives": "Alternative 12-16: one sample line is 12-16 27-24 28x19. Red's 28x19 removes the man on 24. The board then has 7 men for Red and 4 men for Black. Alternative 11-16: one sample line is 11-16 27-24 28x19. Red's 28x19 removes the man on 24. The board then has 7 men for Red and 4 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-23T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".......rQ....bM..........rM......rM.........bM.......................red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": true
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 3,
+        "fromCol": 6,
+        "toRow": 2,
+        "toCol": 5,
+        "hops": [
+          {
+            "fromRow": 3,
+            "fromCol": 6,
+            "toRow": 2,
+            "toCol": 5
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 1,
+        "fromCol": 4,
+        "toRow": 3,
+        "toCol": 6,
+        "hops": [
+          {
+            "fromRow": 1,
+            "fromCol": 4,
+            "toRow": 3,
+            "toCol": 6
+          }
+        ],
+        "captured": [
+          {
+            "row": 2,
+            "col": 5,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 2,
+        "fromCol": 7,
+        "toRow": 4,
+        "toCol": 5,
+        "hops": [
+          {
+            "fromRow": 2,
+            "fromCol": 7,
+            "toRow": 4,
+            "toCol": 5
+          }
+        ],
+        "captured": [
+          {
+            "row": 3,
+            "col": 6,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 5,
+        "fromCol": 0,
+        "toRow": 6,
+        "toCol": 1,
+        "hops": [
+          {
+            "fromRow": 5,
+            "fromCol": 0,
+            "toRow": 6,
+            "toCol": 1
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 0,
+        "fromCol": 7,
+        "toRow": 7,
+        "toCol": 0,
+        "hops": [
+          {
+            "fromRow": 0,
+            "fromCol": 7,
+            "toRow": 7,
+            "toCol": 0
+          }
+        ],
+        "captured": [
+          {
+            "row": 6,
+            "col": 1,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "HARD",
+    "theme": "shot",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 5,
+    "legalMoves": 9,
+    "scoreGap": 984.85,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A shot uses a sacrifice to change the arrangement of the opposing pieces. Offering a capture can draw a defender away, clear a diagonal or place a target where a second piece can reach it. Captures are compulsory, but that does not mean the opponent must take the particular piece you offered: another capture or another branch may be available. Check every legal reply before calling a sacrifice forced. Then follow your intended recapture to its final landing. Count what both sides have given up, and check for crowning or another compulsory capture before deciding whether the combination has paid off.",
+      "position": "Red to move. Red has 2 men and a king on 17, 21 and 29 (king on 29); Black has 2 men on 12 and 26. Red has 1 more king than Black. Red has 2 men in Black's half of the board against 1 coming the other way. Red has 9 legal full turns to compare: 0 capture lines and 9 quiet choices.",
+      "solution": "Solution: 17-22 26x17 21x14 12-8 29x4. Red plays 17-22, offering the man on 22. Black must take 26x17. Red takes 21x14, removing the man on 17. Black's best reply is 12-8. Red takes 29x4, removing the man on 8. Red wins the game: Black has nothing left on the board. The offered man on 22 disappears, then the man on 21 captures the piece that took it. The last capture is made by Red’s king from 29 to 4, after Black moves its remaining man onto 8. Unlike a line that merely improves material, this solution ends the game: no black pieces remain after the final jump.",
+      "alternatives": "Alternative 29-4: one sample line is 29-4 26-23 21-25. The board then has 2 men and a king for Red and 2 men for Black. Alternative 29-22: one sample line is 29-22 26-23 21-25. The board then has 2 men and a king for Red and 2 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-24T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".bM.bM.bM....rM...bM......bM.rM....bM......rM...rM......rM..rM.rM....rM.rM.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 3,
+        "fromCol": 4,
+        "toRow": 7,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 3,
+            "fromCol": 4,
+            "toRow": 5,
+            "toCol": 2
+          },
+          {
+            "fromRow": 5,
+            "fromCol": 2,
+            "toRow": 7,
+            "toCol": 4
+          }
+        ],
+        "captured": [
+          {
+            "row": 4,
+            "col": 3,
+            "color": "red",
+            "queen": false
+          },
+          {
+            "row": 6,
+            "col": 3,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "EASY",
+    "theme": "breakthrough",
+    "themes": [
+      "multi-jump"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 3,
+    "scoreGap": 6.4,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 6 men on 18, 22, 25, 30, 31 and 32; Red has 9 men on 3, 4, 7, 8, 9, 13, 15, 21 and 27. Black has 3 fewer men than Red. Red has 2 men in Black's half against 0 coming the other way. Black has 3 legal full turns to compare: 3 capture lines and 0 quiet choices.",
+      "solution": "Solution: 18x11x2. Black jumps 18x11x2, removing the men on 15 and 7 and crowning on 2. After this combination, Black has 5 men and a king and Red has 7 men. The game continues from this position. One continuation from the search is 9-14 32x23 8-12 2-11 3-8 11-18 14-17 23-19 17x26 31x22. The man on 18 captures through 11 to 2, removing the red men on 15 and 7. Landing on 2 crowns it and ends the turn. Black still has six pieces against Red’s seven, so the explanation is about the new king and the two captures together. Do not substitute a simple majority of pieces for the actual result of the tactic.",
+      "alternatives": "Alternative 32x23: one sample line is 32x23 8-11 23-19. Black's 32x23 removes the man on 27. The board then has 6 men for Black and 8 men for Red. Alternative 31x24: one sample line is 31x24 8-11 24-19. Black's 31x24 removes the man on 27. The board then has 6 men for Black and 8 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-25T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...bM...bMbM.bM...bM.........bM...rM......rM...............rM.rM.bMrM.rM.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 7,
+        "toRow": 7,
+        "toCol": 6,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 7,
+            "toRow": 7,
+            "toCol": 6
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 8,
+    "scoreGap": 2,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 7 men on 5, 20, 25, 27, 28, 29 and 31; Red has 6 men on 3, 4, 6, 7, 15 and 18. Black has 1 more man than Red. Both sides have a man across the middle. Black has 8 legal full turns to compare: 0 capture lines and 8 quiet choices.",
+      "solution": "Solution: 5-1. Black plays 5-1, crowning on 1. After this combination, Black has 6 men and a king and Red has 6 men. The game continues from this position. One continuation from the search is 7-10 20-16 3-8 31-26 8-12 1-5 12x19 5x23x16. The immediate task is the promotion from 5 to 1. Black then has six men and a king against six red men. In the longer example, the new king later moves away from the crown row and makes a capture chain. That example can help you study its mobility, but only the initial promotion is required here.",
+      "alternatives": "Alternative 28-24: one sample line is 28-24 6-9 5x14x23. Black's 5x14x23 removes the men on 9 and 18. The board then has 7 men for Black and 4 men for Red. Alternative 25-21: one sample line is 25-21 6-9 5x14x23. Black's 5x14x23 removes the men on 9 and 18. The board then has 7 men for Black and 4 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-26T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".......rQ...........bM....bM........bM.rM....bM..........rM....rM.......black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": true
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 4,
+        "fromCol": 1,
+        "toRow": 5,
+        "toCol": 2,
+        "hops": [
+          {
+            "fromRow": 4,
+            "fromCol": 1,
+            "toRow": 5,
+            "toCol": 2
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 6,
+        "fromCol": 3,
+        "toRow": 4,
+        "toCol": 1,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 3,
+            "toRow": 4,
+            "toCol": 1
+          }
+        ],
+        "captured": [
+          {
+            "row": 5,
+            "col": 2,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 5,
+        "fromCol": 0,
+        "toRow": 5,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 5,
+            "fromCol": 0,
+            "toRow": 3,
+            "toCol": 2
+          },
+          {
+            "fromRow": 3,
+            "fromCol": 2,
+            "toRow": 5,
+            "toCol": 4
+          }
+        ],
+        "captured": [
+          {
+            "row": 4,
+            "col": 1,
+            "color": "red",
+            "queen": false
+          },
+          {
+            "row": 4,
+            "col": 3,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "HARD",
+    "theme": "shot",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 3,
+    "legalMoves": 4,
+    "scoreGap": 1.85,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A shot uses a sacrifice to change the arrangement of the opposing pieces. Offering a capture can draw a defender away, clear a diagonal or place a target where a second piece can reach it. Captures are compulsory, but that does not mean the opponent must take the particular piece you offered: another capture or another branch may be available. Check every legal reply before calling a sacrifice forced. Then follow your intended recapture to its final landing. Count what both sides have given up, and check for crowning or another compulsory capture before deciding whether the combination has paid off.",
+      "position": "Black to move. Black has 4 men on 12, 16, 20 and 23; Red has 3 men and a king on 4, 7, 15 and 29 (king on 29). Black has 1 more man and 1 fewer king than Red. Black has 2 men in Red's half of the board against 0 coming the other way. Black has 4 legal full turns to compare: 0 capture lines and 4 quiet choices.",
+      "solution": "Solution: 16-11 7x16 12x19x10. Black plays 16-11, offering the man on 11. Red has to capture, and the best try is 7x16. Black jumps 12x19x10, removing the men on 16 and 15. After this combination, Black has 3 men and Red has a man and a king. The game continues from this position. One continuation from the search is 29-8 10-7 8-12 7-3 12x26 3-7. Black offers the man on 11, then uses the man on 12 for the two-jump reply. The shown route removes red men on 16 and 15; it does not capture Red’s king on 29. Black ends with three men against a man and a king, so this is not an immediate win inferred from counting pieces. Red also has another legal capture at the sacrifice.",
+      "alternatives": "Alternative 23-19: one sample line is 23-19 15x24 20x27. Red's 15x24 removes the man on 19. Black's 20x27 removes the man on 24. The board then has 3 men for Black and 2 men and a king for Red. Alternative 23-18: one sample line is 23-18 15x22 16-11. Red's 15x22 removes the man on 18. The board then has 3 men for Black and 3 men and a king for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-27T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".bM...bM..bM.bM.bM.bM..bM.bM.bM.bM..bM.rM.bM.........rM.rM.rM.rM....rM...rMrM.rM.rM...black",
+    "position": {
+      "board": [
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 2,
+        "fromCol": 5,
+        "toRow": 4,
+        "toCol": 7,
+        "hops": [
+          {
+            "fromRow": 2,
+            "fromCol": 5,
+            "toRow": 4,
+            "toCol": 3
+          },
+          {
+            "fromRow": 4,
+            "fromCol": 3,
+            "toRow": 6,
+            "toCol": 5
+          },
+          {
+            "fromRow": 6,
+            "fromCol": 5,
+            "toRow": 4,
+            "toCol": 7
+          }
+        ],
+        "captured": [
+          {
+            "row": 3,
+            "col": 4,
+            "color": "red",
+            "queen": false
+          },
+          {
+            "row": 5,
+            "col": 4,
+            "color": "red",
+            "queen": false
+          },
+          {
+            "row": 5,
+            "col": 6,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "EASY",
+    "theme": "multi-jump",
+    "themes": [],
+    "solutionPlies": 1,
+    "legalMoves": 3,
+    "scoreGap": 2.45,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A multi-jump lets one piece capture several opponents in a single turn. Follow every landing square before choosing the first jump: removing a piece can open a new diagonal or make a backward capture available. Men may capture backward, and flying kings may have several landing choices beyond an enemy piece. A capture must continue while another jump is available, except that crowning ends the turn. You may choose among legal branches; you do not have to take the branch with the most captures. Compare the complete routes, the pieces removed and the safety of the final square.",
+      "position": "Black to move. Black has 12 men on 17, 19, 21, 22, 23, 24, 25, 26, 27, 28, 30 and 32; Red has 10 men on 2, 3, 4, 5, 7, 9, 10, 11, 12 and 18. Black has 2 more men than Red. Red has a man in Black's half against 0 coming the other way. Black has 3 legal full turns to compare: 3 capture lines and 0 quiet choices.",
+      "solution": "Solution: 22x15x6x13. Black jumps 22x15x6x13, removing the men on 18, 10 and 9. After this combination, Black has 12 men and Red has 7 men. The game continues from this position. One continuation from the search is 11-16 25-22 5-9 13x6 2x9 22-18 9-13 17-14. All three jumps are made by the man that starts on 22. Its route turns through 15 and 6 before finishing on 13, removing the red men on 18, 10 and 9. The final piece is still a man. Read the whole chain as one choice; the next player does not get a turn between its individual jumps.",
+      "alternatives": "Alternative 23x14: one sample line is 23x14 9x18 22x15x8. Black's 23x14 removes the man on 18. Red's 9x18 removes the man on 14. Black's 22x15x8 removes the men on 18 and 11. The board then has 11 men for Black and 7 men for Red. Alternative 22x15x8: one sample line is 22x15x8 4x11 17-14. Black's 22x15x8 removes the men on 18 and 11. Red's 4x11 removes the man on 8. The board then has 11 men for Black and 8 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-28T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".....rQ...........bM...bQ....bM......bM...............bM........rQ.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": true
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": true
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": true
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 1,
+        "toRow": 7,
+        "toCol": 0,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 1,
+            "toRow": 7,
+            "toCol": 0
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 14,
+    "scoreGap": 4.15,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 4 men and a king on 8, 16, 19, 22 and 24 (king on 22); Red has 2 kings on 3 and 30 (kings on 3 and 30). Black has 4 more men and 1 fewer king than Red. Black has 2 men in Red's half of the board against 0 coming the other way. Black has 14 legal full turns to compare: 0 capture lines and 14 quiet choices.",
+      "solution": "Solution: 8-4. Black plays 8-4, crowning on 4. After this combination, Black has 3 men and 2 kings and Red has 2 kings. The game continues from this position. One continuation from the search is 3-12 22-18 30-21 18-23 21-30 16-11 12-3 24-20. The move 8-4 adds a second king to Black’s force. Red already has two kings and no men, so the resulting position is not a simple race between unpromoted pieces. Black’s three remaining men still matter. The puzzle asks you to find the promotion now; the example moves afterward explore the position without declaring that crowning has ended the game.",
+      "alternatives": "Alternative 24-20: one sample line is 24-20 3x12 22-18. Red's 3x12 removes the man on 8. The board then has 3 men and a king for Black and 2 kings for Red. Alternative 22-31: one sample line is 22-31 3x12 31-22. Red's 3x12 removes the man on 8. The board then has 3 men and a king for Black and 2 kings for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-29T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...................rQ....bM.rQ............................bM..bQ.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": true
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": true
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": true
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 7,
+        "toRow": 7,
+        "toCol": 6,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 7,
+            "toRow": 7,
+            "toCol": 6
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 9,
+    "scoreGap": 1.85,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 2 men and a king on 3, 5 and 20 (king on 3); Red has 2 kings on 19 and 23 (kings on 19 and 23). Black has 2 more men and 1 fewer king than Red. Black has a man in Red's half of the board against 0 coming the other way. Black has 9 legal full turns to compare: 0 capture lines and 9 quiet choices.",
+      "solution": "Solution: 5-1. Black plays 5-1, crowning on 1. After this combination, Black has a man and 2 kings and Red has 2 kings. The game continues from this position. One continuation from the search is 19-12 20-16 12x19 1x24 23-26 24-27 26-31 27-23. Black starts with a king and two men, then converts the man on 5 into a second king. Red has two kings of its own. The extra black man survives the solution but is taken in the displayed continuation before a king recaptures. Keep the immediate promotion and that later exchange distinct when comparing the starting and finishing positions.",
+      "alternatives": "Alternative 3-12: one sample line is 3-12 23-30 12x23. Black's 12x23 removes the king on 19. The board then has 2 men and a king for Black and a king for Red. Alternative 20-16: one sample line is 20-16 19x12 5-1. Red's 19x12 removes the man on 16. Black crowns on 1. The board then has 2 kings for Black and 2 kings for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-09-30T00:00:00.000Z"
+  },
+  {
+    "positionHash": "........bM..........bM.bM....bM......rM...rM..bM...rM....rM.rM.rM....rM.....red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 4,
+        "fromCol": 5,
+        "toRow": 3,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 4,
+            "fromCol": 5,
+            "toRow": 3,
+            "toCol": 4
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 2,
+        "fromCol": 3,
+        "toRow": 4,
+        "toCol": 5,
+        "hops": [
+          {
+            "fromRow": 2,
+            "fromCol": 3,
+            "toRow": 4,
+            "toCol": 5
+          }
+        ],
+        "captured": [
+          {
+            "row": 3,
+            "col": 4,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 5,
+        "fromCol": 4,
+        "toRow": 1,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 5,
+            "fromCol": 4,
+            "toRow": 3,
+            "toCol": 6
+          },
+          {
+            "fromRow": 3,
+            "fromCol": 6,
+            "toRow": 1,
+            "toCol": 4
+          }
+        ],
+        "captured": [
+          {
+            "row": 4,
+            "col": 5,
+            "color": "black",
+            "queen": false
+          },
+          {
+            "row": 2,
+            "col": 5,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "HARD",
+    "theme": "shot",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 3,
+    "legalMoves": 7,
+    "scoreGap": 2.3,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A shot uses a sacrifice to change the arrangement of the opposing pieces. Offering a capture can draw a defender away, clear a diagonal or place a target where a second piece can reach it. Captures are compulsory, but that does not mean the opponent must take the particular piece you offered: another capture or another branch may be available. Check every legal reply before calling a sacrifice forced. Then follow your intended recapture to its final landing. Count what both sides have given up, and check for crowning or another compulsory capture before deciding whether the combination has paid off.",
+      "position": "Red to move. Red has 7 men on 3, 6, 7, 8, 10, 14 and 16; Black has 5 men on 12, 19, 22, 23 and 28. Red has 2 more men than Black. Black has a man in Red's half against 0 coming the other way. Red has 7 legal full turns to compare: 0 capture lines and 7 quiet choices.",
+      "solution": "Solution: 14-18 23x14 10x17x26. Red plays 14-18, offering the man on 18. Black has to capture, and the best try is 23x14. Red jumps 10x17x26, removing the men on 14 and 22. After this combination, Red has 6 men and Black has 3 men. The game continues from this position. One continuation from the search is 19-15 26-30 12x19 30x16 28-24 8-11 15x8 3x12. The man moved from 14 to 18 is the sacrifice; the man on 10 makes the collecting double jump. The selected black capture brings a target to 14, allowing Red to continue through 17 to 26 and remove another target on 22. Other black captures are legal at the sacrifice, so the displayed defence is a choice that was checked, not the only route available.",
+      "alternatives": "Alternative 6-9: one sample line is 6-9 23-18 16x23. Red's 16x23 removes the man on 19. The board then has 7 men for Red and 4 men for Black. Alternative 14-17: one sample line is 14-17 22x13 7-11. Black's 22x13 removes the man on 17. The board then has 6 men for Red and 5 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-01T00:00:00.000Z"
+  },
+  {
+    "positionHash": "........bM...............bM........rQ.rM....bM...rM....rM.....rM..rM.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": true
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 3,
+        "fromCol": 0,
+        "toRow": 7,
+        "toCol": 0,
+        "hops": [
+          {
+            "fromRow": 3,
+            "fromCol": 0,
+            "toRow": 5,
+            "toCol": 2
+          },
+          {
+            "fromRow": 5,
+            "fromCol": 2,
+            "toRow": 7,
+            "toCol": 0
+          }
+        ],
+        "captured": [
+          {
+            "row": 4,
+            "col": 1,
+            "color": "red",
+            "queen": true
+          },
+          {
+            "row": 6,
+            "col": 1,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "EASY",
+    "theme": "breakthrough",
+    "themes": [
+      "king-trap",
+      "multi-jump"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 3,
+    "scoreGap": 4.85,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 3 men on 12, 20 and 28; Red has 5 men and a king on 3, 5, 8, 10, 15 and 16 (king on 16). Black has 2 fewer men and 1 fewer king than Red. Black has a man in Red's half of the board against 0 coming the other way. Black has 3 legal full turns to compare: 3 capture lines and 0 quiet choices.",
+      "solution": "Solution: 20x11x4. Black jumps 20x11x4, removing the man on 8 and the king on 16 and crowning on 4. After this combination, Black has 2 men and a king and Red has 4 men. The game continues from this position. One continuation from the search is 15-19 4-22 19-23 28-24 10-14 24-19 23x16 12x19. Black’s man starts on 20 and jumps through 11 to the crown square 4. The first captured piece is a red king on 16; the second is the man on 8. Black therefore removes a king and gains one of its own in the same turn. Red still has four men afterward, and the position continues.",
+      "alternatives": "Alternative 20x11x18: one sample line is 20x11x18 8-11 28-24. Black's 20x11x18 removes the man on 15 and the king on 16. The board then has 3 men for Black and 4 men for Red. Alternative 12x19: one sample line is 12x19 15x24 28x19. Black's 12x19 removes the king on 16. Red's 15x24 removes the man on 19. Black's 28x19 removes the man on 24. The board then has 2 men for Black and 4 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-02T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...bM.bM....bM........................rM...rMrM............rM.bMrM.rM.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 7,
+        "toRow": 7,
+        "toCol": 6,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 7,
+            "toRow": 7,
+            "toCol": 6
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 6,
+    "scoreGap": 3.6,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 4 men on 5, 27, 30 and 31; Red has 6 men on 3, 4, 6, 12, 13 and 15. Black has 2 fewer men than Red. Black has a man in Red's half of the board against 0 coming the other way. Black has 6 legal full turns to compare: 0 capture lines and 6 quiet choices.",
+      "solution": "Solution: 5-1. Black plays 5-1, crowning on 1. After this combination, Black has 3 men and a king and Red has 6 men. The game continues from this position. One continuation from the search is 6-10 27-23 3-7 30-26 13-17 23-19 15x24 1x15x28. Black has fewer pieces here: four before and after the solution, against six red men. Promoting the man from 5 to 1 changes that force to three men and a king. The move does not equalise the piece count. Study the new king’s possible diagonals in the follow-up while keeping the remaining red material on the board in view.",
+      "alternatives": "Alternative 31-26: one sample line is 31-26 6-9 5x14. Black's 5x14 removes the man on 9. The board then has 4 men for Black and 5 men for Red. Alternative 30-26: one sample line is 30-26 6-9 5x14. Black's 5x14 removes the man on 9. The board then has 4 men for Black and 5 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-03T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".bM.bM.bM....bM.bM.bM......bM.rMbM.bM.bM...........rM.rM.rM.rM..rM.rM...rMrM...rM.rM.red",
+    "position": {
+      "board": [
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 5,
+        "fromCol": 2,
+        "toRow": 4,
+        "toCol": 1,
+        "hops": [
+          {
+            "fromRow": 5,
+            "fromCol": 2,
+            "toRow": 4,
+            "toCol": 1
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 3,
+        "fromCol": 0,
+        "toRow": 5,
+        "toCol": 2,
+        "hops": [
+          {
+            "fromRow": 3,
+            "fromCol": 0,
+            "toRow": 5,
+            "toCol": 2
+          }
+        ],
+        "captured": [
+          {
+            "row": 4,
+            "col": 1,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      },
+      {
+        "fromRow": 6,
+        "fromCol": 3,
+        "toRow": 4,
+        "toCol": 5,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 3,
+            "toRow": 4,
+            "toCol": 1
+          },
+          {
+            "fromRow": 4,
+            "fromCol": 1,
+            "toRow": 2,
+            "toCol": 3
+          },
+          {
+            "fromRow": 2,
+            "fromCol": 3,
+            "toRow": 4,
+            "toCol": 5
+          }
+        ],
+        "captured": [
+          {
+            "row": 5,
+            "col": 2,
+            "color": "black",
+            "queen": false
+          },
+          {
+            "row": 3,
+            "col": 2,
+            "color": "black",
+            "queen": false
+          },
+          {
+            "row": 3,
+            "col": 4,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "HARD",
+    "theme": "shot",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 3,
+    "legalMoves": 9,
+    "scoreGap": 1.5,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A shot uses a sacrifice to change the arrangement of the opposing pieces. Offering a capture can draw a defender away, clear a diagonal or place a target where a second piece can reach it. Captures are compulsory, but that does not mean the opponent must take the particular piece you offered: another capture or another branch may be available. Check every legal reply before calling a sacrifice forced. Then follow your intended recapture to its final landing. Count what both sides have given up, and check for crowning or another compulsory capture before deciding whether the combination has paid off.",
+      "position": "Red to move. Red has 11 men on 1, 2, 4, 5, 7, 8, 9, 10, 11, 12 and 21; Black has 10 men on 18, 19, 20, 22, 25, 26, 27, 30, 31 and 32. Red has 1 more man than Black. Red has a man in Black's half of the board against 0 coming the other way. Red has 9 legal full turns to compare: 0 capture lines and 9 quiet choices.",
+      "solution": "Solution: 11-16 20x11 7x16x23x14. Red plays 11-16, offering the man on 16. Black must take 20x11. Red jumps 7x16x23x14, removing the men on 11, 19 and 18. After this combination, Red has 10 men and Black has 7 men. The game continues from this position. One continuation from the search is 27-23 9-13 23-18 14x23 26x19 8-11. The first move offers the man on 16. Black has only one legal full turn in reply, taking from 20 to 11. Red’s man on 7 then follows three jumps through 16, 23 and 14. Notice that the first landing returns to the offered square, but the moving piece is different from the one that was sacrificed.",
+      "alternatives": "Alternative 9-14: one sample line is 9-14 18x9 5x14. Black's 18x9 removes the man on 14. Red's 5x14 removes the man on 9. The board then has 10 men for Red and 9 men for Black. Alternative 1-6: one sample line is 1-6 19-15 10x19. Red's 10x19 removes the man on 15. The board then has 11 men for Red and 9 men for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-04T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...bQ........rM...........................rM.rM...rM.........rM.......black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": true
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 0,
+        "fromCol": 3,
+        "toRow": 3,
+        "toCol": 0,
+        "hops": [
+          {
+            "fromRow": 0,
+            "fromCol": 3,
+            "toRow": 4,
+            "toCol": 7
+          },
+          {
+            "fromRow": 4,
+            "fromCol": 7,
+            "toRow": 7,
+            "toCol": 4
+          },
+          {
+            "fromRow": 7,
+            "fromCol": 4,
+            "toRow": 3,
+            "toCol": 0
+          }
+        ],
+        "captured": [
+          {
+            "row": 1,
+            "col": 4,
+            "color": "red",
+            "queen": false
+          },
+          {
+            "row": 5,
+            "col": 6,
+            "color": "red",
+            "queen": false
+          },
+          {
+            "row": 5,
+            "col": 2,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "EASY",
+    "theme": "multi-jump",
+    "themes": [],
+    "solutionPlies": 1,
+    "legalMoves": 5,
+    "scoreGap": 989.8,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A multi-jump lets one piece capture several opponents in a single turn. Follow every landing square before choosing the first jump: removing a piece can open a new diagonal or make a backward capture available. Men may capture backward, and flying kings may have several landing choices beyond an enemy piece. A capture must continue while another jump is available, except that crowning ends the turn. You may choose among legal branches; you do not have to take the branch with the most captures. Compare the complete routes, the pieces removed and the safety of the final square.",
+      "position": "Black to move. Black has a king on 31 (king on 31); Red has 5 men on 4, 9, 11, 12 and 26. Black has 5 fewer men and 1 more king than Red. Red has a man in Black's half against 0 coming the other way. Black has 5 legal full turns to compare: 5 capture lines and 0 quiet choices.",
+      "solution": "Solution: 31x13x2x20. Black jumps 31x13x2x20, removing the men on 26, 9 and 11. After this combination, Black has a king and Red has 2 men. The game continues from this position. One continuation from the search is 4-8 20-7 12-16 7x20 8-12 20-11 12-16 11x20. Black has only a king, and its chosen route captures three men while visiting 13, 2 and 20. Those are landing squares; the removed men are on 26, 9 and 11. A flying king can have alternative landing routes, so calculate the entire chain before choosing. Two red men remain, meaning the puzzle’s capture sequence is not itself the end of the game.",
+      "alternatives": "Alternative 31x13x6: one sample line is 31x13x6 12-16 6-10. Black's 31x13x6 removes the men on 26 and 9. The board then has a king for Black and 3 men for Red. Alternative 31x17: one sample line is 31x17 4-8 17-10. Black's 31x17 removes the man on 26. The board then has a king for Black and 4 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-05T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".......bM................rM........rQ.................bM...rM..bQ.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": true
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": true
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 3,
+        "toRow": 7,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 3,
+            "toRow": 7,
+            "toCol": 4
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 4,
+    "scoreGap": 2.55,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 2 men and a king on 3, 7 and 29 (king on 3); Red has 2 men and a king on 5, 16 and 20 (king on 16). Both sides have the same number of men and kings. Both sides have a man across the middle. Black has 4 legal full turns to compare: 0 capture lines and 4 quiet choices.",
+      "solution": "Solution: 7-2. Black plays 7-2, crowning on 2. After this combination, Black has a man and 2 kings and Red has 2 men and a king. The game continues from this position. One continuation from the search is 16-30 3-10 30-21 10-15 21-30 15-10 30-21 10-3. Black promotes the man on 7 to a king on 2, joining the king already on 3. The board then contains a black man and two kings against two red men and a king. The adjacent starting points of the black kings do not decide the ending by themselves. Examine their available diagonals from the promoted position.",
+      "alternatives": "Alternative 29-25: one sample line is 29-25 16x2 25-22. Red's 16x2 removes the man on 7. The board then has a man and a king for Black and 2 men and a king for Red. Alternative 3-8: one sample line is 3-8 16x2 29-25. Red's 16x2 removes the man on 7. The board then has a man and a king for Black and 2 men and a king for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-06T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".......rQbM........bM.bM...bM.............rM......rM....bM.rM....rM...rM...black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": true
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 1,
+        "toRow": 7,
+        "toCol": 2,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 1,
+            "toRow": 7,
+            "toCol": 2
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 6,
+    "scoreGap": 4.95,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 5 men on 8, 21, 23, 24 and 28; Red has 5 men and a king on 2, 4, 7, 10, 14 and 29 (king on 29). Black has 1 fewer king than Red. Black has a man in Red's half of the board against 0 coming the other way. Black has 6 legal full turns to compare: 0 capture lines and 6 quiet choices.",
+      "solution": "Solution: 8-3. Black plays 8-3, crowning on 3. After this combination, Black has 4 men and a king and Red has 5 men and a king. The game continues from this position. One continuation from the search is 2-6 24-20 29-11 28-24 6-9 3-8 11-29 8-3. The man on 8 crowns on 3, leaving Black with four men and a king against five men and a king. Both players therefore have a flying king after the solution. The example continuation contains ordinary king moves as well as man moves; it is useful for exploring the new position without claiming that the promotion forces every later move.",
+      "alternatives": "Alternative 24-19: one sample line is 24-19 4x11 21-17. Red's 4x11 removes the man on 8. The board then has 4 men for Black and 5 men and a king for Red. Alternative 21-17: one sample line is 21-17 4x11 24-19. Red's 4x11 removes the man on 8. The board then has 4 men for Black and 5 men and a king for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-07T00:00:00.000Z"
+  },
+  {
+    "positionHash": ".....rQ.................rMbM.bM.bM....bM......bM.rM...rM....rM.rM..........red",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": true
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "red"
+    },
+    "solution": [
+      {
+        "fromRow": 0,
+        "fromCol": 5,
+        "toRow": 1,
+        "toCol": 6,
+        "hops": [
+          {
+            "fromRow": 0,
+            "fromCol": 5,
+            "toRow": 1,
+            "toCol": 6
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 3,
+        "fromCol": 4,
+        "toRow": 4,
+        "toCol": 3,
+        "hops": [
+          {
+            "fromRow": 3,
+            "fromCol": 4,
+            "toRow": 4,
+            "toCol": 3
+          }
+        ],
+        "captured": [],
+        "promoted": false
+      },
+      {
+        "fromRow": 5,
+        "fromCol": 2,
+        "toRow": 3,
+        "toCol": 4,
+        "hops": [
+          {
+            "fromRow": 5,
+            "fromCol": 2,
+            "toRow": 3,
+            "toCol": 4
+          }
+        ],
+        "captured": [
+          {
+            "row": 4,
+            "col": 3,
+            "color": "black",
+            "queen": false
+          }
+        ],
+        "promoted": false
+      }
+    ],
+    "sideToMove": "red",
+    "difficulty": "HARD",
+    "theme": "quiet-move",
+    "themes": [],
+    "solutionPlies": 3,
+    "legalMoves": 9,
+    "scoreGap": 1.6,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A quiet move changes the position without taking a piece. It can prepare a capture, improve a landing square, protect a route to promotion or offer a sacrifice. First check that no capture is available, since captures are compulsory on this site. Then examine the opponent's replies instead of assuming that your threat will be ignored. A move that works against one reply may fail against another. In these puzzles, the verified line shows the selected defence and the tactical gain that follows. Compare the resulting board with the starting position, including kings and possible recaptures, rather than counting only the first piece won.",
+      "position": "Red to move. Red has 5 men and a king on 6, 7, 9, 11, 21 and 30 (king on 30); Black has 5 men on 12, 16, 18, 19 and 20. Red has 1 more king than Black. Black has 2 men in Red's half against 1 coming the other way. Red has 9 legal full turns to compare: 0 capture lines and 9 quiet choices.",
+      "solution": "Solution: 30-25 18-15 11x18. Red plays 30-25. Black's best reply is 18-15. Red takes 11x18, removing the man on 15. After this combination, Red has 5 men and a king and Black has 4 men. The game continues from this position. One continuation from the search is 12-8 18-23 19x26 25x4 26-23 9-14. Red’s preparatory move is made by the king on 30, which travels quietly to 25. After the selected black reply 18-15, the red man on 11 captures onto 18. The king remains on 25 at the end of the solution. Track that division of roles: the piece that improves its square is different from the one that takes the exposed man.",
+      "alternatives": "Alternative 30-23: one sample line is 30-23 19x26 21-25. Black's 19x26 removes the king on 23. The board then has 5 men for Red and 5 men for Black. Alternative 11-15: one sample line is 11-15 19x10x1 21-25. Black's 19x10x1 removes the men on 15 and 6. Black crowns on 1. The board then has 3 men and a king for Red and 4 men and a king for Black. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-08T00:00:00.000Z"
+  },
+  {
+    "positionHash": "...bM.bM..bM...bM....bM.bM...bM..bM.bM.bM..rM.rM.rM..rM.....rM..rM.rM......rM.rM...black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 3,
+        "fromCol": 4,
+        "toRow": 7,
+        "toCol": 0,
+        "hops": [
+          {
+            "fromRow": 3,
+            "fromCol": 4,
+            "toRow": 5,
+            "toCol": 2
+          },
+          {
+            "fromRow": 5,
+            "fromCol": 2,
+            "toRow": 7,
+            "toCol": 0
+          }
+        ],
+        "captured": [
+          {
+            "row": 4,
+            "col": 3,
+            "color": "red",
+            "queen": false
+          },
+          {
+            "row": 6,
+            "col": 1,
+            "color": "red",
+            "queen": false
+          }
+        ],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "EASY",
+    "theme": "breakthrough",
+    "themes": [
+      "multi-jump"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 4,
+    "scoreGap": 2.4,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 10 men on 17, 18, 19, 21, 23, 24, 26, 28, 30 and 31; Red has 9 men on 2, 3, 7, 8, 9, 12, 14, 15 and 16. Black has 1 more man than Red. Neither side has crossed the middle of the board yet. Black has 4 legal full turns to compare: 4 capture lines and 0 quiet choices.",
+      "solution": "Solution: 18x11x4. Black jumps 18x11x4, removing the men on 15 and 8 and crowning on 4. After this combination, Black has 9 men and a king and Red has 7 men. The game continues from this position. One continuation from the search is 16-20 17x10 20x27x18 4x22 7x14 31-27 9-13 28-24. The two jumps from 18 through 11 to 4 remove red men on 15 and 8. The capturing black man reaches the crown row on its second landing, becoming a king and ending the turn. Red retains seven men, so further play is required. Later captures shown in the continuation are separate turns, not extensions of the crowning chain.",
+      "alternatives": "Alternative 18x11x20: one sample line is 18x11x20 8-11 17x10. Black's 18x11x20 removes the men on 15 and 16. Black's 17x10 removes the man on 14. The board then has 10 men for Black and 6 men for Red. Alternative 17x10: one sample line is 17x10 15x6 18-15. Black's 17x10 removes the man on 14. Red's 15x6 removes the man on 10. The board then has 9 men for Black and 8 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-09T00:00:00.000Z"
+  },
+  {
+    "positionHash": "........bM...bM......bM.bM.rM....bM....rM.....rMrM........bM.....rM..bQ.....black",
+    "position": {
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          {
+            "color": "red",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          {
+            "color": "black",
+            "queen": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "color": "red",
+            "queen": false
+          }
+        ],
+        [
+          null,
+          null,
+          {
+            "color": "black",
+            "queen": true
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "currentPlayer": "black"
+    },
+    "solution": [
+      {
+        "fromRow": 6,
+        "fromCol": 1,
+        "toRow": 7,
+        "toCol": 0,
+        "hops": [
+          {
+            "fromRow": 6,
+            "fromCol": 1,
+            "toRow": 7,
+            "toCol": 0
+          }
+        ],
+        "captured": [],
+        "promoted": true
+      }
+    ],
+    "sideToMove": "black",
+    "difficulty": "MEDIUM",
+    "theme": "breakthrough",
+    "themes": [
+      "quiet-move"
+    ],
+    "solutionPlies": 1,
+    "legalMoves": 10,
+    "scoreGap": 2.2,
+    "verifiedDepth": 8,
+    "commentary": {
+      "theme": "A breakthrough brings a man to the far row and crowns it as a king. The new king can move along open diagonals in either direction and capture from a distance, which can change the position substantially. Crowning alone does not guarantee a win: the king may face an immediate capture, or the opponent may have active kings of their own. Look for a clear route to the promotion row, then inspect the reply from the resulting board. On this site crowning ends the turn, including a capture chain. A newly crowned piece cannot continue jumping until a later turn.",
+      "position": "Black to move. Black has 6 men and a king on 3, 8, 18, 22, 23, 26 and 28 (king on 3); Red has 5 men on 5, 12, 13, 16 and 21. Black has 1 more man and 1 more king than Red. Both sides have a man across the middle. Black has 10 legal full turns to compare: 0 capture lines and 10 quiet choices.",
+      "solution": "Solution: 8-4. Black plays 8-4, crowning on 4. After this combination, Black has 5 men and 2 kings and Red has 5 men. The game continues from this position. One continuation from the search is 16-20 18-14 12-16 3-10 16-19 23x16 20x11 4x15. The man on 8 crowns on 4 and joins Black’s existing king on 3. Black keeps seven pieces in total: five men and two kings against five red men. No capture occurs in the required move. The later exchanges in the example line are useful follow-up study, but the immediate benefit to identify is the second king’s new mobility.",
+      "alternatives": "Alternative 28-24: one sample line is 28-24 21-25 22x29. Black's 22x29 removes the man on 25. The board then has 6 men and a king for Black and 4 men for Red. Alternative 18-14: one sample line is 18-14 21-25 22x29. Black's 22x29 removes the man on 25. The board then has 6 men and a king for Black and 4 men for Red. Compare these sample lines with the solution and check other legal replies before judging the resulting position."
+    },
+    "sourceGameId": null,
+    "generatorVersion": "1.2.0",
+    "date": "2026-10-10T00:00:00.000Z"
+  }
+]

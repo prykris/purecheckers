@@ -1,8 +1,10 @@
 <script>
+  import PlayerLink from './PlayerLink.svelte';
   import { gameState } from '$lib/stores/app.js';
   import { fade } from 'svelte/transition';
   import { session, sendCommand } from '$lib/stores/session.js';
   import GameBoard from './GameBoard.svelte';
+  import BoardAppearance from './BoardAppearance.svelte';
   import RoomChat from './chat/RoomChat.svelte';
   let flip = false;
   $: game = $gameState.state;
@@ -21,7 +23,7 @@
   <div class="player-bar">
     <div class="pinfo" class:active={game.currentPlayer === (flip ? 'red' : 'black')}>
       <div class="dot" class:red={!flip} class:black={flip}></div>
-      <span class="pname">{flip ? redName : blackName}</span>
+      <span class="pname"><PlayerLink username={flip ? redName : blackName} /></span>
       <span class="timer">{fmtTime(flip ? game.redTime : game.blackTime)}</span>
     </div>
   </div>
@@ -35,12 +37,13 @@
           {#if winner === null}
             <h2>Draw</h2>
           {:else}
-            <h2>{winner === 'red' ? redName : blackName} wins!</h2>
+            <h2><PlayerLink username={winner === 'red' ? redName : blackName} /> wins!</h2>
           {/if}
           <button class="btn btn-primary btn-small" on:click={goToLobby}>Back to Lobby</button>
         </div>
       {/if}
     </GameBoard>
+    <BoardAppearance />
 
   </div>
 
@@ -48,7 +51,7 @@
   <div class="player-bar">
     <div class="pinfo" class:active={game.currentPlayer === (flip ? 'black' : 'red')}>
       <div class="dot" class:red={flip} class:black={!flip}></div>
-      <span class="pname">{flip ? blackName : redName}</span>
+      <span class="pname"><PlayerLink username={flip ? blackName : redName} /></span>
       <span class="timer">{fmtTime(flip ? game.blackTime : game.redTime)}</span>
     </div>
   </div>
@@ -101,23 +104,6 @@
   }
 
   .board-tap-zone { position: relative; }
-  .spectate-tap-overlay {
-    position: absolute; inset: 0;
-    background: rgba(0,0,0,0.55);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: var(--sp-xs);
-    border-radius: var(--radius-sm);
-    color: rgba(255,255,255,0.85);
-    font-size: var(--fs-body); font-weight: 600;
-    pointer-events: none;
-    animation: spectateOverlayFade 1.5s ease-out forwards;
-    z-index: 5;
-  }
-  @keyframes spectateOverlayFade {
-    0% { opacity: 0.9; }
-    60% { opacity: 0.9; }
-    100% { opacity: 0; }
-  }
 
   .game-over-overlay {
     position: absolute; inset: 0; background: rgba(0,0,0,0.75);

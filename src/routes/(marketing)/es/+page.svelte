@@ -1,4 +1,5 @@
 <script>
+  import GameEntryLink from '$lib/components/GameEntryLink.svelte';
   const boardCells = Array.from({ length: 64 }, (_, i) => {
     const row = Math.floor(i / 8);
     const col = i % 8;
@@ -13,15 +14,19 @@
 <svelte:head>
   <title>Pure Checkers — Damas Online Gratis, Sin Anuncios</title>
   <meta name="description" content="Juega damas online gratis. Sin anuncios, sin barras de energia, sin compras. Crea salas, juega con amigos, gana ELO y disfruta damas como debe ser." />
-  <link rel="canonical" href="https://purecheckers.com/es/" />
+  <link rel="canonical" href="https://purecheckers.com/es" />
   <meta property="og:title" content="Pure Checkers — Damas Online Gratis" />
   <meta property="og:description" content="Juega damas online gratis. Sin anuncios, sin compras. Crea salas, juega con amigos, gana ELO." />
-  <meta property="og:url" content="https://purecheckers.com/es/" />
+  <meta property="og:url" content="https://purecheckers.com/es" />
   <meta property="og:locale" content="es_ES" />
+  <meta property="og:locale:alternate" content="en_US" />
+  <link rel="alternate" hreflang="en" href="https://purecheckers.com/" />
+  <link rel="alternate" hreflang="es" href="https://purecheckers.com/es" />
+  <link rel="alternate" hreflang="x-default" href="https://purecheckers.com/" />
 </svelte:head>
 
 <section class="hero" id="top">
-  <h1 class="hero-logo"><span class="shimmer">Pure</span> Checkers</h1>
+  <p class="hero-logo"><span class="shimmer">Pure</span> Checkers</p>
   <div class="board" aria-label="Tablero de damas con piezas en posicion inicial">
     {#each boardCells as cell}
       <div class="cell" class:dark={cell.isDark} class:light={!cell.isDark}>
@@ -31,7 +36,8 @@
       </div>
     {/each}
   </div>
-  <a href="/auth" class="play-btn">Jugar Ahora — Es Gratis</a>
+  <h1 class="hero-title">Juega Damas Online — Gratis, Sin Anuncios, Sin Muros de Pago</h1>
+  <GameEntryLink class="play-btn" label="Jugar Ahora — Es Gratis" language="es" />
   <p class="hero-note">No necesitas cuenta. Elige un apodo y juega.</p>
 </section>
 
@@ -63,7 +69,8 @@
 
 <style>
   .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100dvh; padding: var(--sp-lg) var(--sp-md); gap: var(--sp-lg); }
-  .hero-logo { font-size: var(--fs-title); letter-spacing: 2px; color: var(--text); text-align: center; }
+  .hero-logo { font-size: var(--fs-title); font-weight: 700; letter-spacing: 2px; color: var(--text); text-align: center; }
+  .hero-title { font-size: var(--fs-heading); font-weight: 600; color: var(--text); text-align: center; max-width: 520px; line-height: 1.4; }
   .shimmer { color: var(--accent); background: linear-gradient(120deg, var(--accent) 0%, #ff8a8a 40%, #fff 50%, #ff8a8a 60%, var(--accent) 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 2.5s ease-in-out forwards; }
   @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
   .board { display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1; width: min(300px, 50dvh, 80vw); flex-shrink: 1; min-height: 0; border-radius: var(--radius-md); overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
@@ -73,8 +80,8 @@
   .piece { width: 65%; height: 65%; border-radius: 50%; }
   .piece-red { background: radial-gradient(circle at 35% 35%, #f87171, #dc2626); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
   .piece-black { background: radial-gradient(circle at 35% 35%, #44403c, #1c1917); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
-  .play-btn { display: inline-block; padding: var(--sp-md) var(--sp-xl); font-size: 1.2rem; font-weight: 700; font-family: var(--font); background: linear-gradient(135deg, var(--accent), #dc2626); color: #fff; border-radius: var(--radius-sm); text-decoration: none; box-shadow: 0 4px 16px rgba(239,68,68,0.25); transition: transform 0.2s, box-shadow 0.2s; }
-  .play-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(239,68,68,0.35); }
+  :global(.hero .play-btn) { display: inline-block; padding: var(--sp-md) var(--sp-xl); font-size: 1.2rem; font-weight: 700; font-family: var(--font); background: linear-gradient(135deg, var(--accent), #dc2626); color: #fff; border-radius: var(--radius-sm); text-decoration: none; box-shadow: 0 4px 16px rgba(239,68,68,0.25); transition: transform 0.2s, box-shadow 0.2s; }
+  :global(.hero .play-btn):hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(239,68,68,0.35); }
   .hero-note { font-size: var(--fs-caption); color: var(--text-dim); text-align: center; }
   .section { padding: 64px var(--sp-md); max-width: 800px; margin: 0 auto; }
   .section-title { font-size: var(--fs-title); font-weight: 700; text-align: center; margin-bottom: var(--sp-sm); }

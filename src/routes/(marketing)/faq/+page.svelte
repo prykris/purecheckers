@@ -1,4 +1,8 @@
 <script>
+  import JsonLd from '$lib/components/JsonLd.svelte';
+  import { PUZZLE_SOLVE_COINS } from '../../../../shared/constants.js';
+  import { FEEDBACK_URL } from '../../../../shared/feedback.js';
+
   let openIndex = $state(0);
 
   function toggle(i) {
@@ -8,11 +12,11 @@
   const faqs = [
     {
       q: "Is Pure Checkers really free?",
-      a: "Yes, completely free. No ads, no energy bars, no in-app purchases, no paywalls. We believe checkers should be accessible to everyone."
+      a: "Yes. You can play free games against bots or other players without paying. Rooms with a coin buy-in are optional, and the room shows that cost before you join."
     },
     {
       q: "Do I need an account to play?",
-      a: "No. Click Play and you're in as a guest with a generated name. You can upgrade to a full account anytime to keep your stats, ELO rating, and game history."
+      a: "No. Pick a nickname to enter as a guest and play free games. Upgrade your guest account before it expires to keep your identity and recorded games. Ranked games and rooms with a coin buy-in require a registered account."
     },
     {
       q: "What happens to my stats when I upgrade from guest?",
@@ -24,7 +28,7 @@
     },
     {
       q: "What are coins for?",
-      a: "Coins are an in-game currency earned by winning ranked matches. Spend them in the shop on themes, piece skins, and emotes. Coins exist in a closed economy — they're created on registration and destroyed in the shop."
+      a: `Coins come from eligible games and rewards. Registered players earn ${PUZZLE_SOLVE_COINS} ${PUZZLE_SOLVE_COINS === 1 ? 'coin' : 'coins'} for their first eligible solve of today's daily puzzle; archive puzzles do not award coins. Use coins for available shop items or a room's buy-in. The shop and room show the cost before you confirm.`
     },
     {
       q: "Can I play on my phone?",
@@ -32,7 +36,8 @@
     },
     {
       q: "What are the rules?",
-      a: "Standard checkers (English draughts) on an 8×8 board. Pieces move diagonally forward, capture by jumping, and must take jumps when available. Reach the opposite end to get kinged — kings move in both directions. Chain jumps are allowed."
+      a: "Checkers on an 8×8 board, 12 pieces each, red moves first. Regular pieces move one square diagonally forward but can capture in all four diagonal directions. Reach the far end to get crowned a king: kings move any distance along a diagonal and can capture from a distance. Captures are compulsory — if you have a jump you must take one, but you choose which — and a piece keeps jumping while more captures are available. A piece that is crowned mid-chain stops there. A game is drawn if the same position occurs three times or 50 half-moves (25 by each side) pass without a capture.",
+      more: { href: "/strategy/checkers-rules", label: "Read the full rules" }
     },
     {
       q: "Can I play against bots?",
@@ -40,11 +45,15 @@
     },
     {
       q: "Can I play with friends?",
-      a: "Yes. Create a private room and share the room code or QR link. Your friend joins instantly — no account needed."
+      a: "Yes. Choose Play with a friend for a free invitation, or create a room with your preferred settings. Share its link or let your friend scan the code. Free games allow guests; coin buy-ins require registered accounts and both players to ready up."
     },
     {
       q: "What happens if I disconnect during a game?",
-      a: "You get 30 seconds to reconnect. If you make it back, the game continues where you left off. If not, your opponent wins by forfeit."
+      a: "The app reconnects and restores the server's current game state. Return before the displayed reconnect deadline to continue; an expired deadline can result in a forfeit. Recovery after a server restart may ask both players to confirm they are back. Refreshing is not required for normal reconnection."
+    },
+    {
+      q: "Are profiles and shared replays public?",
+      a: "You can hide your public profile in Profile settings. This hides the profile page and profile preview, but leaderboard names and names in saved game records remain public. Guest profiles are temporary: expired profile links stop working, and retired guests appear as Guest in replays. Social and messaging apps may keep an older preview after a name or privacy change."
     }
   ];
 </script>
@@ -56,21 +65,20 @@
   <meta property="og:title" content="FAQ — Pure Checkers" />
   <meta property="og:description" content="Frequently asked questions about Pure Checkers." />
   <meta property="og:url" content="https://purecheckers.com/faq" />
-  <script type="application/ld+json">
-  {JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": faqs.map(f => ({
-      "@type": "Question",
-      "name": f.q,
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": f.a
-      }
-    }))
-  })}
-  </script>
 </svelte:head>
+
+<JsonLd data={{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "@id": "https://purecheckers.com/faq#faq",
+  "url": "https://purecheckers.com/faq",
+  "isPartOf": { "@id": "https://purecheckers.com/#website" },
+  "mainEntity": faqs.map(f => ({
+    "@type": "Question",
+    "name": f.q,
+    "acceptedAnswer": { "@type": "Answer", "text": f.a }
+  }))
+}} />
 
 <section class="faq">
   <h1 class="page-title">Frequently Asked Questions</h1>
@@ -79,13 +87,20 @@
   <div class="faq-list">
     {#each faqs as faq, i}
       <div class="faq-item" class:open={openIndex === i}>
-        <button class="faq-q" onclick={() => toggle(i)}>{faq.q}<span class="faq-icon">{openIndex === i ? '−' : '+'}</span></button>
-        {#if openIndex === i}
-          <p class="faq-a">{faq.a}</p>
-        {/if}
+        <h2 class="faq-h">
+          <button class="faq-q" onclick={() => toggle(i)} aria-expanded={openIndex === i} aria-controls="faq-a-{i}">{faq.q}<span class="faq-icon" aria-hidden="true">{openIndex === i ? '−' : '+'}</span></button>
+        </h2>
+        <div class="faq-a" id="faq-a-{i}" hidden={openIndex !== i}>
+          <p>{faq.a}</p>
+          {#if faq.more}
+            <p class="faq-more"><a href={faq.more.href}>{faq.more.label}</a></p>
+          {/if}
+        </div>
       </div>
     {/each}
   </div>
+  <p class="faq-more">Found a problem? <a href={FEEDBACK_URL}>Report it on GitHub</a> (GitHub account required).
+    Include what happened, your browser and a replay link if available. Reports are public; leave out passwords and other private information.</p>
 </section>
 
 <style>
@@ -117,8 +132,13 @@
   .faq-icon { font-size: 1.2rem; color: var(--text-dim); flex-shrink: 0; margin-left: var(--sp-md); }
   .faq-item.open .faq-icon { color: var(--accent); }
 
+  .faq-h { margin: 0; font-size: inherit; font-weight: inherit; }
   .faq-a {
     padding: 0 var(--sp-lg) var(--sp-md);
     font-size: var(--fs-body); color: var(--text-dim); line-height: 1.7;
   }
+  .faq-a[hidden] { display: none; }
+  .faq-more { margin-top: var(--sp-sm); }
+  .faq-more a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .faq-more a:hover { text-decoration: underline; }
 </style>

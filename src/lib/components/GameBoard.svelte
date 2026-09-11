@@ -6,6 +6,8 @@
   import { PRESENTATION_TIMING } from '$lib/gamePresentation.js';
   import { play } from '$lib/sounds.js';
   import BoardView from './BoardView.svelte';
+  import { appearance } from '$lib/stores/appearance.js';
+  import { DEFAULT_PIECE_SKIN } from '../../../shared/pieceSkins.js';
 
   export let snapshot;
   export let recovery = 0;
@@ -13,6 +15,10 @@
   export let myColor = 'red';
   export let interactive = false;
   export let flip = myColor === 'black';
+  // Optional cap on the board edge in CSS pixels (the result state shrinks the board).
+  export let maxSize = null;
+  // Read-only for the parent: true once the bounded result reveal has settled.
+  export let resultVisible = false;
   const dispatch = createEventDispatcher();
   let mounted = false, reducedMotion = false, visible = true;
   let presentation = { snapshot: null, animation: null, busy: false, resultVisible: false };
@@ -25,6 +31,7 @@
   let renderedSnapshot = null;
 
   $: if (snapshot) controller.accept(snapshot, { recovery, orientation: flip, enabled: mounted && connected && visible && !reducedMotion });
+  $: resultVisible = presentation.resultVisible;
   $: if (presentation.snapshot && presentation.snapshot !== renderedSnapshot) {
     renderedSnapshot = presentation.snapshot;
     game = restoreGame(new CheckersGame(presentation.snapshot.turnTime), presentation.snapshot);
@@ -51,7 +58,7 @@
   onDestroy(() => controller.dispose());
 </script>
 
-<BoardView {game} {flip} {myColor} interactive={canInteract} animation={presentation.animation}
+<BoardView {game} {flip} {myColor} {maxSize} skin={$appearance.data?.skin?.palette ?? DEFAULT_PIECE_SKIN} interactive={canInteract} animation={presentation.animation}
   {selectedPiece} {validMoves} {lastMove} {lastMoveCaptured}
   on:select={select} on:deselect={deselect} on:move={event => dispatch('move', event.detail)}>
   <slot resultVisible={presentation.resultVisible} resultDuration={presentation.resultAnimated && !reducedMotion ? PRESENTATION_TIMING.result : 0} />

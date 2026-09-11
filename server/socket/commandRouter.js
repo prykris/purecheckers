@@ -1,14 +1,16 @@
 import { COMMAND_TTL_MS, PROTOCOL_VERSION } from '../../shared/protocol.js';
 import { CommandRejected } from '../domain/sessionCommands.js';
+import { enqueueSessionWork } from '../domain/sessionWork.js';
 
 // Transport reliability only. Domain services decide whether a command is legal.
 export function attachCommandTransport(socket, session, { serverId, publish, dispatch }) {
   socket.on('session:command', (request, ack) => {
     if (typeof ack !== 'function') return;
-    const task = (session.commands || Promise.resolve()).then(async () => {
+    const task = enqueueSessionWork([session], async () => {
       const response = result => ({ ...result, snapshot: publish(socket, socket.userId) });
       const fail = error => response({ ok: false, error });
       if (session.connectionId !== socket.id) return { ok: false, error: 'Session replaced' };
+      if (session.reconcilingConnectionId === socket.id) return { ok: false, error: 'Session recovery is incomplete. Reconnect to retry.' };
       if (request?.protocolVersion !== PROTOCOL_VERSION || request.serverId !== serverId) return fail('Server session changed. Please try again.');
       if (typeof request.id !== 'string' || !request.id || request.id.length > 80 || !Number.isFinite(request.createdAt) ||
           Math.abs(Date.now() - request.createdAt) > COMMAND_TTL_MS) return fail('Command expired. Please try again.');
@@ -30,7 +32,7 @@ export function attachCommandTransport(socket, session, { serverId, publish, dis
       session.receipts.set(request.id, { fingerprint, createdAt: request.createdAt, result });
       return response(result);
     });
-    session.commands = task.catch(error => console.error('Command transport failed:', error));
+    task.catch(error => console.error('Command transport failed:', error));
     task.then(ack).catch(() => ack({ ok: false, error: 'Recovery failed. Reconnect to retry.' }));
   });
 }

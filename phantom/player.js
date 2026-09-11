@@ -1,3 +1,6 @@
+import { filterRooms } from '../shared/roomList.js';
+import { CHAT_EVENTS } from '../shared/chat.js';
+import { randomUUID } from 'node:crypto';
 /**
  * PhantomPlayer — a single phantom's socket connection and game logic.
  *
@@ -238,7 +241,7 @@ export class PhantomPlayer {
     });
 
     // Global chat
-    s.on('chat:message', (msg) => {
+    s.on(CHAT_EVENTS.message, (msg) => {
       if (msg.channelId === 'global' || !msg.channelId) {
         this.recentChat.push({ username: msg.username, content: msg.content });
         if (this.recentChat.length > 10) this.recentChat.shift();
@@ -524,7 +527,7 @@ export class PhantomPlayer {
     }
 
     this.lastGameChatTime = now;
-    this.socket.emit('chat:send', { channelId: `game:${this.gameId}`, content: msg });
+    this.socket.emit(CHAT_EVENTS.send, { channelId: `game:${this.gameId}`, content: msg, clientMessageId: randomUUID() }, () => {});
   }
 
   _maybeEmote(situation) {
@@ -655,24 +658,15 @@ export class PhantomPlayer {
   sendChat(channelId, content) {
     if (!this.socket || !this.connected) return false;
     this.lastChatTime = Date.now();
-    this.socket.emit('chat:send', { channelId, content });
+    this.socket.emit(CHAT_EVENTS.send, { channelId, content, clientMessageId: randomUUID() }, () => {});
     return true;
   }
 
-  requestRoomList() {
-    return new Promise((resolve) => {
-      if (!this.socket || !this.connected) return resolve([]);
-      this.socket.emit('room:list', { filter: 'available' });
-      // room:list response comes as a callback or event — listen once
-      const handler = (data) => {
-        resolve(data.rooms || data || []);
-      };
-      this.socket.once('room:list', handler);
-      // Timeout fallback
-      setTimeout(() => {
-        this.socket.off('room:list', handler);
-        resolve([]);
-      }, 3000);
-    });
+  async requestRoomList() {
+    if (!this.socket || !this.connected) return [];
+    try {
+      const result = await this.socket.timeout(3000).emitWithAck('room:list', {});
+      return result.ok ? filterRooms(result.rooms, 'available') : [];
+    } catch { return []; }
   }
 }

@@ -1,10 +1,18 @@
+import { gameLogEntry } from '../services/gameLog.js';
+import { gameParticipants } from '../services/publicGames.js';
 import { Router } from 'express';
+import { playerGameResult } from '../../shared/gameResult.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { JWT_SECRET, JWT_EXPIRES_IN } from '../config.js';
 import { verifyToken } from '../middleware/auth.js';
-import { STARTER_COINS, ELO_START } from '../../shared/constants.js';
+import { applyIdentityChange } from '../domain/identity.js';
+import { publicUsername } from '../services/publicName.js';
+import { registerAccount, upgradeGuest, AccountError, assertActiveAccount, authorizeAccount } from '../services/accounts.js';
+import { ELO_START, GUEST_LIFETIME_MS, GUEST_TOKEN_RENEW_MS } from '../../shared/constants.js';
+import { updateProfilePrivacy } from '../services/profileSettings.js';
+import { EconomyError } from '../services/economy.js';
 
 const router = Router();
 
@@ -19,7 +27,7 @@ function signToken(user) {
   return jwt.sign(
     { userId: user.id, username: user.username, isGuest: user.isGuest || false },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    { expiresIn: user.isGuest ? Math.floor(GUEST_LIFETIME_MS / 1000) : JWT_EXPIRES_IN }
   );
 }
 
@@ -55,13 +63,12 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 12);
     const friendCode = generateFriendCode();
 
-    const user = await prisma.user.create({
-      data: { username, email, passwordHash, friendCode, coins: STARTER_COINS, peakElo: ELO_START }
-    });
+    const user = await registerAccount({ username, email, passwordHash, friendCode, peakElo: ELO_START });
 
     const token = signToken(user);
     res.status(201).json({ token, user: sanitizeUser(user) });
   } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Username or email already taken' });
     console.error('Register error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -84,6 +91,7 @@ router.post('/login', async (req, res) => {
     if (user.isGuest) {
       return res.status(400).json({ error: 'This is a guest account. Create a password first.' });
     }
+    assertActiveAccount(user);
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
@@ -98,56 +106,69 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/auth/me — works for both guests and registered users
+// GET /api/auth/me — works for both guests and registered users.
+// Renew aging tokens and replace obsolete identity claims after an upgrade/name
+// change. The database account remains authoritative even with an older token.
 router.get('/me', verifyToken, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.userId },
-      include: {
-        inventory: {
-          where: { equipped: true },
-          include: { item: true }
-        }
-      }
-    });
+    // One versioned User row. Inventory remains on its own shop endpoint.
+    let user = await prisma.user.findUnique({ where: { id: req.userId } });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json({ user: sanitizeUser(user) });
+    const body = { user: sanitizeUser(user) };
+    const renew = req.tokenExpiresAt !== null && req.tokenExpiresAt - Date.now() < GUEST_TOKEN_RENEW_MS;
+    const identityChanged = req.tokenIdentity.isGuest !== !!user.isGuest || req.tokenIdentity.username !== user.username;
+    if (renew || identityChanged) {
+      const current = await authorizeAccount(user.id, new Date(), { renew: true });
+      user = current;
+      body.user = sanitizeUser(user);
+      // Also repairs a conversion committed before live identity publication.
+      if (identityChanged) applyIdentityChange(user);
+      body.token = signToken(user);
+    }
+    res.json(body);
   } catch (err) {
     console.error('Me error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
+router.patch('/profile', verifyToken, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    res.json(await updateProfilePrivacy(req.userId, req.body));
+  } catch (err) {
+    if (err instanceof EconomyError) return res.status(err.status).json({ error: err.message });
+    console.error('Privacy update failed:', err.message);
+    res.status(503).json({ error: 'Could not confirm the privacy change. Refresh to check the current setting.' });
+  }
+});
+
 // GET /api/auth/history — works for both guests and registered users
 router.get('/history', verifyToken, async (req, res) => {
   try {
+    res.set('Cache-Control', 'no-store');
     const games = await prisma.game.findMany({
       where: { OR: [{ redPlayerId: req.userId }, { blackPlayerId: req.userId }] },
       orderBy: { startedAt: 'desc' },
       take: 20,
-      include: {
-        redPlayer: { select: { id: true, username: true } },
-        blackPlayer: { select: { id: true, username: true } },
-      }
+      include: gameParticipants
     });
     const history = games.map(g => {
       const isRed = g.redPlayerId === req.userId;
       const opponent = isRed ? g.blackPlayer : g.redPlayer;
       const eloChange = isRed ? g.redEloChange : g.blackEloChange;
       const coinsEarned = isRed ? g.redCoinsEarned : g.blackCoinsEarned;
-      const won = g.winnerId === req.userId;
-      const draw = g.result === 'DRAW';
       return {
-        id: g.id,
-        opponent: opponent.username,
+        ...gameLogEntry(g),
+        resultCode: g.result,
+        opponent: publicUsername(opponent.username),
         myColor: isRed ? 'red' : 'black',
-        result: draw ? 'draw' : won ? 'win' : 'loss',
+        result: playerGameResult(g.result, isRed ? 'red' : 'black'),
         eloChange,
         coinsEarned,
-        mode: g.mode,
-        date: g.startedAt,
       };
     });
     res.json({ games: history });
@@ -183,22 +204,18 @@ router.post('/upgrade', verifyToken, async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Update in-place — preserves game history, ELO, stats
-    const user = await prisma.user.update({
-      where: { id: req.userId },
-      data: {
-        username: name,
-        email,
-        passwordHash,
-        isGuest: false,
-        guestExpiresAt: null,
-        coins: { increment: STARTER_COINS },
-      }
-    });
+    // The transaction rechecks guest status after hashing/lock waits. A stale
+    // token or simultaneous request cannot award another starter grant.
+    const user = await upgradeGuest(req.userId, { username: name, email, passwordHash });
+
+    // The socket stays connected across an upgrade: refresh the live session's identity.
+    applyIdentityChange(user);
 
     const token = signToken(user);
     res.json({ token, user: sanitizeUser(user) });
   } catch (err) {
+    if (err instanceof AccountError) return res.status(err.status).json({ error: err.message });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Username or email already taken' });
     console.error('Upgrade error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }

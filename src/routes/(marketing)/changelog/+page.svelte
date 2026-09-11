@@ -1,6 +1,7 @@
 <script>
   // Release dates — each date gets a dot on the activity grid
   const releases = [
+    '2026-09-10', // Search-ready pages
     '2026-09-10', // Reliable sessions, navigation and animated gameplay
     '2026-04-06', '2026-04-06', '2026-04-06', '2026-04-06', // Sound, replays, navigation, SEO
     '2026-04-05', '2026-04-05', '2026-04-05', '2026-04-05', '2026-04-05', // Game intelligence, bots, guests, state, polish
@@ -71,6 +72,43 @@
       {/each}
     </div>
   </div>
+
+  <article class="release">
+    <div class="release-header"><h2>Daily Puzzles &amp; Sharing</h2><span>In development</span></div>
+    <ul>
+      <li><strong>Daily Practice</strong> — playable puzzles with hints, animated solutions, a UTC streak and free archive practice.</li>
+      <li><strong>Daily Reward</strong> — registered players earn one coin for their first eligible solve of today's puzzle. Revealed solutions and archives earn no coins.</li>
+      <li><strong>Saved Progress</strong> — pending puzzle attempts retry after reconnecting and stay separate when switching accounts.</li>
+      <li><strong>Share Your Game</strong> — results, replays, profiles, puzzles and invitations get share/copy controls and personalized preview images.</li>
+      <li><strong>Profile Privacy</strong> — hide your public profile and profile image while keeping your ranking and names in shared games.</li>
+    </ul>
+  </article>
+
+  <article class="release">
+    <div class="release-header"><h2>Discovery &amp; Responsive Bot Games</h2><span>In development</span></div>
+    <ul>
+      <li><strong>Public Rankings and Games</strong> — browse the leaderboard and replay recent human games from the site navigation.</li>
+      <li><strong>Automatic Sitemap</strong> — published strategy articles, eligible players and completed human games are included automatically.</li>
+      <li><strong>Consistent Move Numbers</strong> — replays, diagrams and puzzles share the same square notation.</li>
+      <li><strong>Background Bot Thinking</strong> — bot moves and move grading run in bounded background workers so their searches do not block player connections. Cancelled and outdated replies are discarded.</li>
+    </ul>
+  </article>
+
+  <article class="release">
+    <div class="release-header">
+      <h2>Search-Ready Pages</h2>
+      <time datetime="2026-09-10">10 September 2026</time>
+    </div>
+    <ul>
+      <li><strong>Valid Structured Data</strong> — the site, FAQ, player profile and replay schema now parse as real JSON-LD. Until today every block was emitted as source text, so Google never saw it.</li>
+      <li><strong>Share Previews</strong> — a proper Open Graph image, so links pasted into Discord, WhatsApp, X or LinkedIn show a card with the board.</li>
+      <li><strong>Honest Rules</strong> — the FAQ and How to Play now describe the rules the game actually plays: regular pieces capture in any direction, kings fly, and you choose which capture to take.</li>
+      <li><strong>Replay Pages</strong> — every game replay has a title, the result and a numbered move list in standard 1–32 notation. Bot games, guest-only games and short games are marked noindex.</li>
+      <li><strong>Spanish Page</strong> — <code>/es</code> is now the one address for the Spanish home page, with matching language links from the English one.</li>
+      <li><strong>Not Found Page</strong> — a branded 404 with links back instead of a bare error.</li>
+      <li><strong>Home Screen Icons</strong> — PNG icons for installing Pure Checkers on Android and iOS.</li>
+    </ul>
+  </article>
 
   <article class="release">
     <div class="release-header">

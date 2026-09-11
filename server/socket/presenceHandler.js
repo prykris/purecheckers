@@ -2,22 +2,29 @@
  * Presence — derived entirely from userState sessions.
  * No separate Maps, no manual status tracking.
  */
-import { getAllSessions } from '../domain/sessions.js';
+import { getAllSessions, getSession } from '../domain/sessions.js';
 
+export function getUserStatus(userId) {
+  const session = getSession(userId);
+  if (!session?.connectionId) return 'offline';
+  return session.phase === 'in-game' ? 'in-game' : 'online';
+}
+
+// Bots never hold a session, so every connected session is a human. `online` is kept
+// for compatibility and equals `humansOnline`; `searching` counts the quick-play queue
+// only (a waiting room is not a search). Both counts include the viewer.
 export function getStats() {
   const sessions = getAllSessions();
   let online = 0;
-  let lookingToPlay = 0;
+  let searching = 0;
 
   for (const session of sessions.values()) {
     if (session.connectionId) {
       online++;
-      if (session.phase === 'matchmaking' || session.phase === 'in-room') {
-        lookingToPlay++;
-      }
+      if (session.phase === 'matchmaking') searching++;
     }
   }
-  return { online, lookingToPlay };
+  return { online, humansOnline: online, searching };
 }
 
 export function broadcastStats(io) {

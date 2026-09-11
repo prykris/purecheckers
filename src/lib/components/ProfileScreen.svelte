@@ -1,37 +1,36 @@
 <script>
+  import { page } from '$app/state';
+  import { goto } from '$app/navigation';
+  import { safeReturnTo } from '$lib/siteNavigation.js';
+  import PlayerLink from './PlayerLink.svelte';
+  import { onMount } from 'svelte';
   import { browseTo } from '$lib/stores/navigation.js';
-  import { user, token } from '$lib/stores/user.js';
-  import { browseTab } from '$lib/stores/app.js';
-  import { api } from '$lib/api.js';
+  import { user, captureSession, isCurrentSession, clearSession } from '$lib/stores/user.js';
+  import { openUpgradeSheet } from '$lib/stores/ui.js';
+  import ShopScreen from './ShopScreen.svelte';
   import GameLog from './GameLog.svelte';
-
-
-  // Guest upgrade form
-  let upgradeEmail = '';
-  let upgradePassword = '';
-  let upgradeName = '';
-  let upgradeError = '';
-  let upgrading = false;
-
-  async function upgrade() {
-    upgradeError = '';
-    if (!upgradeEmail || !upgradePassword) { upgradeError = 'Email and password required'; return; }
-    if (upgradePassword.length < 6) { upgradeError = 'Password must be at least 6 characters'; return; }
-    upgrading = true;
-    try {
-      const data = await api.post('/auth/upgrade', {
-        email: upgradeEmail,
-        password: upgradePassword,
-        username: upgradeName || undefined
-      });
-      $token = data.token;
-      $user = data.user;
-      upgradeError = '';
-
-    } catch (err) {
-      upgradeError = err?.message || 'Something went wrong';
-    }
-    upgrading = false;
+  import ShareActions from './ShareActions.svelte';
+  import { api, refreshSession } from '$lib/api.js';
+  import { ProfileSettingsClient } from '$lib/profileSettingsClient.js';
+  import { withDeadline } from '$lib/actions/deadline.js';
+  import { FEEDBACK_URL } from '../../../shared/feedback.js';
+  let privacy;
+  const settings = new ProfileSettingsClient({ readProfile: () => $user, capture: captureSession, isCurrent: isCurrentSession,
+    write: (body, scope) => withDeadline(signal => api.patch('/auth/profile', body, { signal, authToken: scope.token }), 'Privacy confirmation timed out. Refresh to check the current setting.'),
+    refresh: refreshSession, publish: value => { privacy = value; } });
+  onMount(() => {
+    let generation;
+    const unsubscribe = user.subscribe(() => {
+      const next = captureSession().generation;
+      if (next !== generation) { generation = next; settings.reset(); }
+    });
+    return () => { unsubscribe(); settings.dispose(); };
+  });
+  function changePrivacy(event) {
+    const profilePublic = event.currentTarget.checked;
+    // Display the confirmed setting while the request is pending.
+    event.currentTarget.checked = $user?.profilePublic !== false;
+    void settings.change(profilePublic);
   }
 
   $: winRate = $user?.gamesPlayed > 0 ? Math.round(($user.wins / $user.gamesPlayed) * 100) : 0;
@@ -39,16 +38,14 @@
   $: avatarHue = ($user?.username || '').split('').reduce((h, c) => h + c.charCodeAt(0), 0) % 360;
   $: memberSince = $user?.createdAt ? new Date($user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '';
 
-
   function logout() {
-    $token = null; $user = null;
+    clearSession();
   }
-
 </script>
 
 <div class="profile-layout">
   <div class="profile-content">
-    <button class="back-btn" on:click={() => browseTo('lobby')}>
+    <button class="back-btn" on:click={() => goto(safeReturnTo(page.state.returnTo))}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
       Back
     </button>
@@ -58,7 +55,7 @@
       <div class="avatar" style="background: hsl({avatarHue}, 45%, 35%)">
         <span>{initials}</span>
       </div>
-      <h2 class="username">{$user?.username || 'Player'}</h2>
+      <h2 class="username"><PlayerLink username={$user?.username} profilePublic={$user?.profilePublic} /></h2>
       {#if $user?.isGuest}
         <span class="guest-tag">Guest</span>
       {:else if memberSince}
@@ -68,16 +65,9 @@
 
     {#if $user?.isGuest}
       <div class="card upgrade-card">
-        <h3>Create an Account</h3>
-        <p class="upgrade-hint">Keep your progress, earn ELO, and unlock rewards.</p>
-        {#if upgradeError}<p class="upgrade-error">{upgradeError}</p>{/if}
-        <input class="input" type="text" placeholder="Username (keep current if empty)" bind:value={upgradeName} />
-        <input class="input" type="email" placeholder="Email" bind:value={upgradeEmail} />
-        <input class="input" type="password" placeholder="Password (6+ chars)" bind:value={upgradePassword}
-          on:keydown={(e) => e.key === 'Enter' && upgrade()} />
-        <button class="btn btn-primary full-w" on:click={upgrade} disabled={upgrading}>
-          {upgrading ? 'Creating...' : 'Create Account'}
-        </button>
+        <h3>Keep <PlayerLink username={$user.username} profilePublic={$user.profilePublic} /></h3>
+        <p class="upgrade-hint">Save an account to keep your name, your game history and your rating. Guest names expire.</p>
+        <button class="btn btn-primary full-w" on:click={openUpgradeSheet}>Save account</button>
       </div>
     {/if}
 
@@ -121,6 +111,23 @@
 
     <GameLog mode="personal" />
 
+    <section class="card privacy" aria-labelledby="profile-privacy-title" aria-busy={privacy.busy}>
+      <h3 id="profile-privacy-title">Public profile</h3>
+      <label><input type="checkbox" checked={$user?.profilePublic !== false} disabled={privacy.busy || privacy.needsRefresh || !$user} on:change={changePrivacy} /> Allow people to view my profile</label>
+      <p>Turning this off hides your profile and its preview image. Your name and ranking remain on the leaderboard, and your name remains in shared games.</p>
+      {#if privacy.busy}<p role="status">Checking your privacy setting…</p>{/if}
+      {#if privacy.error}<p role="alert">{privacy.error}</p>{/if}
+      {#if privacy.success}<p role="status">{privacy.success}</p>{/if}
+      {#if privacy.needsRefresh}<button class="btn btn-dark btn-small" disabled={privacy.busy} on:click={() => settings.refresh()}>Refresh account</button>{/if}
+      {#if $user?.profilePublic !== false}<ShareActions surface="profile" url={'/player/' + encodeURIComponent($user?.username ?? '')} data={{ ...$user, ownProfile: true }} label="Share my profile" />{/if}
+    </section>
+
+    <section class="card appearance" aria-labelledby="appearance-title">
+      <h3 id="appearance-title">Appearance</h3>
+      <ShopScreen appearanceOnly />
+    </section>
+    <a href={FEEDBACK_URL}>Report a problem on GitHub</a>
+
     <button class="btn btn-dark treasury-btn" on:click={() => browseTo('treasury')}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       Community Treasury
@@ -130,14 +137,17 @@
 </div>
 
 <style>
+  .privacy { width: 100%; display: grid; gap: var(--sp-sm); }
+  .privacy label { min-height: 44px; display: flex; align-items: center; gap: var(--sp-sm); }
+  .privacy p { font-size: var(--fs-caption); color: var(--text-dim); line-height: 1.7; }
   .profile-layout {
-    position: fixed; inset: 0;
+    position: absolute; inset: 0;
     display: flex; align-items: flex-start; justify-content: center;
     background: linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg) 30%);
     padding: var(--sp-md);
     padding-top: max(var(--sp-md), env(safe-area-inset-top));
-    padding-bottom: calc(var(--tab-height) + var(--sp-md) + env(safe-area-inset-bottom, 0px));
-    overflow-y: auto;
+    padding-bottom: var(--sp-md);
+    overflow-y: auto; overflow-x: hidden;
   }
   .back-btn {
     align-self: flex-start;
@@ -173,9 +183,11 @@
     padding: var(--sp-lg); border-color: var(--accent2);
   }
   .upgrade-card h3 { font-size: var(--fs-body); text-align: center; }
-  .upgrade-hint { font-size: var(--fs-caption); color: var(--text-dim); text-align: center; }
-  .upgrade-error { font-size: var(--fs-caption); color: var(--accent); text-align: center; }
-  .full-w { width: 100%; }
+  .upgrade-hint { font-size: var(--fs-caption); color: var(--text-dim); text-align: center; line-height: 1.45; }
+  .full-w { width: 100%; min-height: 44px; }
+
+  .appearance { width: 100%; display: flex; flex-direction: column; gap: var(--sp-sm); }
+  .appearance h3 { font-size: var(--fs-caption); color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
 
   .stats-grid {
     display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-sm);

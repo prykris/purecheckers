@@ -20,11 +20,19 @@ export const ELO_NEW_THRESHOLD = 30;  // games before K drops
 export const MATCHMAKING_BASE_WINDOW = 100;
 export const MATCHMAKING_WINDOW_GROWTH = 50;  // per 10 seconds
 export const MATCHMAKING_MAX_WINDOW = 500;
+export const MATCHMAKING_BOT_FALLBACK_MS = 20000; // searching this long with company opens "play a bot instead"; immediate when nobody else is online
+
+// ---- Session ----
+export const GAME_OVER_LINGER_MS = 180000;      // finished game stays open for its players before the server force-idles them
+export const GUEST_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;   // guest JWT and guestExpiresAt; slides on every persisted game
+export const GUEST_TOKEN_RENEW_MS = 3 * 24 * 60 * 60 * 1000; // /api/auth/me re-issues a guest token under this much life left
 
 // ---- Economy: Faucets (coins entering) ----
 export const STARTER_COINS = 5;           // given on registration
 export const COINS_RANKED_WIN = 10;       // base reward for ranked win
-export const COINS_BOT_WIN = 5;           // reward for beating the bot
+export const COINS_BOT_WIN = 5;           // reward for beating the bot (guests included)
+export const PUZZLE_SOLVE_COINS = 1;      // registered player's first eligible solve of today's UTC puzzle
+export const BOT_WIN_DAILY_CAP = 3;       // bot-win rewards per user per UTC day
 export const COINS_LOSS = 2;              // consolation for losing
 export const DAILY_BOUNTY_AMOUNT = 2;     // first win of day (from vault)
 

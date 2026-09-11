@@ -10,8 +10,11 @@ export function parseLocation(href) {
     const id = Number(url.searchParams.get('id'));
     if (Number.isSafeInteger(id)) return { kind: 'replay', id };
   }
-  const invite = path.match(/^\/join\/([A-Za-z2-9]{6})$/);
+  // The scannable image and the SSR /join page both land here; /join itself is a marketing route.
+  const invite = path.match(/^\/invite\/([A-Za-z2-9]{6})$/);
   if (invite) return { kind: 'invite', code: invite[1].toUpperCase() };
+  const challenge = path.match(/^\/challenge\/([1-9]\d*)$/);
+  if (challenge && Number.isSafeInteger(Number(challenge[1]))) return { kind: 'challenge', userId: Number(challenge[1]) };
   return { kind: 'browse', tab: 'lobby', invalid: !['', '/auth', '/lobby'].includes(path) };
 }
 

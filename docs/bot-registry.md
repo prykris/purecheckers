@@ -2,6 +2,10 @@
 
 The source of truth is server/domain/botRegistry.js. Each entry has a permanent key, a default username, an initial rating and AI search depth. Never reuse a key for a different bot.
 
+## Presentation
+
+Each entry also carries `displayName`, `tagline` and `avatar` (an emoji): Easy is "Pip" (learning the ropes), Medium is "Marge" (solid and patient), Hard is "The Colonel" (does not forgive blunders). These are presentation only. The account usernames stay `Bot Easy`, `Bot Medium` and `Bot Hard`; replays, player pages and the database keep using them. Bot emotes are sent under the display name (`getBotDisplayName`), and `GET /api/bots` serves the roster as `{ bots: [{ key, difficulty, displayName, tagline, avatar, rating, wins, losses, gamesPlayed }] }`, reading the record from the bot User rows without provisioning any account. Bot games are `FRIENDLY`, so `rating` is the fixed registry rating in practice.
+
 Both prisma/seed.js and runtime bot lookup call server/services/botAccounts.js. Challenge and Add Bot provision only the requested account, so running the seed is optional for gameplay. Seeding provisions every registry entry and does not reset existing ratings, balances or statistics.
 
 User.botKey is nullable and unique. Account identity is independent of the display name. Existing seeded accounts are attached to a key only when their name matches and they are already bots without credentials, guest status or administrator privileges. A conflicting human or privileged account produces an error; provisioning never converts or overwrites it. Existing IDs and game history are preserved.

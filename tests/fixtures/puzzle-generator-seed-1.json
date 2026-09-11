@@ -1,0 +1,99 @@
+{
+  "positionHash": "...bM.bM.bMbM.....bM..bM.bM...bMrM.....bM..bM......rM.....rM....rM.rM.rMrM.rM.rM.rM.red",
+  "solution": [
+    {
+      "fromRow": 5,
+      "fromCol": 0,
+      "toRow": 1,
+      "toCol": 4,
+      "hops": [
+        {
+          "fromRow": 5,
+          "fromCol": 0,
+          "toRow": 3,
+          "toCol": 2
+        },
+        {
+          "fromRow": 3,
+          "fromCol": 2,
+          "toRow": 1,
+          "toCol": 4
+        }
+      ],
+      "captured": [
+        {
+          "row": 4,
+          "col": 1,
+          "color": "black",
+          "queen": false
+        },
+        {
+          "row": 2,
+          "col": 3,
+          "color": "black",
+          "queen": false
+        }
+      ],
+      "promoted": false
+    },
+    {
+      "fromRow": 0,
+      "fromCol": 5,
+      "toRow": 2,
+      "toCol": 3,
+      "hops": [
+        {
+          "fromRow": 0,
+          "fromCol": 5,
+          "toRow": 2,
+          "toCol": 3
+        }
+      ],
+      "captured": [
+        {
+          "row": 1,
+          "col": 4,
+          "color": "red",
+          "queen": false
+        }
+      ],
+      "promoted": false
+    },
+    {
+      "fromRow": 3,
+      "fromCol": 0,
+      "toRow": 3,
+      "toCol": 4,
+      "hops": [
+        {
+          "fromRow": 3,
+          "fromCol": 0,
+          "toRow": 1,
+          "toCol": 2
+        },
+        {
+          "fromRow": 1,
+          "fromCol": 2,
+          "toRow": 3,
+          "toCol": 4
+        }
+      ],
+      "captured": [
+        {
+          "row": 2,
+          "col": 1,
+          "color": "black",
+          "queen": false
+        },
+        {
+          "row": 2,
+          "col": 3,
+          "color": "black",
+          "queen": false
+        }
+      ],
+      "promoted": false
+    }
+  ],
+  "generatorVersion": "1.2.3"
+}

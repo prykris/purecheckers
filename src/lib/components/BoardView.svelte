@@ -1,6 +1,11 @@
 <script>
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+  import { DEFAULT_PIECE_SKIN } from '../../../shared/pieceSkins.js';
+  import { drawCanvasPiece } from '$lib/canvasPiece.js';
+  import { nextBoardSquare } from '$lib/boardKeyboard.js';
+  import { squareNumber } from '../../../shared/notation.js';
 
+  export let skin = DEFAULT_PIECE_SKIN;
   export let game;           // CheckersGame instance
   export let flip = false;   // view from black's perspective
   export let myColor = 'red';
@@ -10,6 +15,7 @@
   export let lastMoveCaptured = [];
   export let interactive = true;
   export let animation = null;
+  export let maxSize = null; // optional cap on the board edge, in CSS pixels
   $: animating = !!animation;
 
   const dispatch = createEventDispatcher();
@@ -20,6 +26,7 @@
   let boardTextureCanvas = null;
   let hoveredCell = null;
   let drag = null;
+  let keyboardGrid, focusSquare = 1;
 
   export function resize() { resizeBoard(); }
   export function redraw() { drawBoard(); }
@@ -29,6 +36,9 @@
     resizeBoard();
     window.addEventListener('resize', resizeBoard);
     window.visualViewport?.addEventListener('resize', resizeBoard);
+    const observer = new MutationObserver(() => { generateBoardTexture(); drawBoard(); });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    return () => observer.disconnect();
   });
 
   onDestroy(() => {
@@ -37,7 +47,9 @@
   });
 
   // Redraw when props change
-  $: if (ctx && game) { flip; animation; selectedPiece; validMoves; lastMove; lastMoveCaptured; interactive; drawBoard(); }
+  $: if (ctx && game) { skin; flip; animation; selectedPiece; validMoves; lastMove; lastMoveCaptured; interactive; drawBoard(); }
+  // Resize when the cap changes (game over shrinks the board to make room for the result sheet)
+  $: if (ctx) { maxSize; resizeBoard(); }
 
   function resizeBoard() {
     const vw = window.innerWidth;
@@ -48,6 +60,7 @@
     else if (vw >= 600) { maxW = Math.min(vw - 24, 560); maxH = vh - chromeH; cap = 560; }
     else { maxW = vw - 16; maxH = vh - chromeH; cap = 480; }
     BOARD_PX = Math.min(maxW, maxH, cap);
+    if (Number.isFinite(maxSize) && maxSize > 0) BOARD_PX = Math.min(BOARD_PX, maxSize);
     BOARD_PX = Math.max(BOARD_PX, 200);
     CELL = BOARD_PX / 8;
     if (canvasEl) { canvasEl.width = BOARD_PX; canvasEl.height = BOARD_PX; generateBoardTexture(); drawBoard(); }
@@ -76,32 +89,7 @@
   }
 
   // ---- Drawing ----
-  function drawPiece(px, py, color, isQueen, alpha = 1, scale = 1) {
-    const r = CELL * 0.38;
-    ctx.save();
-    ctx.translate(px, py); ctx.scale(scale, scale); ctx.translate(-px, -py);
-    if (alpha !== undefined && alpha < 1) ctx.globalAlpha = alpha;
-    ctx.beginPath(); ctx.ellipse(px + 1, py + 3, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(px, py + 2, r, 0, Math.PI * 2); ctx.fillStyle = color === 'red' ? '#b91c1c' : '#1a1a1a'; ctx.fill();
-    const g = ctx.createRadialGradient(px - r * 0.3, py - r * 0.3, r * 0.1, px, py, r);
-    if (color === 'red') { g.addColorStop(0, '#f87171'); g.addColorStop(0.7, '#ef4444'); g.addColorStop(1, '#dc2626'); }
-    else { g.addColorStop(0, '#57534e'); g.addColorStop(0.7, '#3d3530'); g.addColorStop(1, '#1c1917'); }
-    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
-    ctx.strokeStyle = color === 'red' ? '#991b1b' : '#44403c'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.beginPath(); ctx.arc(px, py, r * 0.65, 0, Math.PI * 2);
-    ctx.strokeStyle = color === 'red' ? 'rgba(252,165,165,0.3)' : 'rgba(168,162,158,0.2)'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(px - r * 0.15, py - r * 0.2, r * 0.3, r * 0.15, -0.3, 0, Math.PI * 2);
-    ctx.fillStyle = color === 'red' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)'; ctx.fill();
-    if (isQueen) {
-      const cw = r * 0.55, ch = r * 0.35, cy = py - ch * 0.1;
-      ctx.beginPath(); ctx.moveTo(px - cw, cy + ch * 0.4); ctx.lineTo(px - cw, cy - ch * 0.3); ctx.lineTo(px - cw * 0.5, cy + ch * 0.1);
-      ctx.lineTo(px, cy - ch * 0.5); ctx.lineTo(px + cw * 0.5, cy + ch * 0.1); ctx.lineTo(px + cw, cy - ch * 0.3); ctx.lineTo(px + cw, cy + ch * 0.4); ctx.closePath();
-      const cg = ctx.createLinearGradient(px, cy - ch * 0.5, px, cy + ch * 0.4);
-      cg.addColorStop(0, '#ffe066'); cg.addColorStop(1, '#b8860b');
-      ctx.fillStyle = cg; ctx.fill(); ctx.strokeStyle = '#8B6914'; ctx.lineWidth = 0.5; ctx.stroke();
-    }
-    ctx.restore();
-  }
+  function drawPiece(...args) { drawCanvasPiece(ctx, CELL, skin, ...args); }
 
   function drawBoard() {
     if (!ctx || !game) return;
@@ -209,6 +197,10 @@
     let col = Math.floor((e.clientX - rect.left) * 8 / rect.width);
     let row = Math.floor((e.clientY - rect.top) * 8 / rect.height);
     if (flip) { row = 7 - row; col = 7 - col; }
+    activateSquare(row, col);
+  }
+  function activateSquare(row, col) {
+    if (!interactive || !game || game.gameOver || animating || game.currentPlayer !== myColor) return;
     const mt = validMoves.find(m => m.toRow === row && m.toCol === col);
     if (mt && selectedPiece) {
       dispatch('move', { fromRow: selectedPiece.row, fromCol: selectedPiece.col, toRow: row, toCol: col });
@@ -222,6 +214,14 @@
     } else {
       dispatch('deselect');
     }
+  }
+
+  function keydown(event, row, col) {
+    if (event.key === 'Escape') { event.preventDefault(); dispatch('deselect'); return; }
+    const next = nextBoardSquare(row, col, event.key, flip);
+    if (!next) return;
+    event.preventDefault(); focusSquare = squareNumber(next.row, next.col);
+    keyboardGrid.querySelector(`[data-square="${focusSquare}"]`)?.focus();
   }
 
   function onMouseMove(e) {
@@ -238,16 +238,39 @@
   }
 </script>
 
-<div class="board-wrap" data-stage={animation?.stage || 'settled'} data-progress={animation?.movement ?? 1}>
-  <canvas bind:this={canvasEl} width="480" height="480"
+<div class="board-wrap" class:finished={game.gameOver} data-stage={animation?.stage || 'settled'} data-progress={animation?.movement ?? 1}>
+  <canvas bind:this={canvasEl} width="480" height="480" aria-hidden="true"
     on:pointerdown={pointerDown} on:pointermove={pointerMove} on:pointerup={pointerUp}
     on:pointercancel={() => { drag = null; drawBoard(); }}
     on:mouseleave={() => { hoveredCell = null; if (canvasEl) canvasEl.style.cursor = 'default'; if (!animating) drawBoard(); }}></canvas>
+  <div class="keyboard-grid" bind:this={keyboardGrid} role="group" aria-label="Checkers board. Arrow keys move focus; Enter or Space selects a piece or destination. Escape clears selection.">
+    {#each { length: 8 } as _, vr}
+      {#each { length: 8 } as _, vc}
+        {@const row = flip ? 7 - vr : vr}
+        {@const col = flip ? 7 - vc : vc}
+        {@const n = squareNumber(row, col)}
+        {@const piece = game.board[row][col]}
+        {@const selected = selectedPiece?.row === row && selectedPiece?.col === col}
+        {#if n}
+          <button type="button" class="keyboard-square" data-square={n} data-focus-fallback={focusSquare === n ? '' : undefined}
+            tabindex={focusSquare === n ? 0 : -1} aria-pressed={selected} aria-disabled={!interactive}
+            aria-label={`Square ${n}: ${piece ? `${piece.color} ${piece.queen ? 'king' : 'man'}` : 'empty'}${validMoves.some(m => m.toRow === row && m.toCol === col) ? ', legal destination' : ''}`}
+            on:focus={() => focusSquare = n} on:click={() => activateSquare(row, col)} on:keydown={event => keydown(event, row, col)}></button>
+        {:else}<span aria-hidden="true"></span>{/if}
+      {/each}
+    {/each}
+  </div>
+  <p class="sr-only" role="status">{game.gameOver ? 'Game ended.' : !interactive ? 'Waiting for your turn or server confirmation.' : game.chainPiece ? 'Continue capturing with the same piece.' : selectedPiece ? 'Choose a legal destination.' : `${game.currentPlayer} to move. Select a piece.`}</p>
   <slot />
 </div>
 
 <style>
   .board-wrap { position: relative; touch-action: none; }
+  .board-wrap.finished, .finished canvas { touch-action: pan-y; }
+  .keyboard-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); pointer-events: none; }
+  .keyboard-square { padding: 0; background: transparent; border: 0; min-width: 0; min-height: 0; pointer-events: none; }
+  .keyboard-square:focus-visible { outline: 3px solid var(--gold, #ffd166); outline-offset: -4px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   canvas {
     display: block; border-radius: var(--radius-sm); cursor: pointer; box-shadow: var(--shadow-board);
     -webkit-tap-highlight-color: transparent;

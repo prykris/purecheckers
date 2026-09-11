@@ -1,23 +1,69 @@
 <script>
+  import SiteAccount from '$lib/components/SiteAccount.svelte';
+  import GameEntryLink from '$lib/components/GameEntryLink.svelte';
+  import { page } from '$app/state';
+  import JsonLd from '$lib/components/JsonLd.svelte';
+  import { FEEDBACK_URL } from '../../../shared/feedback.js';
+
   let { children } = $props();
   const siteUrl = "https://purecheckers.com";
   let menuOpen = $state(false);
+
+  // Pages override the share image and type from their load functions
+  // (data.ogImage / data.ogType); the layout emits exactly one of each.
+  const ogImage = $derived(page.data?.ogImage ?? `${siteUrl}/og-image.png`);
+  const ogType = $derived(page.data?.ogType ?? 'website');
+  const ogImageAlt = $derived(page.data?.ogImageAlt ?? 'Pure Checkers — free online checkers board');
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${siteUrl}/#website`,
+    "url": `${siteUrl}/`,
+    "name": "Pure Checkers",
+    "inLanguage": ["en", "es"],
+    "publisher": { "@id": `${siteUrl}/#organization` },
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": `${siteUrl}/player/{search_term_string}`
+      },
+      "query-input": "required name=search_term_string"
+    }
+  };
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${siteUrl}/#organization`,
+    "name": "Pure Checkers",
+    "url": `${siteUrl}/`,
+    "logo": {
+      "@type": "ImageObject",
+      "url": `${siteUrl}/logo.png`,
+      "width": 512,
+      "height": 512
+    },
+    "sameAs": []
+  };
 </script>
 
 <svelte:head>
   <meta property="og:site_name" content="Pure Checkers" />
-  <meta property="og:type" content="website" />
-  <meta property="og:image" content="{siteUrl}/og-image.png" />
+  <meta property="og:type" content={ogType} />
+  <meta property="og:image" content={ogImage} />
+  <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:locale" content="en_US" />
+  <meta property="og:image:alt" content={ogImageAlt} />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="{siteUrl}/og-image.png" />
+  <meta name="twitter:image" content={ogImage} />
+  <meta name="twitter:image:alt" content={ogImageAlt} />
   <meta name="theme-color" content="#1c1917" />
-  <link rel="alternate" hreflang="en" href="{siteUrl}/" />
-  <link rel="alternate" hreflang="es" href="{siteUrl}/es/" />
-  <link rel="alternate" hreflang="x-default" href="{siteUrl}/" />
 </svelte:head>
+
+<JsonLd data={websiteSchema} />
+<JsonLd data={organizationSchema} />
 
 <!-- Mobile hamburger (floating top-right) -->
 <header class="mobile-header">
@@ -62,24 +108,23 @@
 
 <!-- Mobile menu overlay -->
 {#if menuOpen}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="menu-overlay" onclick={() => (menuOpen = false)}></div>
+  <button type="button" class="menu-overlay" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
   <nav class="mobile-menu" aria-label="Mobile navigation">
     <a href="/" onclick={() => (menuOpen = false)}>Home</a>
     <a href="/#features" onclick={() => (menuOpen = false)}>Features</a>
     <a href="/#how-to-play" onclick={() => (menuOpen = false)}>How to Play</a>
-    <a href="/blog" onclick={() => (menuOpen = false)}>Blog</a>
+    <a href="/puzzle" onclick={() => (menuOpen = false)}>Daily Puzzle</a>
     <a href="/strategy" onclick={() => (menuOpen = false)}>Strategy</a>
+    <a href="/leaderboard" onclick={() => (menuOpen = false)}>Leaderboard</a>
+    <a href="/games" onclick={() => (menuOpen = false)}>Recent games</a>
     <a href="/faq" onclick={() => (menuOpen = false)}>FAQ</a>
     <a href="/changelog" onclick={() => (menuOpen = false)}>Changelog</a>
     <hr />
     <div class="mobile-lang">
       <a href="/" onclick={() => (menuOpen = false)}>EN</a>
-      <a href="/es/" onclick={() => (menuOpen = false)}>ES</a>
+      <a href="/es" onclick={() => (menuOpen = false)}>ES</a>
     </div>
-    <a href="/auth" class="mobile-play" onclick={() => (menuOpen = false)}
-      >Play Now</a
-    >
+    <GameEntryLink class="mobile-play" onclick={() => menuOpen = false} />
   </nav>
 {/if}
 
@@ -156,25 +201,9 @@
       <hr class="sidebar-divider" />
 
       <span class="sidebar-label">Explore</span>
-      <a href="/blog" class="sidebar-link">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          width="18"
-          height="18"
-          ><path
-            d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-          /><polyline points="14 2 14 8 20 8" /><line
-            x1="16"
-            y1="13"
-            x2="8"
-            y2="13"
-          /><line x1="16" y1="17" x2="8" y2="17" /></svg
-        >
-        Blog & News
-      </a>
+      <a href="/puzzle" class="sidebar-link">Daily Puzzle</a>
+      <a href="/leaderboard" class="sidebar-link">Leaderboard</a>
+      <a href="/games" class="sidebar-link">Recent games</a>
       <a href="/changelog" class="sidebar-link">
         <svg
           viewBox="0 0 24 24"
@@ -220,15 +249,16 @@
     </div>
 
     <div class="sidebar-bottom">
-      <a href="/auth" class="sidebar-btn">Play Now</a>
+      <GameEntryLink class="sidebar-btn" />
       <div class="sidebar-lang">
         <a href="/">EN</a>
-        <a href="/es/">ES</a>
+        <a href="/es">ES</a>
       </div>
     </div>
   </nav>
 
   <main class="marketing-main">
+    <SiteAccount language={page.url.pathname === '/es' ? 'es' : null} />
     {@render children()}
 
     <footer class="mkt-footer">
@@ -243,13 +273,16 @@
           <a href="/">Home</a>
           <a href="/#features">Features</a>
           <a href="/#how-to-play">How to Play</a>
-          <a href="/blog">Blog</a>
+          <a href="/puzzle">Daily Puzzle</a>
           <a href="/strategy">Strategy</a>
+          <a href="/leaderboard">Leaderboard</a>
+          <a href="/games">Recent games</a>
           <a href="/faq">FAQ</a>
           <a href="/changelog">Changelog</a>
+          <a href={FEEDBACK_URL}>Report a problem</a>
         </div>
         <div class="mkt-footer-lang">
-          <a href="/">English</a> · <a href="/es/">Español</a>
+          <a href="/">English</a> · <a href="/es">Español</a>
         </div>
         <p class="mkt-footer-copy">
           &copy; {new Date().getFullYear()} Pure Checkers. All rights reserved.
@@ -346,7 +379,7 @@
     font-size: var(--fs-caption);
     font-weight: 600;
   }
-  .mobile-play {
+  :global(.mobile-play) {
     display: block;
     text-align: center;
     padding: var(--sp-sm);
@@ -447,7 +480,7 @@
     gap: var(--sp-sm);
     margin-top: var(--sp-md);
   }
-  .sidebar-btn {
+  :global(.sidebar-btn) {
     display: block;
     text-align: center;
     padding: var(--sp-sm);
@@ -461,7 +494,7 @@
       transform 0.15s,
       box-shadow 0.15s;
   }
-  .sidebar-btn:hover {
+  :global(.sidebar-btn):hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
   }

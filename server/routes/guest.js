@@ -2,6 +2,7 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../db.js';
 import { JWT_SECRET } from '../config.js';
+import { GUEST_LIFETIME_MS } from '../../shared/constants.js';
 import { generateFriendCode } from './auth.js';
 
 const router = Router();
@@ -45,7 +46,9 @@ router.post('/', async (req, res) => {
       }
 
       const friendCode = generateFriendCode();
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+      // Seven days, sliding: every persisted game extends guestExpiresAt (persistResult)
+      // and /api/auth/me re-issues the token when it is running low.
+      const expiresAt = new Date(Date.now() + GUEST_LIFETIME_MS);
 
       const user = await prisma.user.create({
         data: {
@@ -61,7 +64,7 @@ router.post('/', async (req, res) => {
       const token = jwt.sign(
         { userId: user.id, username: user.username, isGuest: true },
         JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: Math.floor(GUEST_LIFETIME_MS / 1000) }
       );
 
       return res.status(201).json({ token, user: sanitizeUser(user) });

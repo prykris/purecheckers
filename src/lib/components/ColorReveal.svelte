@@ -1,4 +1,5 @@
 <script>
+  import PlayerLink from './PlayerLink.svelte';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { REVEAL_TIMING, wheelRotation } from '$lib/colorReveal.js';
 
@@ -28,6 +29,7 @@
     finish();
   }
   function onKeyDown(event) {
+    if (event.target?.closest('a, dialog')) return;
     if ([' ', 'Enter', 'Escape'].includes(event.key)) { event.preventDefault(); skip(); }
   }
 
@@ -68,7 +70,7 @@
   {#if failed}
     <button class="btn btn-primary btn-small" on:click={() => dispatch('done')}>Continue</button>
   {:else if waiting || reported}
-    <p class="waiting">Waiting for {opponentName}…</p>
+    <p class="waiting">Waiting for <PlayerLink username={opponentName} />…</p>
   {:else}
     <button class="skip-btn" on:click={skip}>Skip <span class="skip-hint">Space</span></button>
   {/if}

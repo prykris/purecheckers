@@ -21,6 +21,7 @@ const accept = value => transport.receive('sync:state', value);
 describe('session recovery coordinator', () => {
   it('gates input until the first complete snapshot and exposes an immutable snapshot', async () => {
     expect((await client.send('room:create')).ok).toBe(false);
+    expect(published.at(-1).error).toBe('Waiting for the server connection');
     accept(snapshot()); expect(client.state.status).toBe('ready');
     expect(Object.isFrozen(client.state.snapshot)).toBe(true); expect(Object.isFrozen(client.state.snapshot.context)).toBe(true);
   });
@@ -50,6 +51,7 @@ describe('session recovery coordinator', () => {
   it('prevents a second command while confirmation is pending and never predicts the phase', async () => {
     accept(snapshot()); client.send('room:create');
     expect((await client.send('matchmaking:join')).ok).toBe(false); expect(transport.commands()).toHaveLength(1);
+    expect(published.at(-1).error).toBe('A request is still being confirmed');
     expect(client.state.snapshot.phase).toBe('idle');
   });
   it('keeps pending intent across disconnect, waits for recovery and ignores old acknowledgements', async () => {

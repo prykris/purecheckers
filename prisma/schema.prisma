@@ -14,9 +14,12 @@ model User {
   passwordHash   String?
   isGuest        Boolean   @default(false)
   isBot          Boolean   @default(false)
+  profilePublic  Boolean   @default(true)
+  profileVersion Int       @default(0)
   botKey         String?   @unique
   isAdmin        Boolean   @default(false)
   guestExpiresAt DateTime?
+  guestRetiredAt DateTime?
   elo            Int       @default(1000)
   coins          Int       @default(0)
   gamesPlayed    Int       @default(0)
@@ -36,6 +39,71 @@ model User {
   sentTips         CoinTransaction[] @relation("TipSender")
   receivedTips     CoinTransaction[] @relation("TipReceiver")
   pendingPayouts   PendingPayout[]
+  puzzleAttempts   PuzzleAttempt[]
+  walletOperations WalletOperation[]
+  friendshipOperations FriendshipOperation[]
+  adminOperations AdminOperation[] @relation("AdminActor")
+  adminAdjustments AdminOperation[] @relation("AdminTarget")
+  settlementJobsAsRed GameSettlementJob[] @relation("SettlementRed")
+  settlementJobsAsBlack GameSettlementJob[] @relation("SettlementBlack")
+  gameRunsAsRed GameRun[] @relation("RunRed")
+  gameRunsAsBlack GameRun[] @relation("RunBlack")
+  activeGamePlayer ActiveGamePlayer?
+  activeRoomMember ActiveRoomMember?
+  createdRooms RoomRecord[]
+  sessionNotices SessionNotice[]
+  activeResultViewer ActiveResultViewer?
+
+  @@index([isGuest, guestRetiredAt, id])
+}
+
+// Immutable transition notices. Dismissal is retained so retries cannot revive it.
+model SessionNotice {
+  id String @id @default(uuid())
+  sequence BigInt @unique @default(autoincrement())
+  userId Int
+  effectKey String
+  reason String
+  context Json
+  occurredAt DateTime @default(now())
+  dismissedAt DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, effectKey])
+  @@index([userId, sequence(sort: Desc)])
+}
+
+// Successful owner commands and immutable receipts, committed with their effects.
+model WalletOperation {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  key       String
+  kind      String
+  payload   Json
+  receipt   Json
+  burned    Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+}
+
+// Actor-scoped administrative receipts include before/after values for audit.
+model AdminOperation {
+  id Int @id @default(autoincrement())
+  actorId Int
+  targetId Int
+  key String
+  kind String
+  payload Json
+  receipt Json
+  createdAt DateTime @default(now())
+  actor User @relation("AdminActor", fields: [actorId], references: [id])
+  target User @relation("AdminTarget", fields: [targetId], references: [id])
+
+  @@unique([actorId, key])
+  @@index([targetId, createdAt])
 }
 
 model Game {
@@ -52,9 +120,205 @@ model Game {
   mode             GameMode   @default(RANKED)
   startedAt        DateTime   @default(now())
   endedAt          DateTime?
+  endReason        String?
+  settlementKey    String?    @unique
+  settlement       Json?
 
   redPlayer   User @relation("RedPlayer", fields: [redPlayerId], references: [id])
   blackPlayer User @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
+  settlementJob GameSettlementJob?
+  run GameRun?
+}
+
+// Durable game creation and wager reservation; accepted transition storage follows.
+model GameRun {
+  id           Int       @id @default(autoincrement())
+  key          String    @unique
+  redPlayerId  Int
+  blackPlayerId Int
+  mode         GameMode
+  buyIn        Int
+  turnTime     Int
+  origin       String
+  initialState Json
+  checkpoint   Json?
+  revision     Int       @default(0)
+  stateVersion Int       @default(1)
+  recoveryVersion Int    @default(0)
+  status       String    @default("OPEN")
+  createdAt    DateTime  @default(now())
+  closedAt     DateTime?
+  replayId     Int?      @unique
+  roomId       BigInt?
+  resultSourceId Int?
+  invitedPlayerIds Int[] @default([])
+
+  redPlayer User @relation("RunRed", fields: [redPlayerId], references: [id])
+  blackPlayer User @relation("RunBlack", fields: [blackPlayerId], references: [id])
+  replay Game? @relation(fields: [replayId], references: [id])
+  commands GameCommandReceipt[]
+  activePlayers ActiveGamePlayer[]
+  sourceRoom RoomRecord? @relation(fields: [roomId], references: [id])
+  resultRecord GameResultRecord? @relation("FinishedResult")
+  rematchSource GameResultRecord? @relation("ResultRematches", fields: [resultSourceId], references: [gameRunId])
+
+  @@index([status, createdAt])
+  @@index([redPlayerId])
+  @@index([blackPlayerId])
+  @@index([roomId])
+  @@index([resultSourceId])
+}
+
+enum ResultStatus {
+  OPEN
+  STARTING
+  REMATCHED
+  CLOSED
+}
+
+model GameResultRecord {
+  gameRunId Int @id
+  status ResultStatus
+  state Json
+  stateVersion Int @default(1)
+  revision Int @default(0)
+  gameRun GameRun @relation("FinishedResult", fields: [gameRunId], references: [id], onDelete: Cascade)
+  rematches GameRun[] @relation("ResultRematches")
+  viewers ActiveResultViewer[]
+  commands GameResultCommandReceipt[]
+
+  @@index([status, gameRunId])
+}
+
+model ActiveResultViewer {
+  userId Int @id
+  gameRunId Int
+  role RoomMemberRole
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  result GameResultRecord @relation(fields: [gameRunId], references: [gameRunId], onDelete: Cascade)
+
+  @@index([gameRunId])
+}
+
+model GameResultCommandReceipt {
+  id Int @id @default(autoincrement())
+  gameRunId Int
+  userId Int
+  key String
+  payload Json
+  revision Int
+  result GameResultRecord @relation(fields: [gameRunId], references: [gameRunId], onDelete: Cascade)
+
+  @@unique([gameRunId, userId, key])
+}
+
+enum RoomStatus {
+  WAITING
+  STARTING
+  PLAYING
+  CLOSED
+}
+
+enum RoomMemberRole {
+  PLAYER
+  SPECTATOR
+}
+
+// Room identity and accepted state; connection objects and QR images are derived.
+model RoomRecord {
+  id BigInt @id @default(autoincrement())
+  creatorId Int
+  creationKey String
+  creation Json
+  joinCode String @unique
+  status RoomStatus @default(WAITING)
+  state Json
+  stateVersion Int @default(1)
+  revision Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  creator User @relation(fields: [creatorId], references: [id])
+  members ActiveRoomMember[]
+  commands RoomCommandReceipt[]
+  games GameRun[]
+
+  @@unique([creatorId, creationKey])
+  @@index([status, id])
+}
+
+// Humans hold one room role. Player claims transfer atomically to a GameRun.
+// Bots have no exclusive claim and can serve many rooms at the same time.
+model ActiveRoomMember {
+  userId Int @id
+  roomId BigInt
+  role RoomMemberRole
+  user User @relation(fields: [userId], references: [id])
+  room RoomRecord @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+}
+
+model RoomCommandReceipt {
+  id Int @id @default(autoincrement())
+  roomId BigInt
+  userId Int
+  key String
+  payload Json
+  revision Int
+  createdAt DateTime @default(now())
+  room RoomRecord @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId, key])
+}
+
+model GameCommandReceipt {
+  id       Int @id @default(autoincrement())
+  gameRunId Int
+  userId   Int
+  key      String
+  payload  Json
+  revision Int
+  createdAt DateTime @default(now())
+  run GameRun @relation(fields: [gameRunId], references: [id], onDelete: Cascade)
+
+  @@unique([gameRunId, userId, key])
+}
+
+// A human may own one unfinished game seat, regardless of colour or process.
+// Bots do not claim a seat here because they serve multiple games concurrently.
+model ActiveGamePlayer {
+  userId Int @id
+  gameRunId Int
+  user User @relation(fields: [userId], references: [id])
+  run GameRun @relation(fields: [gameRunId], references: [id], onDelete: Cascade)
+
+  @@index([gameRunId])
+}
+
+// One writer generation for the currently single-owner gameplay runtime.
+model GameplayOwner {
+  id         Int @id
+  generation Int
+  instanceId String
+}
+
+// Durable terminal intent. Completion is committed with the replay and payment.
+model GameSettlementJob {
+  key           String    @id
+  redUserId     Int
+  blackUserId   Int
+  intent        Json
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  replayId      Int?      @unique
+
+  replay Game? @relation(fields: [replayId], references: [id], onDelete: Cascade)
+  redUser User @relation("SettlementRed", fields: [redUserId], references: [id])
+  blackUser User @relation("SettlementBlack", fields: [blackUserId], references: [id])
+
+  @@index([completedAt, nextAttemptAt, createdAt])
 }
 
 enum GameResult {
@@ -113,6 +377,19 @@ model Friendship {
   receiver  User @relation("FriendReceiver", fields: [receiverId], references: [id])
 
   @@unique([requesterId, receiverId])
+  // The migration also enforces one unordered pair and rejects self-pairs.
+}
+
+model FriendshipOperation {
+  id Int @id @default(autoincrement())
+  userId Int
+  key String
+  kind String
+  payload Json
+  receipt Json
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, key])
 }
 
 enum FriendStatus {
@@ -134,6 +411,10 @@ model CoinTransaction {
 }
 
 enum CoinReason {
+  ADMIN_ADJUSTMENT
+  STARTER_GRANT
+  WAGER_STAKE
+  WAGER_REFUND
   WIN_REWARD
   TIP_SENT
   TIP_RECEIVED
@@ -145,6 +426,7 @@ enum CoinReason {
   ACHIEVEMENT
   VAULT_DEPOSIT
   VAULT_WITHDRAWAL
+  PUZZLE_SOLVE
 }
 
 model SystemVault {
@@ -159,6 +441,7 @@ model PendingPayout {
   reason    CoinReason
   label     String?
   createdAt DateTime @default(now())
+  claimedAt DateTime?
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -181,5 +464,74 @@ model ChatMessage {
   content    String
   createdAt  DateTime @default(now())
 
+  clientMessageId String?
+  mentions        Int[]    @default([])
+  spectator       Boolean  @default(false)
+
+  @@unique([senderId, clientMessageId])
+  @@index([channelId, id])
+  @@index([senderId, channelId, id])
   @@index([channelId, createdAt])
+}
+
+// ---- Daily puzzle (docs/growth/03-daily-puzzle.md) ----
+
+model Puzzle {
+  id               Int       @id @default(autoincrement())
+  date             DateTime  @unique @db.Date        // publish date, assigned at generation
+  positionHash     String    @unique                 // CheckersGame._boardHash()
+  position         Json                              // { board: 8x8 of {color,queen}|null, currentPlayer }
+  solution         Json                              // full line: [{fromRow,fromCol,toRow,toCol,hops,captured,promoted}, ...]
+  sideToMove       String                            // 'red' | 'black', denormalised for titles and queries
+  difficulty       PuzzleDifficulty
+  theme            String                            // primary theme key
+  themes           String[]                          // extras
+  solutionPlies    Int
+  legalMoves       Int
+  scoreGap         Float
+  verifiedDepth    Int
+  commentary       Json?                             // { theme, position, solution, alternatives } text blocks
+  sourceGameId     Int?
+  generatorVersion String
+  createdAt        DateTime  @default(now())
+  attempts         PuzzleAttempt[]
+}
+
+// Deliberately independent of Puzzle: deleting an unpublished puzzle must not
+// erase the evidence that excludes its position from future publication.
+model PuzzleRejection {
+  positionHash     String   @id
+  oppositeHash     String
+  sourceDate       DateTime @db.Date
+  verifiedDepth    Int
+  reason           String
+  generatorVersion String
+  verifierVersion  String
+  createdAt        DateTime @default(now())
+}
+
+model PuzzleAttempt {
+  id        Int      @id @default(autoincrement())
+  puzzleId  Int
+  userId    Int?                                     // null for anonymous marketing visitors
+  visitorId String?                                  // random id kept in localStorage, for solve-rate stats
+  solved    Boolean
+  attempts  Int
+  hintUsed  Boolean  @default(false)
+  revealed  Boolean  @default(false)
+  timeMs    Int?
+  rewarded  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  puzzle Puzzle @relation(fields: [puzzleId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([puzzleId, userId])
+  @@unique([puzzleId, visitorId])
+}
+
+enum PuzzleDifficulty {
+  EASY
+  MEDIUM
+  HARD
 }

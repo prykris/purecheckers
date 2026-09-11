@@ -1,4 +1,6 @@
-import { pushState, replaceState } from '$app/navigation';
+import { AUTH_PATHS } from './siteNavigation.js';
+import { page } from '$app/state';
+import { pushState, replaceState, goto } from '$app/navigation';
 import { navigationController } from './stores/navigation.js';
 import { session } from './stores/session.js';
 import { user } from './stores/user.js';
@@ -11,6 +13,14 @@ export function attachBrowserNavigation() {
   const onLocation = () => navigationController.locationChanged(read());
   const onPopState = () => queueMicrotask(onLocation);
   window.addEventListener('popstate', onPopState);
-  navigationController.start({ read, write: (url, mode) => (mode === 'push' ? pushState : replaceState)(url, {}) });
+  function write(url, mode) {
+    if (Object.values(AUTH_PATHS).includes(new URL(url, read()).pathname)) {
+      return goto(url, { replaceState: mode !== 'push' });
+    }
+    const current = new URL(read());
+    const state = mode === 'push' ? { returnTo: current.pathname + current.search } : page.state;
+    (mode === 'push' ? pushState : replaceState)(url, state);
+  }
+  navigationController.start({ read, write });
   return () => { window.removeEventListener('popstate', onPopState); unsubscribeUser(); unsubscribeSession(); navigationController.stop(); };
 }

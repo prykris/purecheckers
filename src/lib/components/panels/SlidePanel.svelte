@@ -1,4 +1,5 @@
 <script>
+  import { modal } from '$lib/modal.js';
   export let open = false;
   export let side = 'left'; // 'left' | 'right'
   export let title = '';
@@ -6,11 +7,7 @@
   function close() { open = false; }
 </script>
 
-{#if open}
-  <div class="backdrop" on:click={close} on:keydown={(e) => e.key === 'Escape' && close()} role="presentation" tabindex="-1"></div>
-{/if}
-
-<div class="panel {side}" class:open>
+<dialog class="panel {side}" aria-label={title} use:modal={{ open, onclose: close }}>
   <div class="panel-header">
     <h3>{title}</h3>
     <button class="close-btn" on:click={close} aria-label="Close panel">
@@ -20,25 +17,25 @@
   <div class="panel-body">
     <slot />
   </div>
-</div>
+</dialog>
 
 <style>
-  .backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 60;
-  }
   .panel {
-    position: fixed; top: 0; bottom: 0;
+    position: fixed; top: 0; bottom: 0; margin: 0; padding: 0; max-height: none; height: 100dvh; color: var(--text);
     width: 320px; max-width: 85vw;
     background: var(--surface);
     border: 1px solid var(--surface2);
-    z-index: 70;
+
     display: flex; flex-direction: column;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
   }
-  .panel.left { left: 0; transform: translateX(-100%); }
-  .panel.right { right: 0; transform: translateX(100%); }
-  .panel.left.open { transform: translateX(0); }
-  .panel.right.open { transform: translateX(0); }
+  .panel:not([open]) { display: none; }
+  .panel::backdrop { background: rgba(0,0,0,0.4); }
+  .panel.left { left: 0; right: auto; --from: -100%; }
+  .panel.right { right: 0; left: auto; --from: 100%; }
+  .panel[open] { animation: enter 200ms ease-out; }
+  @keyframes enter { from { transform: translateX(var(--from)); } to { transform: translateX(0); } }
+  @media (prefers-reduced-motion: reduce) { .panel[open] { animation: none; } }
 
   .panel-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -55,7 +52,7 @@
   .panel-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
 
   @media (min-width: 1100px) {
-    .backdrop { background: transparent; }
+
     .panel { box-shadow: var(--shadow-card); }
   }
 </style>

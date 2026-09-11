@@ -12,11 +12,11 @@ const deferred = () => {
 };
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
 
-function harness(path = '/lobby', authenticated = true) {
+function harness(path = '/lobby', authenticated = true, options = {}) {
   let href = 'http://app.local' + path;
   const writes = [], command = deferred(), replay = deferred();
   const sendCommand = vi.fn(() => command.promise), loadReplay = vi.fn(() => replay.promise);
-  const controller = new NavigationController({ publish: vi.fn(), sendCommand, loadReplay });
+  const controller = new NavigationController({ publish: vi.fn(), sendCommand, loadReplay, ...options });
   if (authenticated) controller.setIdentity(1);
   controller.start({ read: () => href, write: (url, mode) => { href = 'http://app.local' + url; writes.push({ url, mode }); } });
   const accept = (snapshot, extra = {}) => controller.setSession({ snapshot, status: 'ready', pending: null, ...extra });
@@ -42,6 +42,24 @@ describe('navigation policy', () => {
 });
 
 describe('navigation coordination', () => {
+  it('preserves a profile challenge through login and sends it once after recovery', async () => {
+    const h = harness('/challenge/42', false);
+    expect(h.url()).toBe('/challenge/42');
+    h.controller.setIdentity(1); h.accept(idle, { status: 'syncing' });
+    expect(h.sendCommand).not.toHaveBeenCalled();
+    h.accept(idle); h.accept(idle);
+    expect(h.sendCommand).toHaveBeenCalledExactlyOnceWith('challenge:send', { userId: 42 });
+    h.accept(room); h.command.resolve({ ok: true }); await flush();
+    expect(h.url()).toBe('/room-waiting?room=room-1');
+  });
+  it('does not displace a current game to send a challenge or overwrite new navigation after rejection', async () => {
+    const busy = harness('/challenge/42'); busy.accept(game);
+    expect(busy.sendCommand).not.toHaveBeenCalled();
+    expect(busy.url()).toBe('/game?game=game-1');
+    const h = harness('/challenge/42'); h.accept(idle);
+    h.controller.browse('shop'); h.command.resolve({ ok: false, error: 'obsolete' }); await flush();
+    expect(h.controller.state).toMatchObject({ tab: 'shop', error: null });
+  });
   it('preserves a deep link through authentication and the first snapshot', () => {
     const h = harness('/shop', false);
     expect(h.url()).toBe('/shop');
@@ -104,7 +122,7 @@ describe('navigation coordination', () => {
     expect(h.controller.state).toMatchObject({ loading: false, error: 'Replay unavailable' });
   });
   it('waits for authentication and recovery before joining an invitation exactly once', async () => {
-    const h = harness('/join/abcdef', false);
+    const h = harness('/invite/abcdef', false);
     h.controller.setIdentity(1); h.accept(idle, { status: 'syncing' });
     expect(h.sendCommand).not.toHaveBeenCalled();
     h.accept(idle); h.accept(idle);
@@ -114,13 +132,13 @@ describe('navigation coordination', () => {
     expect(h.controller.state.loading).toBe(false);
   });
   it('does not join another invitation while already occupied', () => {
-    const h = harness('/join/ABCDEF'); h.accept(game);
+    const h = harness('/invite/ABCDEF'); h.accept(game);
     expect(h.sendCommand).not.toHaveBeenCalled();
     expect(h.url()).toBe('/game?game=game-1');
-    expect(h.controller.state.error).toMatch(/Leave your current session/);
+    expect(h.controller.state.error).toMatch(/Finish what/);
   });
   it.each(['rejected', 'thrown'])('terminates a failed invitation (%s) without looping', async kind => {
-    const h = harness('/join/ABCDEF'); h.accept(idle);
+    const h = harness('/invite/ABCDEF'); h.accept(idle);
     if (kind === 'rejected') h.command.resolve({ ok: false, error: 'Room expired' });
     else h.command.reject(new Error('Network unavailable'));
     await flush(); h.accept(idle);
@@ -128,7 +146,7 @@ describe('navigation coordination', () => {
     expect(h.url()).toBe('/lobby'); expect(h.controller.state.error).toBeTruthy();
   });
   it('does not let invitation rejection overwrite newer navigation', async () => {
-    const h = harness('/join/ABCDEF'); h.accept(idle); h.controller.browse('shop');
+    const h = harness('/invite/ABCDEF'); h.accept(idle); h.controller.browse('shop');
     h.command.resolve({ ok: false, error: 'Room expired' }); await flush();
     expect(h.controller.state).toMatchObject({ tab: 'shop', error: null, url: '/shop' });
   });
@@ -150,5 +168,42 @@ describe('navigation coordination', () => {
     const state = h.controller.state;
     h.replay.resolve({ id: 1 }); await flush();
     expect(h.controller.state).toBe(state);
+  });
+
+  it('does not join when invitation preflight finishes after navigation away', async () => {
+    const lookup = deferred(), h = harness('/invite/ABCDEF', true, { checkInvite: () => lookup.promise });
+    h.accept(idle); h.controller.browse('shop'); lookup.resolve({ hostName: 'Chris', status: 'waiting' }); await flush();
+    expect(h.sendCommand).not.toHaveBeenCalled(); expect(h.controller.state).toMatchObject({ url: '/shop', invite: null });
+  });
+  it('does not let obsolete invite cleanup hide a newer replay loading indicator', async () => {
+    const lookup = deferred(), h = harness('/invite/ABCDEF', true, { checkInvite: () => lookup.promise });
+    h.accept(idle); h.controller.openReplay(1); lookup.resolve(null); await flush();
+    expect(h.controller.state).toMatchObject({ screen: 'replay', loading: true, notice: null });
+    h.replay.resolve({ id: 1 }); await flush(); expect(h.controller.state.loading).toBe(false);
+  });
+  it('keeps the successful join notice when the command delivers a new session first', async () => {
+    const h = harness('/invite/ABCDEF', true, { checkInvite: async () => ({ hostName: 'Chris', status: 'waiting' }) });
+    h.accept(idle); await flush();
+    expect(h.sendCommand).toHaveBeenCalledExactlyOnceWith('room:join', { code: 'ABCDEF' });
+    h.accept(room); h.command.resolve({ ok: true }); await flush();
+    expect(h.controller.state).toMatchObject({ notice: { kind: 'invite-joined', hostName: 'Chris' }, invite: null, loading: false });
+  });
+  it('reports expired invitations without a gameplay command', async () => {
+    const h = harness('/invite/ABCDEF', true, { checkInvite: async () => null }); h.accept(idle); await flush();
+    expect(h.sendCommand).not.toHaveBeenCalled(); expect(h.controller.state).toMatchObject({ notice: { kind: 'invite-gone' }, loading: false, invite: null });
+    expect(h.url()).toBe('/lobby');
+  });
+  it('spectates an invitation whose game has already started', async () => {
+    const h = harness('/invite/ABCDEF', true, { checkInvite: async () => ({ hostName: 'Chris', status: 'playing' }) });
+    h.accept(idle); await flush(); expect(h.sendCommand).toHaveBeenCalledExactlyOnceWith('room:spectate', { code: 'ABCDEF' });
+    h.command.resolve({ ok: true }); await flush(); expect(h.controller.state.invite).toBeNull();
+  });
+  it('waits for reconnection if it disconnects during invitation preflight', async () => {
+    const lookup = deferred(), checkInvite = vi.fn(() => lookup.promise);
+    const h = harness('/invite/ABCDEF', true, { checkInvite }); h.accept(idle);
+    h.accept(idle, { status: 'reconnecting' }); lookup.resolve({ status: 'waiting' }); await flush();
+    expect(h.sendCommand).not.toHaveBeenCalled();
+    h.accept(idle); await flush(); expect(h.sendCommand).toHaveBeenCalledTimes(1);
+    h.command.resolve({ ok: true }); await flush();
   });
 });

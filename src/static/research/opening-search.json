@@ -1,0 +1,406 @@
+{
+  "generatedAt": "2026-09-11T04:30:35.435Z",
+  "method": "Complete iterative search passes; wall clock disabled for repeatability; all tied best replies recorded without random selection.",
+  "settings": {
+    "depth": 6,
+    "nodeBudget": 150000
+  },
+  "sourceHashes": {
+    "shared/game.js": "a1cc65c301ea57fa9c59cc94b4da8f901e47faebbc61e5269247a0a2c7128893",
+    "shared/botSearch.js": "c8d480498629b89c49fb48aa50aa2b773221cacf4184e20cfb732b8e6da8b4f6",
+    "shared/constants.js": "d28bc3ed065656822907aeb94e1ac3cb8859fbce27508876f3800d073320f83b"
+  },
+  "rows": [
+    {
+      "opening": "12-16",
+      "completedDepth": 6,
+      "nodes": 8501,
+      "bestReplies": [
+        "23-19"
+      ],
+      "scores": [
+        {
+          "move": "24-20",
+          "score": -0.2
+        },
+        {
+          "move": "24-19",
+          "score": -0.25
+        },
+        {
+          "move": "23-19",
+          "score": -0.15
+        },
+        {
+          "move": "23-18",
+          "score": -0.45
+        },
+        {
+          "move": "22-18",
+          "score": -0.35
+        },
+        {
+          "move": "22-17",
+          "score": -0.3
+        },
+        {
+          "move": "21-17",
+          "score": -0.3
+        }
+      ]
+    },
+    {
+      "opening": "11-16",
+      "completedDepth": 6,
+      "nodes": 7036,
+      "bestReplies": [
+        "23-19"
+      ],
+      "scores": [
+        {
+          "move": "24-20",
+          "score": -0.35
+        },
+        {
+          "move": "24-19",
+          "score": -0.25
+        },
+        {
+          "move": "23-19",
+          "score": -0.1
+        },
+        {
+          "move": "23-18",
+          "score": -0.4
+        },
+        {
+          "move": "22-18",
+          "score": -0.35
+        },
+        {
+          "move": "22-17",
+          "score": -0.25
+        },
+        {
+          "move": "21-17",
+          "score": -0.25
+        }
+      ]
+    },
+    {
+      "opening": "11-15",
+      "completedDepth": 6,
+      "nodes": 5651,
+      "bestReplies": [
+        "24-19"
+      ],
+      "scores": [
+        {
+          "move": "24-20",
+          "score": -0.2
+        },
+        {
+          "move": "24-19",
+          "score": 0
+        },
+        {
+          "move": "23-19",
+          "score": -0.1
+        },
+        {
+          "move": "23-18",
+          "score": -0.4
+        },
+        {
+          "move": "22-18",
+          "score": -0.1
+        },
+        {
+          "move": "22-17",
+          "score": -0.2
+        },
+        {
+          "move": "21-17",
+          "score": -0.2
+        }
+      ]
+    },
+    {
+      "opening": "10-15",
+      "completedDepth": 6,
+      "nodes": 6082,
+      "bestReplies": [
+        "24-19"
+      ],
+      "scores": [
+        {
+          "move": "24-20",
+          "score": -0.2
+        },
+        {
+          "move": "24-19",
+          "score": 0
+        },
+        {
+          "move": "23-19",
+          "score": -0.35
+        },
+        {
+          "move": "23-18",
+          "score": -0.4
+        },
+        {
+          "move": "22-18",
+          "score": -0.15
+        },
+        {
+          "move": "22-17",
+          "score": -0.15
+        },
+        {
+          "move": "21-17",
+          "score": -0.15
+        }
+      ]
+    },
+    {
+      "opening": "10-14",
+      "completedDepth": 6,
+      "nodes": 5900,
+      "bestReplies": [
+        "24-19",
+        "23-18"
+      ],
+      "scores": [
+        {
+          "move": "24-20",
+          "score": -0.3
+        },
+        {
+          "move": "24-19",
+          "score": -0.1
+        },
+        {
+          "move": "23-19",
+          "score": -0.15
+        },
+        {
+          "move": "23-18",
+          "score": -0.1
+        },
+        {
+          "move": "22-18",
+          "score": -0.3
+        },
+        {
+          "move": "22-17",
+          "score": -0.3
+        },
+        {
+          "move": "21-17",
+          "score": -1.6
+        }
+      ]
+    },
+    {
+      "opening": "9-14",
+      "completedDepth": 6,
+      "nodes": 7150,
+      "bestReplies": [
+        "24-19",
+        "23-18",
+        "22-17"
+      ],
+      "scores": [
+        {
+          "move": "24-20",
+          "score": -0.35
+        },
+        {
+          "move": "24-19",
+          "score": -0.15
+        },
+        {
+          "move": "23-19",
+          "score": -0.2
+        },
+        {
+          "move": "23-18",
+          "score": -0.15
+        },
+        {
+          "move": "22-18",
+          "score": -0.35
+        },
+        {
+          "move": "22-17",
+          "score": -0.15
+        },
+        {
+          "move": "21-17",
+          "score": -1.65
+        }
+      ]
+    },
+    {
+      "opening": "9-13",
+      "completedDepth": 6,
+      "nodes": 8754,
+      "bestReplies": [
+        "22-17"
+      ],
+      "scores": [
+        {
+          "move": "24-20",
+          "score": -0.3
+        },
+        {
+          "move": "24-19",
+          "score": -0.3
+        },
+        {
+          "move": "23-19",
+          "score": -0.35
+        },
+        {
+          "move": "23-18",
+          "score": -0.35
+        },
+        {
+          "move": "22-18",
+          "score": -0.3
+        },
+        {
+          "move": "22-17",
+          "score": -0.15
+        },
+        {
+          "move": "21-17",
+          "score": -0.3
+        }
+      ]
+    }
+  ],
+  "levelComparison": {
+    "opening": "11-15",
+    "levels": [
+      {
+        "requestedDepth": 2,
+        "completedDepth": 2,
+        "nodes": 54,
+        "bestReplies": [
+          "24-20",
+          "23-19",
+          "23-18",
+          "21-17"
+        ],
+        "scores": [
+          {
+            "move": "24-20",
+            "score": -0.15
+          },
+          {
+            "move": "24-19",
+            "score": -1.45
+          },
+          {
+            "move": "23-19",
+            "score": -0.15
+          },
+          {
+            "move": "23-18",
+            "score": -0.15
+          },
+          {
+            "move": "22-18",
+            "score": -1.55
+          },
+          {
+            "move": "22-17",
+            "score": -0.2
+          },
+          {
+            "move": "21-17",
+            "score": -0.15
+          }
+        ]
+      },
+      {
+        "requestedDepth": 4,
+        "completedDepth": 4,
+        "nodes": 660,
+        "bestReplies": [
+          "24-19"
+        ],
+        "scores": [
+          {
+            "move": "24-20",
+            "score": -0.2
+          },
+          {
+            "move": "24-19",
+            "score": 0.15
+          },
+          {
+            "move": "23-19",
+            "score": -0.2
+          },
+          {
+            "move": "23-18",
+            "score": -0.4
+          },
+          {
+            "move": "22-18",
+            "score": 0.1
+          },
+          {
+            "move": "22-17",
+            "score": -0.2
+          },
+          {
+            "move": "21-17",
+            "score": -0.2
+          }
+        ]
+      },
+      {
+        "requestedDepth": 6,
+        "completedDepth": 6,
+        "nodes": 5651,
+        "bestReplies": [
+          "24-19"
+        ],
+        "scores": [
+          {
+            "move": "24-20",
+            "score": -0.2
+          },
+          {
+            "move": "24-19",
+            "score": 0
+          },
+          {
+            "move": "23-19",
+            "score": -0.1
+          },
+          {
+            "move": "23-18",
+            "score": -0.4
+          },
+          {
+            "move": "22-18",
+            "score": -0.1
+          },
+          {
+            "move": "22-17",
+            "score": -0.2
+          },
+          {
+            "move": "21-17",
+            "score": -0.2
+          }
+        ]
+      }
+    ]
+  }
+}

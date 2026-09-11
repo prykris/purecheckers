@@ -10,6 +10,16 @@ function sequence() {
   }
   return states;
 }
+function captureChain() {
+  const game = new CheckersGame(); game.board = Array.from({ length: 8 }, () => Array(8).fill(null));
+  game.board[6][1] = { color: 'red', queen: false };
+  for (const [row, col] of [[5, 2], [3, 4], [1, 4]]) game.board[row][col] = { color: 'black', queen: false };
+  const states = [snapshot(game)];
+  for (const move of [[6, 1, 4, 3], [4, 3, 2, 5], [2, 5, 0, 3]]) {
+    expect(game.makeMove(...move)).toBeTruthy(); states.push(snapshot(game));
+  }
+  return states;
+}
 function harness() {
   let time = 0, id = 0;
   const frames = new Map(), timers = new Map(), output = [], onTransition = vi.fn();
@@ -22,6 +32,41 @@ function harness() {
 }
 
 describe('board presentation lifecycle', () => {
+  it('animates every bot jump arriving 150ms apart, including the final promotion and result', () => {
+    const [before, first, second, third] = captureChain(), h = harness();
+    h.controller.accept(before); h.controller.accept(first);
+    h.step(150); h.controller.accept(second);
+    h.step(150); h.controller.accept(third);
+    expect(h.view()).toMatchObject({ snapshot: first, busy: true, resultVisible: false });
+    h.step(80); expect(h.view()).toMatchObject({ snapshot: second, animation: { movement: 0 }, busy: true });
+    h.step(380); expect(h.view()).toMatchObject({ snapshot: third, animation: { movement: 0 }, resultVisible: false });
+    h.step(540); expect(h.view()).toMatchObject({ snapshot: third, busy: false, resultVisible: true });
+    expect(h.onTransition.mock.calls.map(([move]) => [move.toRow, move.toCol])).toEqual([[4, 3], [2, 5], [0, 3]]);
+  });
+  it('plays a whole capture chain delivered in one live snapshot without mutating authority', () => {
+    const [before, first, second, final] = captureChain(), h = harness(), untouched = structuredClone(final);
+    h.controller.accept(before); h.controller.accept(final);
+    expect(h.view().snapshot.board).toEqual(first.board);
+    h.step(380); expect(h.view().snapshot.board).toEqual(second.board);
+    h.step(380); expect(h.view()).toMatchObject({ snapshot: final, busy: true });
+    h.step(540); expect(h.view()).toMatchObject({ snapshot: final, busy: false });
+    expect(final).toEqual(untouched); expect(h.onTransition).toHaveBeenCalledTimes(3);
+  });
+  it('still snaps an interrupted capture chain on recovery and ignores its old animation callback', () => {
+    const [before, first, , final] = captureChain(), h = harness();
+    h.controller.accept(before); h.controller.accept(first);
+    const stale = [...h.frames.values()][0];
+    h.controller.accept(final, { recovery: 1 }); stale(200);
+    expect(h.view()).toMatchObject({ snapshot: final, busy: false, animation: null });
+    expect(h.onTransition).toHaveBeenCalledTimes(1);
+  });
+  it('snaps an inconsistent batched capture history instead of inventing a path', () => {
+    const [before, , , final] = captureChain(), h = harness();
+    final.board[7][0] = { color: 'black', queen: false };
+    h.controller.accept(before); h.controller.accept(final);
+    expect(h.view()).toMatchObject({ snapshot: final, busy: false });
+    expect(h.onTransition).not.toHaveBeenCalled();
+  });
   it('advances real frames while authority is already committed and settles without mutating it', () => {
     const [before, after] = sequence(), h = harness(); const untouched = structuredClone(after);
     h.controller.accept(before); h.controller.accept(after);

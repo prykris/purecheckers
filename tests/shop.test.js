@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import app from '../server/app.js';
@@ -58,7 +59,7 @@ describe('POST /api/shop/purchase', () => {
     const res = await request(app)
       .post('/api/shop/purchase')
       .set('Authorization', `Bearer ${token}`)
-      .send({ itemId: themeItem.id });
+      .send({ requestId: randomUUID(), itemId: themeItem.id });
 
     expect(res.status).toBe(200);
     expect(res.body.coins).toBe(150); // 200 - 50
@@ -68,7 +69,7 @@ describe('POST /api/shop/purchase', () => {
     const res = await request(app)
       .post('/api/shop/purchase')
       .set('Authorization', `Bearer ${token}`)
-      .send({ itemId: themeItem.id });
+      .send({ requestId: randomUUID(), itemId: themeItem.id });
 
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/Already owned/);
@@ -81,7 +82,7 @@ describe('POST /api/shop/purchase', () => {
     const res = await request(app)
       .post('/api/shop/purchase')
       .set('Authorization', `Bearer ${token}`)
-      .send({ itemId: skinItem.id });
+      .send({ requestId: randomUUID(), itemId: skinItem.id });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/Insufficient/);
@@ -93,7 +94,7 @@ describe('POST /api/shop/purchase', () => {
   it('rejects without auth', async () => {
     const res = await request(app)
       .post('/api/shop/purchase')
-      .send({ itemId: skinItem.id });
+      .send({ requestId: randomUUID(), itemId: skinItem.id });
 
     expect(res.status).toBe(401);
   });
@@ -116,7 +117,7 @@ describe('PATCH /api/shop/equip', () => {
     const res = await request(app)
       .patch('/api/shop/equip')
       .set('Authorization', `Bearer ${token}`)
-      .send({ itemId: themeItem.id });
+      .send({ requestId: randomUUID(), itemId: themeItem.id });
 
     expect(res.status).toBe(200);
     expect(res.body.equipped).toBe(true);
@@ -132,7 +133,7 @@ describe('PATCH /api/shop/equip', () => {
     const res = await request(app)
       .patch('/api/shop/equip')
       .set('Authorization', `Bearer ${token}`)
-      .send({ itemId: skinItem.id }); // not purchased
+      .send({ requestId: randomUUID(), itemId: skinItem.id }); // not purchased
 
     expect(res.status).toBe(404);
     expect(res.body.error).toMatch(/not owned/);
@@ -147,13 +148,13 @@ describe('PATCH /api/shop/equip', () => {
     await request(app)
       .post('/api/shop/purchase')
       .set('Authorization', `Bearer ${token}`)
-      .send({ itemId: theme2.id });
+      .send({ requestId: randomUUID(), itemId: theme2.id });
 
     // Equip theme2
     await request(app)
       .patch('/api/shop/equip')
       .set('Authorization', `Bearer ${token}`)
-      .send({ itemId: theme2.id });
+      .send({ requestId: randomUUID(), itemId: theme2.id });
 
     // Original theme should be unequipped
     const inv1 = await prisma.inventory.findUnique({

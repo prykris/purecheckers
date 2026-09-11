@@ -1,15 +1,26 @@
 <script>
   let { children } = $props();
-  import { onMount, onDestroy } from 'svelte';
-  import { phase, gameState, browseTab, gameOverVisible, connectionStatus, replayData } from '$lib/stores/app.js';
-  import { gameScreen, navigation, navigationController, closeReplay } from '$lib/stores/navigation.js';
+  import { onMount, onDestroy, setContext } from 'svelte';
+  import { PROFILE_VIEWER } from '$lib/profileLinks.js';
+  import PlayerProfileDialog from '$lib/components/PlayerProfileDialog.svelte';
+  import PlayerLink from '$lib/components/PlayerLink.svelte';
+  import { gameState, browseTab, connectionStatus, replayData } from '$lib/stores/app.js';
+  import { gameScreen, navigation, navigationController, closeReplay, browseTo, dismissNavigationNotice } from '$lib/stores/navigation.js';
   import { afterNavigate } from '$app/navigation';
+  import { bootstrapState, retryBootstrap } from '$lib/stores/site.js';
   import { attachBrowserNavigation } from '$lib/browserNavigation.js';
-  import { user, token } from '$lib/stores/user.js';
-  import { api } from '$lib/api.js';
-  import { disconnectSocket } from '$lib/socket.js';
-  import { session } from '$lib/stores/session.js';
-  import { initSocket, detachSocketListeners } from '$lib/socketService.js';
+  import { user } from '$lib/stores/user.js';
+  import { notice, dismissNotice, showNotice, closeUpgradeSheet } from '$lib/stores/ui.js';
+  import { appearance } from '$lib/stores/appearance.js';
+  import BoardAppearance from '$lib/components/BoardAppearance.svelte';
+  import { session, sendCommand } from '$lib/stores/session.js';
+  import { SESSION_NOTICE_TEXT } from '../../../shared/sessionNotices.js';
+  const serverNotice = $derived($session.snapshot?.notice);
+  const displayedNotice = $derived(serverNotice ? { text: SESSION_NOTICE_TEXT[serverNotice.reason] || 'Your session changed.' } : $notice);
+  function dismissDisplayedNotice() {
+    if (serverNotice) sendCommand('notice:dismiss', { noticeId: serverNotice.id });
+    else dismissNotice();
+  }
   import { muted, toggleMute, preloadAll, play } from '$lib/sounds.js';
 
   // Game layer components
@@ -20,8 +31,8 @@
   import ReplayBoard from '$lib/components/ReplayBoard.svelte';
 
   // Browse layer components
-  import AuthScreen from '$lib/components/AuthScreen.svelte';
   import Lobby from '$lib/components/Lobby.svelte';
+  import PlayerHeader from '$lib/components/PlayerHeader.svelte';
   import ShopScreen from '$lib/components/ShopScreen.svelte';
   import FriendsScreen from '$lib/components/FriendsScreen.svelte';
   import ProfileScreen from '$lib/components/ProfileScreen.svelte';
@@ -30,6 +41,7 @@
   // Chrome
   import DevPanel from '$lib/components/DevPanel.svelte';
   import BottomNav from '$lib/components/BottomNav.svelte';
+  import CommunityActions from '$lib/components/CommunityActions.svelte';
   import RoomBanner from '$lib/components/RoomBanner.svelte';
   import SearchBanner from '$lib/components/SearchBanner.svelte';
   import SlidePanel from '$lib/components/panels/SlidePanel.svelte';
@@ -38,47 +50,25 @@
 
   let chatOpen = $state(false);
   let lbOpen = $state(false);
-  let loading = $state(true);
+  let barsHeight = $state(0);
+  let profileUsername = $state(null);
+  setContext(PROFILE_VIEWER, username => profileUsername = username);
+  $effect(() => { $user?.id; $gameScreen; $session.snapshot?.context?.gameId; $session.snapshot?.context?.roomId; profileUsername = null; });
+  $effect(() => { $gameScreen; chatOpen = false; lbOpen = false; });
+  $effect(() => {
+    if ($session.status !== 'ready' || $session.snapshot?.game?.gameOver || $session.snapshot?.game?.pendingDrawOffer != null) {
+      chatOpen = false; lbOpen = false;
+    }
+  });
+  const loading = $derived($bootstrapState.loading);
   const initializing = $derived(loading || (!!$user && !$session.snapshot));
   const kicked = $derived($session.status === 'replaced');
-  let mounted = $state(false);
   let detachNavigation;
-  const connectionIdentity = $derived($token && $user?.id ? $token : null);
-  $effect(() => {
-    if (!mounted || !connectionIdentity) return;
-    initSocket();
-    return () => { detachSocketListeners(); disconnectSocket(); };
-  });
   afterNavigate(() => {
     if (!detachNavigation) detachNavigation = attachBrowserNavigation();
     else navigationController.locationChanged(window.location.href);
   });
 
-  // Apply saved theme on load (before anything renders)
-  function restoreTheme() {
-    const defaults = {
-      '--bg':'#1c1917','--bg-subtle':'#231f1b','--surface':'#292524','--surface2':'#3d3530',
-      '--accent':'#ef4444','--accent2':'#a855f7','--text':'#fafaf9','--text-dim':'#a8a29e',
-      '--board-light':'#d4a76a','--board-dark':'#7c5e3c','--gold':'#fbbf24','--success':'#22c55e','--warning':'#f59e0b'
-    };
-    const themeName = typeof localStorage !== 'undefined' && localStorage.getItem('checkers_theme');
-    if (!themeName || themeName === 'Default') {
-      Object.entries(defaults).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
-      return;
-    }
-    // Theme data is stored in Lobby — we just need to apply the CSS vars
-    // Import the theme list from a shared location would be better, but for now
-    // we read the saved vars directly from localStorage
-    const savedVars = typeof localStorage !== 'undefined' && localStorage.getItem('checkers_theme_vars');
-    if (savedVars) {
-      try {
-        const vars = JSON.parse(savedVars);
-        Object.entries(defaults).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
-        Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
-      } catch {}
-    }
-  }
-  restoreTheme();
 
   // Global UI click sound — plays for any button/link tap
   function onGlobalClick(e) {
@@ -88,25 +78,33 @@
   }
 
   onMount(() => {
-    mounted = true;
     document.addEventListener('pointerdown', onGlobalClick);
-    const initialToken = $token;
-    if (!initialToken) { loading = false; return; }
-    api.get('/auth/me').then(data => {
-      if ($token === initialToken) $user = data.user;
-    }).catch(() => {
-      if ($token === initialToken) { $token = null; $user = null; }
-    }).finally(() => loading = false);
   });
   onDestroy(() => {
     detachNavigation?.();
+    dismissNotice();
     if (typeof document !== 'undefined') document.removeEventListener('pointerdown', onGlobalClick);
   });
 
+  const inviteSplash = $derived($bootstrapState.joiningInvite || (!!$navigation.invite && (loading || (!!$user && !$session.snapshot) || $navigation.loading)));
+  const inviteSplashHost = $derived($bootstrapState.hostName || $navigation.invite?.hostName);
+  $effect(() => {
+    const current = $navigation.notice;
+    if (current?.kind !== 'invite-joined') return;
+    const timer = setTimeout(() => { if ($navigation.notice === current) dismissNavigationNotice(); }, 6000);
+    return () => clearTimeout(timer);
+  });
+  $effect(() => {
+    if (!$user) { closeUpgradeSheet(); chatOpen = false; lbOpen = false; }
+  });
+  function startYourOwn() { dismissNavigationNotice(); if ($user) browseTo('lobby'); }
+
   const showGameLayer = $derived($gameScreen !== 'none');
   const showTabs = $derived(!showGameLayer && !!$user);
-  const showPanelToggles = $derived(!showGameLayer && !!$user && !loading);
+  const showPanelToggles = $derived((!showGameLayer || $gameScreen === 'room-waiting') && !!$user && !initializing);
 </script>
+
+<svelte:head><title>Pure Checkers</title></svelte:head>
 
 {#if kicked}
   <div class="kicked-overlay">
@@ -121,10 +119,33 @@
 
 {@render children()}
 <DevPanel />
-
-{#if ($session.error || $navigation.error) && !kicked}
-  <div class="session-error" role="alert">{$session.error || $navigation.error}</div>
+{#if profileUsername && !kicked}
+  <PlayerProfileDialog username={profileUsername} viewerId={$user?.id} allowChallenge={$session.status === 'ready' && $session.snapshot?.phase === 'idle' && !$session.pending} onclose={() => profileUsername = null} />
 {/if}
+
+<div class="bars" bind:clientHeight={barsHeight}>
+  {#if ($session.error || $navigation.error) && !kicked}
+    <div class="session-error" role="alert">{$session.error || $navigation.error}</div>
+  {/if}
+  {#if $navigation.notice?.kind === 'invite-gone' && !kicked}
+    <div class="notice-bar" role="status">
+      <span>This invite is no longer open. Ask for a new one, or start your own.</span>
+      <button type="button" class="notice-action" onclick={startYourOwn}>Start your own</button>
+    </div>
+  {:else if $navigation.notice?.kind === 'invite-joined' && !kicked}
+    <div class="notice-bar" role="status">
+      <span>You're in as <PlayerLink username={$user?.username} />.{#if $navigation.notice.hostName} Playing <PlayerLink username={$navigation.notice.hostName} />.{/if}</span>
+      <button type="button" class="notice-action" onclick={dismissNavigationNotice}>OK</button>
+    </div>
+  {/if}
+  {#if displayedNotice && !kicked}
+    <div class="notice-bar" role="status">
+      <span>{displayedNotice.text}</span>
+      {#if displayedNotice.action}<button type="button" class="notice-action" onclick={displayedNotice.action.run}>{displayedNotice.action.label}</button>{/if}
+      <button type="button" class="notice-action" onclick={dismissDisplayedNotice} disabled={!!serverNotice && ($session.status !== 'ready' || !!$session.pending)}>Dismiss</button>
+    </div>
+  {/if}
+</div>
 
 {#if $connectionStatus !== 'connected' && $user && !loading}
   <div class="connection-bar" class:disconnected={$connectionStatus === 'disconnected'}>
@@ -138,23 +159,29 @@
   </div>
 {/if}
 
-{#if initializing}
+{#if initializing || inviteSplash || $bootstrapState.error}
   <div class="splash">
     <h1 class="splash-title">Checkers</h1>
-    <div class="splash-spinner"></div>
+    {#if $bootstrapState.error}
+      <p class="splash-text" role="alert">{$bootstrapState.error}</p>
+      <button type="button" class="btn btn-primary" onclick={() => retryBootstrap()}>Retry</button>
+    {:else}
+      <div class="splash-spinner"></div>
+      {#if inviteSplash}<p class="splash-text" role="status">{inviteSplashHost ? `Joining ${inviteSplashHost}'s game…` : 'Opening your invitation…'}</p>{/if}
+    {/if}
   </div>
 {/if}
 
-{#if !loading && !$user}
-  <AuthScreen />
-{:else if !initializing}
+{#if !loading && !inviteSplash && !$bootstrapState.error && !$user}
+  <div class="splash"><p role="status">Opening account options…</p></div>
+{:else if !initializing && !!$user}
   <!-- Game layer: full-screen overlay when active -->
   {#if $gameScreen === 'game'}
     {#key $gameState?.gameId}
     {#if $gameState?.mode === 'spectator'}
       <SpectateScreen />
     {:else}
-      <GameScreen />
+      <GameScreen noticeInset={barsHeight ? barsHeight + 52 : 0} />
     {/if}
     {/key}
   {:else if $gameScreen === 'room-waiting'}
@@ -164,13 +191,12 @@
   {:else if $gameScreen === 'replay'}
     <div class="replay-overlay">
       <div class="replay-overlay-inner">
-        <button class="replay-close" title="Close replay" onclick={closeReplay}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <button class="replay-close" onclick={closeReplay}>Close</button>
         {#if $navigation.loading}
           <p role="status">Loading replay…</p>
         {:else if $replayData}
-          <ReplayBoard gameData={$replayData} />
+          <ReplayBoard gameData={$replayData} skin={$appearance.data?.skin?.palette} />
+          <BoardAppearance />
         {/if}
       </div>
     </div>
@@ -183,7 +209,9 @@
   {/if}
 
   <!-- Browse layer: always rendered, hidden when game layer active -->
-  <div class="browse-layer" class:behind={showGameLayer}>
+  <div class="browse-shell" class:behind={showGameLayer}>
+  <PlayerHeader onchat={() => chatOpen = true} onranks={() => lbOpen = true} {chatOpen} ranksOpen={lbOpen} />
+  <div class="browse-layer">
     {#if $browseTab === 'lobby'}
       <Lobby />
     {:else if $browseTab === 'shop'}
@@ -200,20 +228,17 @@
   {#if showTabs}
     <BottomNav />
   {/if}
+  </div>
 
-  {#if showPanelToggles}
-    <button class="edge-toggle left" onclick={() => chatOpen = !chatOpen} title="Global Chat">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-    </button>
-    <button class="edge-toggle right" onclick={() => lbOpen = !lbOpen} title="Leaderboard">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-    </button>
-    <button class="sound-toggle" class:muted={$muted} onclick={() => { preloadAll(); toggleMute(); }} title="{$muted ? 'Unmute' : 'Mute'}">
+  {#if showPanelToggles && showGameLayer}
+    <CommunityActions docked onchat={() => chatOpen = true} onranks={() => lbOpen = true} {chatOpen} ranksOpen={lbOpen} />
+    <button class="sound-toggle" class:muted={$muted} onclick={() => { preloadAll(); toggleMute(); }} aria-label={$muted ? 'Unmute sounds' : 'Mute sounds'} title="{$muted ? 'Unmute' : 'Mute'}">
       {#if $muted}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
       {:else}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
       {/if}
+      <span class="edge-label">{$muted ? 'Muted' : 'Sound'}</span>
     </button>
   {/if}
 
@@ -222,12 +247,16 @@
   </SlidePanel>
 
   <SlidePanel bind:open={lbOpen} side="right" title="Leaderboard">
-    <LeaderboardPanel />
+    <LeaderboardPanel onnavigate={() => lbOpen = false} />
   </SlidePanel>
 {/if}
 
 <style>
-  .session-error { position: fixed; top: 36px; left: 50%; transform: translateX(-50%); z-index: 1100; max-width: 90vw; padding: 12px 18px; border-radius: 8px; background: var(--surface2); color: var(--text); }
+  .bars { position: fixed; top: 36px; left: 50%; transform: translateX(-50%); z-index: 1100; display: flex; flex-direction: column; gap: var(--sp-xs); max-width: 90vw; width: max-content; }
+  .session-error { padding: 12px 18px; border-radius: 8px; background: var(--surface2); color: var(--text); font-size: var(--fs-caption); }
+  .notice-bar { display: flex; align-items: center; gap: var(--sp-sm); flex-wrap: wrap; justify-content: center; padding: var(--sp-sm) var(--sp-md); border-radius: 8px; background: var(--surface); border: 1px solid var(--surface2); color: var(--text); font-size: var(--fs-caption); box-shadow: var(--shadow-card); }
+  .notice-action { min-height: 36px; padding: 0 var(--sp-sm); background: none; border: 1px solid var(--accent); border-radius: var(--radius-pill); color: var(--accent); font-family: var(--font); font-size: var(--fs-caption); font-weight: 600; cursor: pointer; }
+  .notice-action:hover { background: var(--accent-glow); }
   .kicked-overlay {
     position: fixed; inset: 0; z-index: 999;
     background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
@@ -249,29 +278,21 @@
     gap: var(--sp-lg); animation: splash-fade-in 0.3s ease-out;
   }
   .splash-title { font-size: 2.5rem; font-weight: 700; color: var(--accent); letter-spacing: 3px; }
+  .splash-text { font-size: var(--fs-body); color: var(--text-dim); text-align: center; padding: 0 var(--sp-md); }
   .splash-spinner {
     width: 32px; height: 32px; border: 3px solid var(--surface2);
     border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
   }
   @keyframes splash-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-  .browse-layer { transition: opacity 0.2s ease; }
-  .browse-layer.behind { visibility: hidden; pointer-events: none; position: absolute; }
+  /* The viewport owns one content row and one navigation row. Only the
+     screen inside the content row scrolls; navigation never overlays it. */
+  .browse-shell { position: fixed; inset: 0; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; background: var(--bg); }
+  .browse-shell.behind { visibility: hidden; pointer-events: none; }
+  .browse-layer { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  :global(html:has(.browse-shell)), :global(body:has(.browse-shell)) { height: 100%; overflow: hidden; }
 
-  .edge-toggle {
-    position: fixed; top: 50%; transform: translateY(-50%); z-index: 55;
-    background: var(--surface); border: 1px solid var(--surface2);
-    color: var(--text-dim); cursor: pointer; padding: var(--sp-sm) var(--sp-xs);
-    transition: color 0.15s, background 0.15s;
-  }
-  .edge-toggle:hover { color: var(--text); background: var(--surface2); }
-  .edge-toggle.left { left: 0; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; border-left: none; }
-  .edge-toggle.right { right: 0; border-radius: var(--radius-sm) 0 0 var(--radius-sm); border-right: none; }
-
-  @media (max-width: 600px) {
-    .edge-toggle { padding: var(--sp-xs) 3px; }
-    .edge-toggle :global(svg) { width: 14px; height: 14px; }
-  }
+  .edge-label { font-size: 0.6rem; font-weight: 600; }
 
   .connection-bar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 900;
@@ -308,7 +329,7 @@
     position: absolute; top: calc(-1 * var(--sp-xl)); right: 0;
     background: var(--surface); border: 1px solid var(--surface2);
     color: var(--text-dim); cursor: pointer;
-    width: 32px; height: 32px; border-radius: 50%;
+    min-height: 32px; padding: 0 var(--sp-md); border-radius: var(--radius-pill); font-family: var(--font);
     display: flex; align-items: center; justify-content: center;
     transition: color 0.15s;
   }
@@ -319,8 +340,8 @@
     right: var(--sp-sm); z-index: 55;
     background: var(--surface); border: 1px solid var(--surface2);
     color: var(--text-dim); cursor: pointer;
-    padding: var(--sp-xs); border-radius: 50%;
-    width: 32px; height: 32px;
+    padding: var(--sp-xs) var(--sp-sm); border-radius: var(--radius-pill); font-family: var(--font);
+    min-height: 32px; gap: var(--sp-xs);
     display: flex; align-items: center; justify-content: center;
     transition: color 0.15s, background 0.15s;
   }

@@ -4,6 +4,7 @@ import { networkInterfaces } from 'os';
 export const PORT = process.env.PORT || 3001;
 export const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
 export const JWT_EXPIRES_IN = '7d';
+export const CLIENT_IP_SOURCE = process.env.CLIENT_IP_SOURCE || 'socket';
 
 // Public URL for QR codes / invite links
 // In production: set SITE_URL in .env (e.g. https://checkers.yourdomain.com)
@@ -20,5 +21,5 @@ function detectLanIp() {
   return 'localhost';
 }
 
-const CLIENT_PORT = process.env.CLIENT_PORT || 3000;
+const CLIENT_PORT = process.env.CLIENT_PORT || 5173;
 export const SITE_URL = process.env.SITE_URL || `http://${detectLanIp()}:${CLIENT_PORT}`;

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { PrismaClient } from '@prisma/client';
 import app from '../server/app.js';
@@ -35,7 +36,7 @@ describe('Friends API', () => {
     const res = await request(app)
       .post('/api/friends/request')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ friendCode: userB.friendCode });
+      .send({ requestId: randomUUID(), friendCode: userB.friendCode });
 
     expect(res.status).toBe(201);
     expect(res.body.friendship.status).toBe('PENDING');
@@ -46,7 +47,7 @@ describe('Friends API', () => {
     const res = await request(app)
       .post('/api/friends/request')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ friendCode: userB.friendCode });
+      .send({ requestId: randomUUID(), friendCode: userB.friendCode });
 
     expect(res.status).toBe(409);
   });
@@ -55,14 +56,14 @@ describe('Friends API', () => {
     const res = await request(app)
       .post('/api/friends/request')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ friendCode: userA.friendCode });
+      .send({ requestId: randomUUID(), friendCode: userA.friendCode });
 
     expect(res.status).toBe(400);
   });
 
   it('lists pending requests for receiver', async () => {
     const res = await request(app)
-      .get('/api/friends/pending')
+      .get('/api/friends')
       .set('Authorization', `Bearer ${tokenB}`);
 
     expect(res.status).toBe(200);
@@ -74,7 +75,7 @@ describe('Friends API', () => {
     const res = await request(app)
       .post('/api/friends/accept')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ friendshipId });
+      .send({ requestId: randomUUID(), friendshipId });
 
     expect(res.status).toBe(403);
   });
@@ -83,7 +84,7 @@ describe('Friends API', () => {
     const res = await request(app)
       .post('/api/friends/accept')
       .set('Authorization', `Bearer ${tokenB}`)
-      .send({ friendshipId });
+      .send({ requestId: randomUUID(), friendshipId });
 
     expect(res.status).toBe(200);
     expect(res.body.friendship.status).toBe('ACCEPTED');
@@ -103,9 +104,10 @@ describe('Friends API', () => {
   it('deletes a friendship', async () => {
     const res = await request(app)
       .delete(`/api/friends/${friendshipId}`)
-      .set('Authorization', `Bearer ${tokenA}`);
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ requestId: randomUUID() });
 
-    expect(res.status).toBe(204);
+    expect(res.status).toBe(200);
 
     const list = await request(app)
       .get('/api/friends')
@@ -122,13 +124,13 @@ describe('Tipping', () => {
     const res = await request(app)
       .post('/api/friends/request')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ friendCode: userB.friendCode });
+      .send({ requestId: randomUUID(), friendCode: userB.friendCode });
     friendshipId = res.body.friendship.id;
 
     await request(app)
       .post('/api/friends/accept')
       .set('Authorization', `Bearer ${tokenB}`)
-      .send({ friendshipId });
+      .send({ requestId: randomUUID(), friendshipId });
 
     // Give alice coins
     await prisma.user.update({ where: { id: userA.id }, data: { coins: 100 } });
@@ -138,7 +140,7 @@ describe('Tipping', () => {
     const res = await request(app)
       .post('/api/coins/tip')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ receiverId: userB.id, amount: 25 });
+      .send({ requestId: randomUUID(), receiverId: userB.id, amount: 25 });
 
     expect(res.status).toBe(200);
     expect(res.body.coins).toBe(75);
@@ -151,7 +153,7 @@ describe('Tipping', () => {
     const res = await request(app)
       .post('/api/coins/tip')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ receiverId: userB.id, amount: 9999 });
+      .send({ requestId: randomUUID(), receiverId: userB.id, amount: 9999 });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/Insufficient/);
@@ -161,7 +163,7 @@ describe('Tipping', () => {
     const res = await request(app)
       .post('/api/coins/tip')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ receiverId: userA.id, amount: 5 });
+      .send({ requestId: randomUUID(), receiverId: userA.id, amount: 5 });
 
     expect(res.status).toBe(400);
   });
@@ -174,7 +176,7 @@ describe('Tipping', () => {
     const res = await request(app)
       .post('/api/coins/tip')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ receiverId: resC.body.user.id, amount: 5 });
+      .send({ requestId: randomUUID(), receiverId: resC.body.user.id, amount: 5 });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/friends/i);

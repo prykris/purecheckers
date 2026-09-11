@@ -1,0 +1,175 @@
+{
+  "generatedAt": "2026-09-11T04:30:35.571Z",
+  "rules": "Pure Checkers; flying kings; actual engine repetition and no-capture rules",
+  "position": ".B....../......../......../..R.R.../......../......../......../........",
+  "toMove": "red",
+  "priorOccurrences": 0,
+  "movesWithoutCapture": 0,
+  "firstMove": "18-5",
+  "maxHopsAfterFirst": 6,
+  "nodes": 1861,
+  "sourceHashes": {
+    "shared/game.js": "a1cc65c301ea57fa9c59cc94b4da8f901e47faebbc61e5269247a0a2c7128893",
+    "shared/constants.js": "d28bc3ed065656822907aeb94e1ac3cb8859fbce27508876f3800d073320f83b",
+    "shared/notation.js": "2396a3d6ba5e38135d306a28442b0706e81f92823e1c9d44f84d95cb4cd9174d"
+  },
+  "tree": {
+    "allReplies": [
+      {
+        "move": "32-28",
+        "next": {
+          "move": "19-1",
+          "next": {
+            "allReplies": [
+              {
+                "move": "28-32",
+                "next": {
+                  "move": "1-28",
+                  "next": {
+                    "allReplies": [
+                      {
+                        "move": "32-27",
+                        "next": {
+                          "move": "5x32",
+                          "next": {
+                            "win": true
+                          }
+                        }
+                      },
+                      {
+                        "move": "32-23",
+                        "next": {
+                          "move": "5x27",
+                          "next": {
+                            "win": true
+                          }
+                        }
+                      },
+                      {
+                        "move": "32-18",
+                        "next": {
+                          "move": "5x23",
+                          "next": {
+                            "win": true
+                          }
+                        }
+                      },
+                      {
+                        "move": "32-14",
+                        "next": {
+                          "move": "5x18",
+                          "next": {
+                            "win": true
+                          }
+                        }
+                      },
+                      {
+                        "move": "32-9",
+                        "next": {
+                          "move": "5x14",
+                          "next": {
+                            "win": true
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "move": "28-24",
+                "next": {
+                  "move": "1x28",
+                  "next": {
+                    "win": true
+                  }
+                }
+              },
+              {
+                "move": "28-19",
+                "next": {
+                  "move": "1x24",
+                  "next": {
+                    "win": true
+                  }
+                }
+              },
+              {
+                "move": "28-15",
+                "next": {
+                  "move": "1x19",
+                  "next": {
+                    "win": true
+                  }
+                }
+              },
+              {
+                "move": "28-10",
+                "next": {
+                  "move": "1x15",
+                  "next": {
+                    "win": true
+                  }
+                }
+              },
+              {
+                "move": "28-6",
+                "next": {
+                  "move": "1x10",
+                  "next": {
+                    "win": true
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "move": "32-27",
+        "next": {
+          "move": "5x32",
+          "next": {
+            "win": true
+          }
+        }
+      },
+      {
+        "move": "32-23",
+        "next": {
+          "move": "19x26",
+          "next": {
+            "win": true
+          }
+        }
+      },
+      {
+        "move": "32-18",
+        "next": {
+          "move": "5x23",
+          "next": {
+            "win": true
+          }
+        }
+      },
+      {
+        "move": "32-14",
+        "next": {
+          "move": "5x18",
+          "next": {
+            "win": true
+          }
+        }
+      },
+      {
+        "move": "32-9",
+        "next": {
+          "move": "5x14",
+          "next": {
+            "win": true
+          }
+        }
+      }
+    ]
+  }
+}

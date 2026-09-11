@@ -1,0 +1,12 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "npx prisma generate"
+  },
+  "deploy": {
+    "startCommand": "node scripts/maintain-puzzles.js",
+    "cronSchedule": "0 2 * * *",
+    "restartPolicyType": "NEVER"
+  }
+}

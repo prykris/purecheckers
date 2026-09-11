@@ -50,8 +50,8 @@ export class SessionClient {
     this.snapshotTimer = setTimeout(() => { if (this.state.status !== 'ready') this.requestSnapshot(); }, this.retryMs);
   }
   send(type, data = {}) {
-    if (this.state.status !== 'ready' || !this.socket?.connected) return Promise.resolve({ ok: false, error: 'Waiting for the server connection' });
-    if (this.command) return Promise.resolve({ ok: false, error: 'A request is still being confirmed' });
+    if (this.state.status !== 'ready' || !this.socket?.connected) return this.reject('Waiting for the server connection');
+    if (this.command) return this.reject('A request is still being confirmed');
     const snapshot = this.state.snapshot;
     const request = {
       protocolVersion: PROTOCOL_VERSION, id: this.id(), type, data: structuredClone(data),
@@ -64,6 +64,7 @@ export class SessionClient {
       this.transmit();
     });
   }
+  reject(error) { this.update({ error }); return Promise.resolve({ ok: false, error }); }
   transmit() {
     if (!this.command || !this.socket?.connected || this.state.status !== 'ready') return;
     const command = this.command, socket = this.socket, connectionId = socket.id;

@@ -1,10 +1,31 @@
 import { Router } from 'express';
 import prisma from '../db.js';
 import { verifyToken } from '../middleware/auth.js';
-import { calculateShopSplit, depositToVault } from '../services/vault.js';
-import { SHOP_VAULT_RATE, SHOP_BURN_RATE } from '../../shared/constants.js';
+import { EconomyError } from '../services/economy.js';
+import { purchaseItem, equipItem } from '../services/walletActions.js';
+import { readShop } from '../services/shop.js';
+import { listAvailableEmotes } from '../services/emotes.js';
+import { readAppearance } from '../services/appearance.js';
 
 const router = Router();
+
+router.get('/appearance', verifyToken, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json(await readAppearance(req.userId)); }
+  catch (error) { console.error('Appearance read failed:', error.message); res.status(503).json({ error: 'Could not load your piece skin. Retry or select a skin in Shop.' }); }
+});
+
+router.get('/emotes', verifyToken, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json({ emotes: await listAvailableEmotes(req.userId) }); }
+  catch (error) { console.error('Emote list unavailable:', error.message); res.status(503).json({ error: 'Could not load emotes. Please retry.' }); }
+});
+
+router.get('/', verifyToken, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.json(await readShop(req.userId)); }
+  catch (err) { console.error('Shop overview error:', err); res.status(500).json({ error: 'Could not load the shop. Please retry.' }); }
+});
 
 // GET /api/shop/items
 router.get('/items', async (req, res) => {
@@ -22,47 +43,9 @@ router.get('/items', async (req, res) => {
 // POST /api/shop/purchase
 router.post('/purchase', verifyToken, async (req, res) => {
   try {
-    const { itemId } = req.body;
-    if (!itemId) return res.status(400).json({ error: 'itemId required' });
-
-    const item = await prisma.shopItem.findUnique({ where: { id: itemId } });
-    if (!item) return res.status(404).json({ error: 'Item not found' });
-
-    // Check if already owned
-    const existing = await prisma.inventory.findUnique({
-      where: { userId_itemId: { userId: req.userId, itemId } }
-    });
-    if (existing) return res.status(409).json({ error: 'Already owned' });
-
-    const user = await prisma.user.findUnique({ where: { id: req.userId } });
-    if (user.coins < item.price) {
-      return res.status(400).json({ error: 'Insufficient coins' });
-    }
-
-    // Burn/vault split per config
-    const { burned, toVault } = calculateShopSplit(item.price);
-
-    const [updatedUser, inventory] = await prisma.$transaction([
-      prisma.user.update({
-        where: { id: req.userId },
-        data: { coins: { decrement: item.price } }
-      }),
-      prisma.inventory.create({
-        data: { userId: req.userId, itemId }
-      }),
-      prisma.coinTransaction.create({
-        data: { receiverId: req.userId, amount: -item.price, reason: 'PURCHASE' }
-      }),
-      prisma.coinTransaction.create({
-        data: { receiverId: req.userId, amount: -burned, reason: 'PURCHASE_BURN' }
-      })
-    ]);
-
-    // Send vault share (outside transaction since vault is separate)
-    await depositToVault(toVault, 'Shop purchase', `${SHOP_VAULT_RATE * 100}% of ${item.price} for "${item.name}", ${burned} burned`);
-
-    res.json({ coins: updatedUser.coins, inventory, burned, toVault });
+    res.json(await purchaseItem(req.userId, req.body));
   } catch (err) {
+    if (err instanceof EconomyError) return res.status(err.status).json({ error: err.message });
     console.error('Purchase error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -70,6 +53,7 @@ router.post('/purchase', verifyToken, async (req, res) => {
 
 // GET /api/shop/inventory
 router.get('/inventory', verifyToken, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const inventory = await prisma.inventory.findMany({
       where: { userId: req.userId },
@@ -85,34 +69,9 @@ router.get('/inventory', verifyToken, async (req, res) => {
 // PATCH /api/shop/equip
 router.patch('/equip', verifyToken, async (req, res) => {
   try {
-    const { itemId } = req.body;
-    if (!itemId) return res.status(400).json({ error: 'itemId required' });
-
-    // Verify ownership
-    const inv = await prisma.inventory.findUnique({
-      where: { userId_itemId: { userId: req.userId, itemId } },
-      include: { item: true }
-    });
-    if (!inv) return res.status(404).json({ error: 'Item not owned' });
-
-    // Unequip all items of same type, then equip this one
-    await prisma.$transaction([
-      prisma.inventory.updateMany({
-        where: {
-          userId: req.userId,
-          item: { type: inv.item.type },
-          equipped: true
-        },
-        data: { equipped: false }
-      }),
-      prisma.inventory.update({
-        where: { id: inv.id },
-        data: { equipped: true }
-      })
-    ]);
-
-    res.json({ equipped: true });
+    res.json(await equipItem(req.userId, req.body));
   } catch (err) {
+    if (err instanceof EconomyError) return res.status(err.status).json({ error: err.message });
     console.error('Equip error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }

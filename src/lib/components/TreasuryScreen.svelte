@@ -1,39 +1,34 @@
 <script>
   import { browseTo } from '$lib/stores/navigation.js';
   import { onMount } from 'svelte';
-  import { user } from '$lib/stores/user.js';
-  import { browseTab } from '$lib/stores/app.js';
-  import { api } from '$lib/api.js';
+  import { user, captureSession, isCurrentSession } from '$lib/stores/user.js';
+  import { api, refreshSession } from '$lib/api.js';
+  import { TreasuryClient } from '$lib/treasuryClient.js';
   import { RANKED_TAX_RATE, SHOP_BURN_RATE, SHOP_VAULT_RATE, DAILY_BOUNTY_AMOUNT, MAX_DAILY_WINS_VS_SAME, MIN_WAGER_MOVES, MIN_WAGER_DURATION_MS } from '../../../shared/constants.js';
 
-  let data = null;
-  let pending = [];
-  let error = '';
-  let claiming = null;
+  let view;
+  let data;
   let showHowItWorks = false;
-
-  onMount(async () => {
-    try {
-      const [treasury, myPending] = await Promise.all([
-        api.get('/treasury'),
-        api.get('/treasury/my-pending').catch(() => ({ pending: [] }))
-      ]);
-      data = treasury;
-      pending = myPending.pending || [];
-    } catch (e) { error = e.message; }
+  const treasury = new TreasuryClient({ readScope: captureSession, isCurrent: isCurrentSession,
+    load: ({ scope, signal }) => api.get('/treasury', { authToken: scope.token, signal }),
+    claimReward: (id, { scope, signal }) => api.post('/treasury/claim', { payoutId: id }, { authToken: scope.token, signal }),
+    refreshProfile: refreshSession,
+    publish: value => { view = value; data = value.data; }
   });
 
-  async function claim(id) {
-    claiming = id;
-    try {
-      const result = await api.post('/treasury/claim', { payoutId: id });
-      pending = pending.filter(p => p.id !== id);
-      $user = { ...$user, coins: ($user?.coins || 0) + result.claimed };
-      // Refresh treasury
-      data = await api.get('/treasury');
-    } catch (e) { error = e.message; }
-    claiming = null;
-  }
+  onMount(() => {
+    let generation;
+    const unsubscribe = user.subscribe(value => {
+      const next = captureSession().generation;
+      if (generation === next) return;
+      generation = next;
+      treasury.reset();
+      if (value) void treasury.refresh();
+    });
+    const focus = () => { if (view.claiming === null && view.status !== 'loading') void treasury.refresh(); };
+    window.addEventListener('focus', focus);
+    return () => { unsubscribe(); window.removeEventListener('focus', focus); treasury.dispose(); };
+  });
 
   function fmtDate(d) {
     return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -41,35 +36,38 @@
 </script>
 
 <div class="page-scroll">
-  <div class="page-content treasury">
+  <div class="page-content treasury" aria-busy={view.status === 'loading' || view.claiming !== null}>
     <button class="btn btn-dark btn-small back" on:click={() => browseTo('lobby')}>Back</button>
 
     <h2>Community Treasury</h2>
     <p class="subtitle">Every coin has a history. This economy belongs to the players.</p>
 
-    {#if error}<p class="error">{error}</p>{/if}
+    {#if view.error || view.readError}<p class="error" role="alert">{view.error || view.readError}</p>{/if}
+    <button class="btn btn-dark btn-small" on:click={() => treasury.refresh()} disabled={view.status === 'loading' || view.claiming !== null}>
+      {view.status === 'loading' ? 'Refreshing…' : 'Refresh'}
+    </button>
 
-    {#if !data}
-      <div class="spinner"></div>
-    {:else}
+    {#if !data && view.status === 'loading'}
+      <p role="status">Loading treasury…</p>
+    {:else if data}
       <!-- Pending payouts for this user -->
-      {#if pending.length > 0}
+      {#if data.pending?.length > 0}
         <div class="card pending-section">
           <h3 class="section-title">Your Pending Payouts</h3>
           <p class="pending-note">These rewards are waiting for vault funds. Claim when available.</p>
-          {#each pending as p}
+          {#each data.pending as p (p.id)}
             <div class="pending-row">
               <div class="pending-info">
                 <span class="pending-label">{p.label || p.reason}</span>
                 <span class="pending-amount">+{p.amount} coins</span>
               </div>
               <button class="btn btn-primary btn-small"
-                on:click={() => claim(p.id)}
-                disabled={claiming === p.id || data.vault.available < p.amount}>
-                {#if claiming === p.id}
+                on:click={() => treasury.claim(p.id)}
+                disabled={view.claiming !== null || view.status === 'loading' || !p.canClaim}>
+                {#if view.claiming === p.id}
                   ...
-                {:else if data.vault.available < p.amount}
-                  Vault empty
+                {:else if !p.canClaim}
+                  {p.claimUnavailableReason}
                 {:else}
                   Claim
                 {/if}
@@ -88,7 +86,7 @@
           <span class="stat-value">{data.vault.balance}</span>
           <span class="stat-label">Vault Balance</span>
           {#if data.vault.pendingOwed > 0}
-            <span class="stat-owed">({data.vault.pendingOwed} owed to {data.vault.pendingCount} players)</span>
+            <span class="stat-owed">({data.vault.pendingOwed} owed across {data.vault.pendingCount} rewards)</span>
           {/if}
           <span class="stat-pct">{data.vault.percentOfTotal}% of all coins</span>
         </div>
@@ -98,7 +96,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 100 4h4a2 2 0 110 4H8"/><path d="M12 18V6"/></svg>
           </div>
           <span class="stat-value">{data.circulation.total}</span>
-          <span class="stat-label">In Circulation</span>
+          <span class="stat-label">Player Coins</span>
+          {#if data.circulation.reserved > 0}
+            <span class="stat-owed">({data.circulation.reserved} reserved for wagers)</span>
+          {/if}
           <span class="stat-pct">{data.circulation.percentOfTotal}% held by players</span>
         </div>
 
@@ -152,8 +153,8 @@
       <!-- Economy details -->
       <div class="card details">
         <h3 class="section-title">Economy Stats</h3>
-        <div class="detail-row"><span>Total coins ever created</span><strong>{data.economy.grandTotal}</strong></div>
-        <div class="detail-row"><span>Active players</span><strong>{data.economy.totalPlayers}</strong></div>
+        <div class="detail-row"><span>Coins accounted for</span><strong>{data.economy.grandTotal}</strong></div>
+        <div class="detail-row"><span>Player accounts</span><strong>{data.economy.totalPlayers}</strong></div>
         <div class="detail-row"><span>Games played</span><strong>{data.economy.gamesPlayed}</strong></div>
         <div class="detail-row"><span>Tax collected</span><strong>{data.economy.totalTaxCollected}</strong></div>
         <div class="detail-row"><span>Bounties paid</span><strong>{data.economy.totalBountiesPaid}</strong></div>

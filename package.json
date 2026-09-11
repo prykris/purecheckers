@@ -3,24 +3,30 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev:client": "vite dev",
-    "dev:server": "nodemon server/index.js",
+    "dev:server": "nodemon --watch server --watch shared --watch .env --ext js,json,env server/index.js",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "build": "npx prisma generate && vite build",
-    "start": "npx prisma migrate deploy && node prisma/seed.js && NODE_ENV=production node server/index.js",
-    "deploy": "npm run build && npx prisma migrate deploy && npm run db:seed",
+    "build": "prisma generate && vite build",
+    "start": "prisma migrate deploy && node prisma/seed.js && node server/start.js",
+    "deploy": "npm run build && prisma migrate deploy && npm run db:seed",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "node prisma/seed.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "puzzles:generate": "node scripts/generate-puzzles.js",
+    "puzzles:import": "node scripts/import-puzzles.js",
+    "puzzles:status": "node scripts/puzzle-buffer.js",
+    "puzzles:maintain": "node scripts/maintain-puzzles.js"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.2",
+    "@prisma/client": "^6.19.3",
+    "@resvg/resvg-js": "^2.6.2",
     "@sveltejs/adapter-node": "^5.5.4",
-    "@sveltejs/kit": "^2.55.0",
+    "@sveltejs/kit": "^2.70.3",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
@@ -34,13 +40,22 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.1.1",
-    "concurrently": "^9.2.1",
+    "concurrently": "^9.2.4",
+    "mdsvex": "^0.12.8",
     "nodemon": "^3.1.14",
-    "prisma": "^6.19.2",
+    "prisma": "^6.19.3",
     "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2",
-    "svelte": "^5.55.0",
-    "vite": "^6.4.1",
-    "vitest": "^4.1.2"
+    "svelte": "^5.57.0",
+    "vite": "^6.4.3",
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0"
+    },
+    "@sveltejs/kit": {
+      "cookie": "0.7.2"
+    }
   }
 }

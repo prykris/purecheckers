@@ -98,17 +98,43 @@ html, body {
   letter-spacing: 0.01em;
 }
 
+/* Links have a theme default, including visited links. Component colors (such
+   as player/result colors and button labels) remain more specific. */
+:where(a) { color: var(--accent); text-underline-offset: 3px; }
+:where(a):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
 /* ---- Layout primitives ---- */
+
+/* Shared defaults cover the document, marketing content and sidebar scroll areas.
+   Keep native system colors in forced-colors mode. Component overrides still win. */
+@media (forced-colors: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-dim) var(--bg);
+  }
+
+  @supports not (scrollbar-width: thin) {
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-corner { background: var(--bg); }
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-dim);
+      border: 2px solid var(--bg);
+      border-radius: var(--radius-pill);
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text); }
+  }
+}
 
 /* Scrollable full-screen page (lobby, shop, friends) */
 .page-scroll {
-  position: fixed;
+  position: absolute;
   inset: 0;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   background: linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg) 40%);
-  padding-bottom: calc(var(--tab-height) + var(--sp-md) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: var(--sp-md);
 }
 
 /* Centered content column within page-scroll */

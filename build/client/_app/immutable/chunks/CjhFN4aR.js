@@ -1,1 +1,0 @@
-import{U as t}from"./DY8dxpqC.js";const s=t(null),o=t(localStorage.getItem("checkers_token"));o.subscribe(e=>{e?localStorage.setItem("checkers_token",e):localStorage.removeItem("checkers_token")});export{o as t,s as u};

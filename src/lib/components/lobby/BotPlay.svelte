@@ -1,87 +1,60 @@
 <script>
-  import { sendCommand } from '$lib/stores/session.js';
+  import { phase } from '$lib/stores/app.js';
+  import { session, sendCommand } from '$lib/stores/session.js';
+  import { botDifficulty } from '$lib/stores/ui.js';
+  import BotChips from './BotChips.svelte';
+  import SessionLine from './SessionLine.svelte';
 
-  let botDifficulty = (typeof localStorage !== 'undefined' && localStorage.getItem('checkers_bot_diff')) || 'medium';
-  let creating = false;
-  let error = '';
+  // bot:play also replaces a matchmaking search. Active rooms retain their return action.
+  let { onskip = null } = $props();
 
-  function setDifficulty(d) {
-    botDifficulty = d;
-    localStorage.setItem('checkers_bot_diff', d);
-  }
+  const idle = $derived($phase === 'idle');
+  const searching = $derived($phase === 'matchmaking');
+  const pending = $derived($session.pending === 'bot:play');
+  const canSend = $derived($session.status === 'ready' && !$session.pending);
 
   async function play() {
-    if (creating) return;
-    creating = true;
-    const result = await sendCommand('bot:play', { difficulty: botDifficulty });
-    error = result.error || '';
-    creating = false;
+    if (!canSend) return;
+    await sendCommand('bot:play', { difficulty: $botDifficulty });
   }
 </script>
 
 <div class="bot">
-  <div class="bot-avatar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="64" height="64">
-      <rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="8.5" cy="16" r="1.5"/><circle cx="15.5" cy="16" r="1.5"/><path d="M12 3v4"/><circle cx="12" cy="3" r="1"/><path d="M7 11V9a5 5 0 0110 0v2"/>
-    </svg>
-  </div>
-  <h3>Play vs Bot</h3>
-
-  <div class="diff-row">
-    <label class="diff easy" class:selected={botDifficulty === 'easy'}>
-      <input type="radio" name="botdiff" value="easy" bind:group={botDifficulty} on:change={() => setDifficulty('easy')} />
-      <span class="diff-dot"></span> Easy
-    </label>
-    <label class="diff medium" class:selected={botDifficulty === 'medium'}>
-      <input type="radio" name="botdiff" value="medium" bind:group={botDifficulty} on:change={() => setDifficulty('medium')} />
-      <span class="diff-dot"></span> Medium
-    </label>
-    <label class="diff hard" class:selected={botDifficulty === 'hard'}>
-      <input type="radio" name="botdiff" value="hard" bind:group={botDifficulty} on:change={() => setDifficulty('hard')} />
-      <span class="diff-dot"></span> Hard
-    </label>
-  </div>
-
-  {#if error}<p class="error">{error}</p>{/if}
-
-  <button class="btn btn-secondary play-btn" on:click={play} disabled={creating}>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-    {creating ? 'Creating...' : 'Challenge'}
-  </button>
+  {#if idle || searching}
+    <div class="intro">
+      <h2>Meet your next opponent</h2>
+      <p>Three levels. Always up for a game.</p>
+    </div>
+    <BotChips layout="cards" disabled={pending}>
+      {#snippet children(opponent)}
+        <div class="start">
+          <button type="button" class="btn btn-primary play-btn" onclick={play} disabled={!canSend}>
+            {pending ? 'Starting…' : `Play ${opponent.name || `the ${opponent.label.toLowerCase()} bot`}`}
+            {#if !pending}<svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>{/if}
+          </button>
+          {#if searching}<p class="switch-note">Starting a bot game ends your player search.</p>{/if}
+        </div>
+      {/snippet}
+    </BotChips>
+    {#if searching}
+      <SessionLine />
+    {:else if onskip}
+      <button type="button" class="human-link" onclick={onskip}>Looking for a human? <span>Try Quick Play</span></button>
+    {/if}
+  {:else}
+    <SessionLine />
+  {/if}
 </div>
 
 <style>
-  .bot { display: flex; flex-direction: column; align-items: center; gap: var(--sp-md); padding: var(--sp-lg) 0; }
-  .bot-avatar { color: var(--accent2); }
-  h3 { font-size: var(--fs-heading); font-weight: 600; }
-
-  .diff-row { display: flex; gap: var(--sp-md); }
-  .diff {
-    display: flex; align-items: center; gap: var(--sp-xs);
-    font-size: var(--fs-body); font-weight: 500; cursor: pointer;
-    padding: var(--sp-xs) var(--sp-sm); border-radius: var(--radius-pill);
-    border: 2px solid transparent; transition: border-color 0.15s, color 0.15s;
-  }
-  .diff input { display: none; }
-  .diff-dot {
-    width: 12px; height: 12px; border-radius: 50%;
-    border: 2px solid; transition: background 0.15s;
-  }
-  .diff.easy { color: var(--text-dim); }
-  .diff.easy .diff-dot { border-color: var(--success); }
-  .diff.easy.selected { color: var(--success); border-color: var(--success); }
-  .diff.easy.selected .diff-dot { background: var(--success); }
-
-  .diff.medium { color: var(--text-dim); }
-  .diff.medium .diff-dot { border-color: var(--warning); }
-  .diff.medium.selected { color: var(--warning); border-color: var(--warning); }
-  .diff.medium.selected .diff-dot { background: var(--warning); }
-
-  .diff.hard { color: var(--text-dim); }
-  .diff.hard .diff-dot { border-color: var(--accent); }
-  .diff.hard.selected { color: var(--accent); border-color: var(--accent); }
-  .diff.hard.selected .diff-dot { background: var(--accent); }
-
-  .error { color: var(--accent); font-size: var(--fs-caption); }
-  .play-btn { width: 100%; max-width: 220px; padding: var(--sp-md) var(--sp-lg); font-size: 1rem; }
+  .bot { display: flex; flex-direction: column; flex: 1; min-height: 0; align-items: stretch; gap: var(--sp-md); padding: var(--sp-sm) 0; width: 100%; }
+  .intro { flex-shrink: 0; }
+  .intro h2 { font-size: 1.4rem; line-height: 1.3; font-weight: 700; letter-spacing: -0.025em; }
+  .intro p { margin-top: var(--sp-sm); color: var(--text-dim); font-size: var(--fs-body); }
+  .start { flex-shrink: 0; padding-top: var(--sp-sm); border-top: 1px solid var(--surface2); }
+  .play-btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 56px; font-size: 1rem; }
+  .play-btn svg { flex-shrink: 0; width: 20px; height: 20px; }
+  .switch-note { margin-top: var(--sp-sm); text-align: center; color: var(--text-dim); font-size: var(--fs-caption); }
+  .human-link { flex-shrink: 0; align-self: center; min-height: 44px; padding: var(--sp-sm); border: none; background: none; color: var(--text-dim); font: inherit; font-size: var(--fs-caption); cursor: pointer; }
+  .human-link span { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 </style>

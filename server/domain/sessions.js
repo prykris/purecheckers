@@ -1,3 +1,4 @@
+
 /**
  * Server-authoritative user state.
  *
@@ -40,6 +41,8 @@ class UserSession {
     this.connectionId = null;
 
     this.phase = 'idle';
+    this.notice = null;
+    this.noticeCursor = { sequence: 0n, dismissed: false };
 
     // Context (set based on phase)
     this.roomId = null;
@@ -47,18 +50,29 @@ class UserSession {
     this.gameColor = null;
     this.spectatingRoomId = null;
     this.spectatingGameId = null;
+    // Search fallback: when the queue was entered and when "play a bot instead" opens.
+    this.matchmakingJoinedAt = null;
+    this.matchmakingFallbackAt = null;
+    this.fallbackTimer = null;
 
     // Disconnect handling
     this.disconnectedAt = null;
+    this.disconnectDeadline = null;
     this.disconnectTimer = null;
   }
 
   clearContext() {
+    if (this.disconnectTimer) clearTimeout(this.disconnectTimer);
+    this.disconnectTimer = null;
+    this.disconnectDeadline = null;
     this.roomId = null;
     this.gameId = null;
     this.gameColor = null;
     this.spectatingRoomId = null;
     this.spectatingGameId = null;
+    this.matchmakingJoinedAt = null;
+    this.matchmakingFallbackAt = null;
+    if (this.fallbackTimer) { clearTimeout(this.fallbackTimer); this.fallbackTimer = null; }
   }
 }
 
@@ -66,6 +80,18 @@ class UserSession {
 
 export function getSession(userId) {
   return sessions.get(userId) || null;
+}
+
+// Project only accepted records. A delayed pre-dismissal read cannot revive an
+// event, and a delayed older event cannot overwrite a newer one.
+export function applySessionNotice(userId, record) {
+  const session = getSession(userId);
+  if (!session || !record) return;
+  const cursor = session.noticeCursor;
+  if (record.sequence < cursor.sequence || (record.sequence === cursor.sequence && cursor.dismissed)) return;
+  const dismissed = record.dismissedAt !== null;
+  session.noticeCursor = { sequence: record.sequence, dismissed };
+  session.notice = dismissed ? null : { id: record.id, reason: record.reason, context: record.context, occurredAt: record.occurredAt.getTime() };
 }
 
 export function getOrCreateSession(userId, username, isGuest) {
@@ -113,6 +139,39 @@ export function setPhase(userId, newPhase, context = {}) {
 }
 
 /**
+ * Record the search deadline on a matchmaking session and arm the timer that
+ * re-checks the phase at the deadline. Leaving the phase (clearContext) cancels it.
+ */
+export function setMatchmakingDeadline(userId, joinedAt, fallbackAt, onDeadline) {
+  const session = sessions.get(userId);
+  if (!session || session.phase !== 'matchmaking') return false;
+  if (session.fallbackTimer) { clearTimeout(session.fallbackTimer); session.fallbackTimer = null; }
+  session.matchmakingJoinedAt = joinedAt;
+  session.matchmakingFallbackAt = fallbackAt;
+  const delay = fallbackAt - Date.now();
+  if (delay <= 0) return true; // already open; the next snapshot says so
+  let timer;
+  function arm(remaining) {
+    timer = setTimeout(checkDeadline, Math.min(2_147_483_647, Math.max(1, Math.ceil(remaining))));
+    session.fallbackTimer = timer;
+    timer.unref?.();
+  }
+  function checkDeadline() {
+    // Timers can wake before wall time reaches the deadline. A cleared callback
+    // may also belong to an older search, even when its timestamps were reused.
+    if (sessions.get(userId) !== session || session.phase !== 'matchmaking' ||
+        session.fallbackTimer !== timer || session.matchmakingJoinedAt !== joinedAt ||
+        session.matchmakingFallbackAt !== fallbackAt) return;
+    const remaining = fallbackAt - Date.now();
+    if (remaining > 0) { arm(remaining); return; }
+    session.fallbackTimer = null;
+    onDeadline(userId);
+  }
+  arm(delay);
+  return true;
+}
+
+/**
  * Force phase to idle (used for cleanup: game end, kick, etc.)
  * Bypasses transition validation.
  */
@@ -134,11 +193,9 @@ export function forceIdle(userId) {
  */
 // Disconnect timer callbacks — set by handlers to avoid circular imports
 let onGameDisconnectTimeout = null;
-let onRoomDisconnectTimeout = null;
 
-export function setDisconnectCallbacks({ onGameTimeout, onRoomTimeout }) {
+export function setDisconnectCallbacks({ onGameTimeout }) {
   onGameDisconnectTimeout = onGameTimeout;
-  onRoomDisconnectTimeout = onRoomTimeout;
 }
 
 /**
@@ -147,6 +204,7 @@ export function setDisconnectCallbacks({ onGameTimeout, onRoomTimeout }) {
 export function handleDisconnect(userId) {
   const session = sessions.get(userId);
   if (!session) return;
+  if (!session.connectionId && session.disconnectTimer) return;
   session.connectionId = null;
   session.disconnectedAt = Date.now();
 
@@ -159,8 +217,10 @@ export function handleDisconnect(userId) {
   switch (session.phase) {
     case 'in-game': {
       // 30 seconds to reconnect or forfeit
+      session.disconnectDeadline = session.disconnectedAt + 30000;
       session.disconnectTimer = setTimeout(() => {
         session.disconnectTimer = null;
+        session.disconnectDeadline = null;
         if (session.phase === 'in-game' && !session.connectionId && onGameDisconnectTimeout) {
           console.log(`[UserState] Game disconnect timeout: ${session.username} (${userId})`);
           onGameDisconnectTimeout(userId, session.gameId);
@@ -168,17 +228,7 @@ export function handleDisconnect(userId) {
       }, 30000);
       break;
     }
-    case 'in-room': {
-      // 2 minutes to reconnect or get removed
-      session.disconnectTimer = setTimeout(() => {
-        session.disconnectTimer = null;
-        if (session.phase === 'in-room' && !session.connectionId && onRoomDisconnectTimeout) {
-          console.log(`[UserState] Room disconnect timeout: ${session.username} (${userId})`);
-          onRoomDisconnectTimeout(userId, session.roomId);
-        }
-      }, 120000);
-      break;
-    }
+    // Room players and spectators use the room's persisted deadline and timer.
     case 'matchmaking': {
       // Immediately remove from queue
       forceIdle(userId);
@@ -186,6 +236,7 @@ export function handleDisconnect(userId) {
     }
     // spectating, idle — no timer needed
   }
+  session.disconnectTimer?.unref?.();
 }
 
 /**
@@ -196,6 +247,7 @@ export function handleReconnect(userId, connectionId) {
   if (!session) return;
   session.connectionId = connectionId;
   session.disconnectedAt = null;
+  session.disconnectDeadline = null;
   if (session.disconnectTimer) {
     clearTimeout(session.disconnectTimer);
     session.disconnectTimer = null;
@@ -210,6 +262,7 @@ export function removeSession(userId) {
   if (session?.disconnectTimer) {
     clearTimeout(session.disconnectTimer);
   }
+  if (session?.fallbackTimer) clearTimeout(session.fallbackTimer);
   sessions.delete(userId);
 }
 

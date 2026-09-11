@@ -13,15 +13,40 @@ import {
 class QuickPlayPool {
   constructor() {
     this.players = []; // { userId, elo, isGuest, joinedAt }
+    this.claims = new Map(); // exact entries held by pairing work
+    this.order = 0;
   }
 
   add(userId, elo, isGuest) {
-    if (this.players.some(p => p.userId === userId)) return;
-    this.players.push({ userId, elo, isGuest, joinedAt: Date.now() });
+    if (this.players.some(p => p.userId === userId) || this.claims.has(userId)) return;
+    this.players.push({ userId, elo, isGuest, joinedAt: Date.now(), order: ++this.order });
   }
 
   remove(userId) {
     this.players = this.players.filter(p => p.userId !== userId);
+    this.claims.delete(userId);
+  }
+
+  ownsClaim(entry) {
+    return this.claims.get(entry.userId) === entry;
+  }
+
+  finishClaim(entry) {
+    if (!this.ownsClaim(entry)) return false;
+    this.claims.delete(entry.userId);
+    return true;
+  }
+
+  restoreClaim(entry) {
+    if (!this.finishClaim(entry)) return false;
+    this.players.push(entry);
+    this.players.sort((a, b) => a.order - b.order);
+    return true;
+  }
+
+  reset() {
+    this.players = [];
+    this.claims.clear();
   }
 
   /**
@@ -72,7 +97,11 @@ class QuickPlayPool {
       }
     }
 
-    // Remove matched players
+    // Pairing owns these exact searches until durable admission or requeue.
+    for (const { a, b } of pairs) {
+      this.claims.set(a.userId, a);
+      this.claims.set(b.userId, b);
+    }
     this.players = this.players.filter((_, idx) => !matched.has(idx));
 
     return pairs;

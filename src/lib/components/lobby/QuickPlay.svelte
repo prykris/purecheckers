@@ -1,50 +1,63 @@
 <script>
-  import { user } from '$lib/stores/user.js';
-  import { sendCommand } from '$lib/stores/session.js';
-  import RoomCreate from './RoomCreate.svelte';
+  import { locale } from '$lib/stores/locale.js';
+  import { siteText } from '$lib/siteCopy.js';
+  import { phase, presenceStats } from '$lib/stores/app.js';
+  import { session, sendCommand } from '$lib/stores/session.js';
+  import { NEARBY_ROOM } from '$lib/stores/ui.js';
   import GameLog from '../GameLog.svelte';
+  import SessionLine from './SessionLine.svelte';
+  let { onplaybot } = $props();
 
-  let showCreatePrivate = false;
+  // Two labelled buttons in a fixed order. Only the colour follows the live count:
+  // Play with a friend is red when nobody is searching, Find Opponent otherwise.
+
+  const idle = $derived($phase === 'idle');
+  const canSend = $derived($session.status === 'ready' && !$session.pending);
+  const others = $derived(Math.max(0, ($presenceStats.humansOnline || 0) - 1));
+  const searchingCount = $derived($presenceStats.searching || 0);
+  const nearbyPrimary = $derived(searchingCount === 0);
+  const presenceLine = $derived(others <= 0
+    ? 'Nobody else is online right now'
+    : `${others} online · ${searchingCount === 0 ? 'nobody searching' : `${searchingCount} searching`}`);
 
   function findOpponent() {
+    if (!canSend) return;
     sendCommand('matchmaking:join');
-
+  }
+  function playNearby() {
+    if (!canSend) return;
+    sendCommand('room:create', { ...NEARBY_ROOM });
   }
 </script>
 
 <div class="quick">
-  <div class="elo-display">
-    <span class="elo-label">Your Rating</span>
-    <span class="elo-value">{$user?.elo || 1000}</span>
-  </div>
 
-  <button class="btn btn-primary play-btn" on:click={findOpponent}>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    Find Opponent
-  </button>
+  {#if idle}
+    <div class="door">
+      <button type="button" class="btn play-btn" class:btn-primary={!nearbyPrimary} class:btn-dark={nearbyPrimary}
+        onclick={findOpponent} disabled={!canSend}>
+        {$session.pending === 'matchmaking:join' ? 'Starting search…' : siteText('Find Opponent', $locale)}
+      </button>
+      <p class="caption">{presenceLine}</p>
+    </div>
 
-  <button class="btn btn-dark play-btn" on:click={() => showCreatePrivate = true}>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-    Play vs Friend
-  </button>
+    <div class="door">
+      <button type="button" class="btn play-btn" class:btn-primary={nearbyPrimary} class:btn-dark={!nearbyPrimary}
+        onclick={playNearby} disabled={!canSend}>
+        {$session.pending === 'room:create' ? 'Opening your room…' : siteText('Play with a friend', $locale)}
+      </button>
+      <p class="caption">They scan your screen, or you send a link. No account needed.</p>
+    </div>
+  {:else}
+    <SessionLine />
+  {/if}
 </div>
 
-{#if showCreatePrivate}
-  <RoomCreate defaultPrivate={true} on:close={() => showCreatePrivate = false} />
-{/if}
-
-<GameLog />
+<GameLog {onplaybot} />
 
 <style>
-  .quick { display: flex; flex-direction: column; align-items: center; gap: var(--sp-lg); padding: var(--sp-lg) 0; flex-shrink: 0; }
-
-  .elo-display { display: flex; flex-direction: column; align-items: center; gap: var(--sp-xs); }
-  .elo-label { font-size: var(--fs-caption); color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; }
-  .elo-value { font-size: 2.5rem; font-weight: 700; color: var(--text); }
-
-  .play-btn {
-    width: 100%; max-width: 280px;
-    padding: var(--sp-md) var(--sp-lg);
-    font-size: 1rem;
-  }
+  .quick { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-md); padding: var(--sp-sm) 0 var(--sp-lg); width: 100%; flex-shrink: 0; }
+  .door { display: flex; flex-direction: column; gap: var(--sp-xs); }
+  .play-btn { width: 100%; min-height: 52px; font-size: 1rem; }
+  .caption { font-size: var(--fs-caption); color: var(--text-dim); text-align: center; line-height: 1.4; }
 </style>

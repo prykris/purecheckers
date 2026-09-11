@@ -1,10 +1,16 @@
 User-agent: *
-Allow: /
-Disallow: /auth
+Disallow: /api/
 Disallow: /lobby
-Disallow: /game
+Disallow: /game$
+Disallow: /game?
+Allow: /game/
 Disallow: /shop
 Disallow: /friends
 Disallow: /profile
+Disallow: /replay
+Disallow: /search
+Disallow: /invite/
+Disallow: /room-waiting
+Disallow: /treasury
 
 Sitemap: https://purecheckers.com/sitemap.xml

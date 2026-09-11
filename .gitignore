@@ -6,3 +6,5 @@ build/
 *.log
 *.db
 *.db-journal
+
+.generated/

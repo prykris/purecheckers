@@ -1,5 +1,10 @@
 import { Router } from 'express';
 import prisma from '../db.js';
+import { publicUsername, publicProfilePath } from '../services/publicName.js';
+import { publicPlayerWhere, gameParticipants, isDiscoverableGame, discoverableGames } from '../services/publicGames.js';
+
+import { findPublicPlayer, playerActivity } from '../services/playerStats.js';
+import { gameLogEntry } from '../services/gameLog.js';
 
 const router = Router();
 
@@ -7,19 +12,20 @@ const router = Router();
 router.get('/', async (req, res) => {
   try {
     const players = await prisma.user.findMany({
-      where: { gamesPlayed: { gt: 0 }, isGuest: false, isBot: false },
+      where: publicPlayerWhere,
       select: {
         id: true,
         username: true,
         elo: true,
         wins: true,
         losses: true,
-        gamesPlayed: true
+        gamesPlayed: true,
+        profilePublic: true
       },
       orderBy: { elo: 'desc' },
       take: 50
     });
-    res.json({ players });
+    res.json({ players: players.map(p => ({ ...p, profileUrl: publicProfilePath(p) })) });
   } catch (err) {
     console.error('Leaderboard error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -29,53 +35,29 @@ router.get('/', async (req, res) => {
 // GET /api/leaderboard/player/:username — public player profile
 router.get('/player/:username', async (req, res) => {
   try {
-    const player = await prisma.user.findUnique({
-      where: { username: req.params.username },
-      select: {
-        id: true, username: true, elo: true, peakElo: true,
-        wins: true, losses: true, gamesPlayed: true,
-        isGuest: true, isBot: true, createdAt: true
-      }
-    });
+    res.set('Cache-Control', 'no-store');
+    const player = await findPublicPlayer(prisma, req.params.username);
     if (!player) return res.status(404).json({ error: 'Player not found' });
 
     const games = await prisma.game.findMany({
       where: { OR: [{ redPlayerId: player.id }, { blackPlayerId: player.id }] },
       orderBy: { startedAt: 'desc' },
       take: 20,
-      include: {
-        redPlayer: { select: { username: true } },
-        blackPlayer: { select: { username: true } },
-      }
+      include: gameParticipants
     });
 
     const history = games.map(g => {
       const isRed = g.redPlayerId === player.id;
       return {
-        id: g.id,
-        opponent: isRed ? g.blackPlayer.username : g.redPlayer.username,
+        ...gameLogEntry(g),
+        opponent: publicUsername(isRed ? g.blackPlayer.username : g.redPlayer.username),
+        opponentProfileUrl: publicProfilePath(isRed ? g.blackPlayer : g.redPlayer),
         myColor: isRed ? 'red' : 'black',
-        result: g.result,
-        mode: g.mode,
-        date: g.startedAt,
+        eloChange: isRed ? g.redEloChange : g.blackEloChange,
       };
     });
 
-    // Activity heatmap: games per day for last 365 days
-    const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const allGames = await prisma.game.findMany({
-      where: {
-        OR: [{ redPlayerId: player.id }, { blackPlayerId: player.id }],
-        startedAt: { gte: yearAgo }
-      },
-      select: { startedAt: true },
-      orderBy: { startedAt: 'asc' }
-    });
-    const activity = {};
-    for (const g of allGames) {
-      const day = g.startedAt.toISOString().slice(0, 10);
-      activity[day] = (activity[day] || 0) + 1;
-    }
+    const activity = await playerActivity(prisma, player.id);
 
     res.json({ player, games: history, activity });
   } catch (err) {
@@ -87,22 +69,20 @@ router.get('/player/:username', async (req, res) => {
 // GET /api/leaderboard/games — global game log (recent games by all players)
 router.get('/games', async (req, res) => {
   try {
-    const games = await prisma.game.findMany({
+    res.set('Cache-Control', 'no-store');
+    let games;
+    if (req.query.public === '1') {
+      games = [];
+      for await (const game of discoverableGames(prisma)) {
+        games.push(game);
+        if (games.length === 50) break;
+      }
+    } else games = await prisma.game.findMany({
       orderBy: { startedAt: 'desc' },
       take: 50,
-      include: {
-        redPlayer: { select: { id: true, username: true } },
-        blackPlayer: { select: { id: true, username: true } },
-      }
+      include: gameParticipants
     });
-    const log = games.map(g => ({
-      id: g.id,
-      redPlayer: g.redPlayer.username,
-      blackPlayer: g.blackPlayer.username,
-      result: g.result,
-      mode: g.mode,
-      date: g.startedAt,
-    }));
+    const log = games.map(gameLogEntry);
     res.json({ games: log });
   } catch (err) {
     console.error('Game log error:', err);
@@ -114,24 +94,29 @@ router.get('/games', async (req, res) => {
 router.get('/game/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!id || isNaN(id)) return res.status(400).json({ error: 'Invalid game ID' });
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: 'Invalid game ID' });
     const game = await prisma.game.findUnique({
       where: { id },
-      include: {
-        redPlayer: { select: { username: true } },
-        blackPlayer: { select: { username: true } },
-      }
+      include: gameParticipants
     });
     if (!game) return res.status(404).json({ error: 'Game not found' });
     res.json({
       game: {
         id: game.id,
-        redPlayer: game.redPlayer.username,
-        blackPlayer: game.blackPlayer.username,
+        indexable: isDiscoverableGame(game),
+        redPlayer: publicUsername(game.redPlayer.username),
+        blackPlayer: publicUsername(game.blackPlayer.username),
+        redProfileUrl: publicProfilePath(game.redPlayer),
+        blackProfileUrl: publicProfilePath(game.blackPlayer),
         result: game.result,
+        endReason: game.endReason,
         mode: game.mode,
+        isBotGame: game.redPlayer.isBot || game.blackPlayer.isBot,
+        redEloChange: game.redEloChange,
+        blackEloChange: game.blackEloChange,
         moveHistory: game.moveHistory,
         date: game.startedAt,
+        endedAt: game.endedAt,
       }
     });
   } catch (err) {

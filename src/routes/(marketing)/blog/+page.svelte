@@ -1,19 +1,2 @@
-<svelte:head>
-  <title>Blog & News — Pure Checkers</title>
-  <meta name="description" content="Latest news, updates, and articles from Pure Checkers." />
-  <link rel="canonical" href="https://purecheckers.com/blog" />
-  <meta property="og:title" content="Blog & News — Pure Checkers" />
-  <meta property="og:description" content="Latest news, updates, and articles from Pure Checkers." />
-  <meta property="og:url" content="https://purecheckers.com/blog" />
-</svelte:head>
-
-<section class="section">
-  <h1 class="section-title">Blog & News</h1>
-  <p class="section-sub">Coming soon — stay tuned for updates, strategy articles, and community highlights.</p>
-</section>
-
-<style>
-  .section { padding: 64px var(--sp-md); max-width: 800px; margin: 0 auto; min-height: 60dvh; display: flex; flex-direction: column; justify-content: center; }
-  .section-title { font-size: var(--fs-title); font-weight: 700; text-align: center; margin-bottom: var(--sp-sm); }
-  .section-sub { text-align: center; color: var(--text-dim); font-size: var(--fs-body); }
-</style>
+<!-- Never rendered: the load function answers with a 301 to /strategy. -->
+<p><a href="/strategy">Strategy guides</a></p>

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#1c1917" />
+    <title>%sveltekit.status% — Pure Checkers</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body {
+        background: #1c1917; color: #fafaf9;
+        font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        min-height: 100vh; padding: 24px; text-align: center;
+      }
+      .wrap { max-width: 480px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+      .brand { font-size: 1.15rem; font-weight: 700; color: #fafaf9; text-decoration: none; letter-spacing: 1px; }
+      .brand span { color: #ef4444; }
+      .status { font-size: 4rem; font-weight: 700; line-height: 1; color: #ef4444; }
+      h1 { font-size: 1.4rem; font-weight: 600; }
+      p { color: #a8a29e; font-size: 0.95rem; line-height: 1.6; }
+      nav { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+      nav a { color: #a8a29e; font-size: 0.85rem; text-decoration: none; }
+      nav a:hover { color: #fafaf9; }
+      .play {
+        display: inline-block; margin-top: 8px; padding: 12px 28px;
+        background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff;
+        border-radius: 8px; font-weight: 600; text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="brand" href="/"><span>Pure</span> Checkers</a>
+      <div class="status">%sveltekit.status%</div>
+      <h1>%sveltekit.error.message%</h1>
+      <p>The page you were looking for is not here. It may have moved, or the link may be wrong.</p>
+      <a class="play" href="/auth">Play Checkers</a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/leaderboard">Leaderboard</a>
+        <a href="/strategy">Strategy</a>
+        <a href="/faq">FAQ</a>
+        <a href="/changelog">Changelog</a>
+      </nav>
+    </div>
+  </body>
+</html>

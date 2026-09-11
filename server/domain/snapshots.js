@@ -1,5 +1,8 @@
-import { getSession } from './sessions.js';
+import { getSession, getAllSessions } from './sessions.js';
 import { DRAW_OFFER_COOLDOWN_MS } from '../../shared/constants.js';
+import { challengeInvitations } from '../../shared/challenges.js';
+
+const spectatorCount = gameId => [...getAllSessions().values()].filter(s => s.phase === 'spectating' && s.spectatingGameId === gameId && s.connectionId).length;
 
 export function buildSyncPayload(userId, { gameRooms, activeGames, getPresenceStats, sanitizeRoom }) {
   const session = getSession(userId);
@@ -8,7 +11,9 @@ export function buildSyncPayload(userId, { gameRooms, activeGames, getPresenceSt
   }
 
   const payload = {
+    invitations: challengeInvitations(gameRooms.values(), userId),
     phase: session.phase,
+    notice: session.notice,
     room: null,
     game: null,
     matchmaking: null,
@@ -30,7 +35,14 @@ export function buildSyncPayload(userId, { gameRooms, activeGames, getPresenceSt
     }
 
     case 'matchmaking': {
-      payload.matchmaking = { joinedAt: Date.now() };
+      // Server-owned search deadline; a session timer republishes when it passes.
+      const now = Date.now();
+      const botFallbackAt = session.matchmakingFallbackAt ?? null;
+      payload.matchmaking = {
+        joinedAt: session.matchmakingJoinedAt ?? null,
+        botFallbackAt,
+        fallbackOpen: botFallbackAt !== null && now >= botFallbackAt,
+      };
       break;
     }
 
@@ -51,13 +63,23 @@ export function buildSyncPayload(userId, { gameRooms, activeGames, getPresenceSt
             }
           }
         }
+        const opponentIsBot = gameRoom.botIds?.has(opponentId) === true;
         payload.game = {
           gameId: gameRoom.id,
           yourColor: gameRoom.getPlayerColor(userId),
+          enteredViaInvite: gameRoom.invitedPlayerIds?.has(userId) === true,
           drawOfferAvailableAt: (gameRoom.lastDrawOffer[userId] || 0) + DRAW_OFFER_COOLDOWN_MS,
           opponentName: opponentName || 'Opponent',
           opponentId,
-          opponentOnline: !!opponentSession?.connectionId || gameRoom.botIds?.has(opponentId) === true,
+          opponentIsBot,
+          opponentReconnectDeadline: opponentIsBot ? null : opponentSession?.disconnectDeadline ?? null,
+          spectatorCount: spectatorCount(gameRoom.id),
+          opponentOnline: !!opponentSession?.connectionId || opponentIsBot,
+          // A human opponent who released the finished game (game:leave, or an idle
+          // command accepted from the result screen) cannot rematch any more.
+          opponentLeft: gameRoom.game.gameOver && !opponentIsBot &&
+            (gameRoom.resultRecord ? !gameRoom.resultRecord.state.players.find(p => p.userId === opponentId)?.viewing
+              : opponentSession?.gameId !== gameRoom.id),
           ...gameRoom.getState(),
         };
         payload.chatChannelId = `game:${gameRoom.id}`;
@@ -72,7 +94,8 @@ export function buildSyncPayload(userId, { gameRooms, activeGames, getPresenceSt
       const gameRoom = session.spectatingGameId ? activeGames.get(session.spectatingGameId) : null;
       if (!room && !gameRoom) throw new Error('Session refers to a missing spectator room');
       // Get player names for spectator display
-      let redName = 'Red', blackName = 'Black';
+      let redName = gameRoom?.playerNames?.[gameRoom.redUserId] || 'Red';
+      let blackName = gameRoom?.playerNames?.[gameRoom.blackUserId] || 'Black';
       if (gameRoom && room) {
         const redPlayer = room.players.find(p => p.userId === gameRoom.redUserId);
         const blackPlayer = room.players.find(p => p.userId === gameRoom.blackUserId);
@@ -83,7 +106,7 @@ export function buildSyncPayload(userId, { gameRooms, activeGames, getPresenceSt
         roomId: session.spectatingRoomId,
         gameId: session.spectatingGameId,
         room: room ? sanitizeRoom(room) : null,
-        gameState: gameRoom ? gameRoom.getState() : null,
+        gameState: gameRoom ? { ...gameRoom.getState(), spectatorCount: spectatorCount(gameRoom.id) } : null,
         redName,
         blackName,
       };
