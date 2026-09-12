@@ -15,7 +15,7 @@ function fixture() {
 it('publishes only the resolved catalogue content and bounds repeats using server time', async () => {
   const h = fixture();
   expect(await h.send({ gameId: 7, itemId: 3, emote: { emoji: 'forged' } })).toEqual({ ok: true });
-  expect(h.publish).toHaveBeenCalledWith(7, { gameId: 7, userId: 1, username: 'Player', emote: { id: 3, name: 'GG', emoji: '🤝', label: 'GG' } });
+  expect(h.publish).toHaveBeenCalledWith(7, { gameId: 7, userId: 1, username: 'Player', spectator: false, emote: { id: 3, name: 'GG', emoji: '🤝', label: 'GG' } });
   expect(await h.send({ gameId: 7, itemId: 3 })).toMatchObject({ ok: false, code: 'RATE_LIMITED' });
   expect(h.resolve).toHaveBeenCalledTimes(1);
   h.advance(2000); expect(await h.send({ gameId: 7, itemId: 3 })).toEqual({ ok: true });
@@ -55,4 +55,24 @@ it('rejects malformed, legacy and out-of-context sends before looking up invento
   h.session.phase = 'idle'; expect((await h.send({ gameId: 7, itemId: 3 })).ok).toBe(false);
   h.session.phase = 'in-game'; h.room.started = false; expect((await h.send({ gameId: 7, itemId: 3 })).ok).toBe(false);
   expect(h.resolve).not.toHaveBeenCalled();
+});
+
+
+it.each([false, true])('allows owned reactions while spectating a game, ended=%s', async ended => {
+  const h = fixture(); h.room.game.gameOver = ended; h.room.getPlayerColor = () => null;
+  Object.assign(h.session,{phase:'spectating',gameId:null,spectatingGameId:7});
+  expect(await h.send({gameId:7,itemId:3})).toEqual({ok:true});
+  expect(h.publish.mock.calls[0][1]).toMatchObject({spectator:true,userId:1});
+});
+it('denies a spectator reaction that finishes resolving after departure', async () => {
+  const h=fixture(), pending=deferred(); h.resolve.mockReturnValue(pending.promise);
+  Object.assign(h.session,{phase:'spectating',gameId:null,spectatingGameId:7});
+  const result=h.send({gameId:7,itemId:3}); h.session.spectatingGameId=8;
+  pending.resolve({id:3,emoji:'GG'});
+  expect(await result).toMatchObject({ok:false,code:'GAME_UNAVAILABLE'});
+  expect(h.publish).not.toHaveBeenCalled();
+});
+it('allows a new participant reaction after the game ends while they still view it',async()=>{
+  const h=fixture(); h.room.game.gameOver=true;
+  expect(await h.send({gameId:7,itemId:3})).toEqual({ok:true});
 });

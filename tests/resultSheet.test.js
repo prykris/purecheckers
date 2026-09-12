@@ -12,7 +12,7 @@ beforeAll(async () => {
   mkdirSync(output, { recursive: true });
   writeFileSync(resolve(output, 'state.js'), readFileSync(resolve(root, 'tests/fixtures/resultSheetState.js'), 'utf8'));
   state = await import(fixture);
-  for (const name of ['GameResult', 'ShareActions', 'ReplayBoard', 'PlayerLink']) {
+  for (const name of ['GameResult', 'ShareActions', 'ReplayBoard', 'PlayerLink', 'GameBoard', 'BoardView', 'table/TableIcon']) {
     const source = resolve(root, `src/lib/components/${name}.svelte`);
     const { js } = compile(readFileSync(source, 'utf8'), { generate: 'server', filename: source });
     const code = js.code.replace(/from (['"])([^'"]+)\1/g, (match, quote, specifier) => {
@@ -22,7 +22,7 @@ beforeAll(async () => {
         : specifier.startsWith('$lib/') ? resolve(root, 'src/lib', specifier.slice(5)) : resolve(dirname(source), specifier);
       return `from ${quote}${pathToFileURL(target).href}${quote}`;
     });
-    writeFileSync(resolve(output, `${name}.js`), code);
+    writeFileSync(resolve(output, `${basename(name)}.js`), code);
   }
   GameResult = (await import(pathToFileURL(resolve(output, 'GameResult.js')).href)).default;
 });
@@ -51,7 +51,7 @@ it.each([
   ['room', false, ['Rematch', 'Lobby', 'Chat2']],
   ['room', true, ['Rematch', 'Save account Keep You and your games', 'Lobby', 'Chat2']]
 ])('renders the approved result actions for %s, guest=%s', (origin, guest, expected) => {
-  const actions = buttons(sheet({ origin, guest })).filter(b => !['Saving replay…', 'Copy link', '⏮', '◀', 'Replay game', '▶', '⏭'].includes(b.text));
+  const actions = buttons(sheet({ origin, guest })).filter(b => b.text && !['Saving replay…', 'Copy link', 'Replay game'].includes(b.text));
   expect(actions.map(b => b.text)).toEqual(expected);
 });
 
@@ -79,4 +79,21 @@ it.each([{ status: 'reconnecting' }, { pending: 'bot:play' }])('disables session
   const actions = buttons(sheet({ ...context, searching: 3, guest: true }));
   expect(actions.filter(b => /^(Play again|Starting…|Play with a friend|Find Opponent|Lobby)/.test(b.text)).every(b => b.disabled)).toBe(true);
   expect(actions.find(b => b.text === 'Save account').disabled).toBe(false);
+});
+
+
+it('gives spectators a neutral result and sharing/leave actions without player rewards or rematches', () => {
+  state.user.set({id:3,username:'Watcher',isGuest:false});
+  state.session.set({status:'ready',pending:null});
+  const view={mode:'spectator',roomId:8,spectatorRedName:'Red player',spectatorBlackName:'Black player',state:{
+    gameId:10,gameOver:true,origin:'room',mode:'RANKED',winner:'red',moveHistory:[],persistStatus:'saved',
+    resultData:{result:'RED_WIN',replayId:10,eloChanges:{red:12,black:-12},coinRewards:{red:4}}
+  }};
+  const body=render(GameResult,{props:{view}}).body;
+  expect(body).toContain('Red player wins');
+  expect(body).not.toContain('You won');expect(body).not.toContain('You lost');
+  expect(body).not.toContain('+12 ELO');expect(body).not.toContain('+4 coins');
+  expect(buttons(body).some(b=>/Rematch|Save account|Play again/.test(b.text))).toBe(false);
+  expect(buttons(body).some(b=>b.text==='Lobby')).toBe(true);
+  expect(body).toContain('Share result');
 });

@@ -2,7 +2,12 @@ import { getSession, getAllSessions } from './sessions.js';
 import { DRAW_OFFER_COOLDOWN_MS } from '../../shared/constants.js';
 import { challengeInvitations } from '../../shared/challenges.js';
 
-const spectatorCount = gameId => [...getAllSessions().values()].filter(s => s.phase === 'spectating' && s.spectatingGameId === gameId && s.connectionId).length;
+const spectatorPresence = gameId => {
+  const spectators = [...getAllSessions().values()]
+    .filter(s => s.phase === 'spectating' && s.spectatingGameId === gameId && s.connectionId)
+    .map(s => ({ userId: s.userId, username: s.username }));
+  return { spectators, spectatorCount: spectators.length };
+};
 
 export function buildSyncPayload(userId, { gameRooms, activeGames, getPresenceStats, sanitizeRoom }) {
   const session = getSession(userId);
@@ -73,7 +78,7 @@ export function buildSyncPayload(userId, { gameRooms, activeGames, getPresenceSt
           opponentId,
           opponentIsBot,
           opponentReconnectDeadline: opponentIsBot ? null : opponentSession?.disconnectDeadline ?? null,
-          spectatorCount: spectatorCount(gameRoom.id),
+          ...spectatorPresence(gameRoom.id),
           opponentOnline: !!opponentSession?.connectionId || opponentIsBot,
           // A human opponent who released the finished game (game:leave, or an idle
           // command accepted from the result screen) cannot rematch any more.
@@ -106,7 +111,7 @@ export function buildSyncPayload(userId, { gameRooms, activeGames, getPresenceSt
         roomId: session.spectatingRoomId,
         gameId: session.spectatingGameId,
         room: room ? sanitizeRoom(room) : null,
-        gameState: gameRoom ? { ...gameRoom.getState(), spectatorCount: spectatorCount(gameRoom.id) } : null,
+        gameState: gameRoom ? { ...gameRoom.getState(), ...spectatorPresence(gameRoom.id) } : null,
         redName,
         blackName,
       };

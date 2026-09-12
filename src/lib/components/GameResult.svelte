@@ -14,13 +14,14 @@
   // The result sheet. Every button is one accepted command: the server treats a finished
   // game as idle for idle commands and force-idles first. Rows follow the action matrix
   // by `game.origin` ('bot' | 'quickplay' | 'room') and guest status.
-  let { onchat = null, chatOpen = false, unread = 0, skin } = $props();
+  let { onchat = null, chatOpen = false, unread = 0, skin, children, view = $gameState } = $props();
 
-  const game = $derived($gameState.state);
+  const game = $derived(view.state);
   const gameId = $derived(game.gameId);
-  const myColor = $derived($gameState.myColor);
-  const opponentName = $derived($gameState.opponentName || 'Opponent');
-  const opponentId = $derived($gameState.opponentId);
+  const spectator = $derived(view.mode === 'spectator');
+  const myColor = $derived(view.myColor);
+  const opponentName = $derived(view.opponentName || 'Opponent');
+  const opponentId = $derived(view.opponentId);
   const origin = $derived(game.origin || 'quickplay');
   const guest = $derived(!!$user?.isGuest);
   const canSend = $derived($session.status === 'ready' && !$session.pending);
@@ -30,7 +31,7 @@
 
   const resultCode = $derived(game.resultData?.result ?? gameResultCode(game.winner, game.endReason));
   const myResult = $derived(playerGameResult(resultCode, myColor));
-  const verdict = $derived(myResult === 'win' ? 'You won!' : myResult === 'loss' ? 'You lost' : gameResultLabel(resultCode));
+  const verdict = $derived(spectator ? gameResultLabel(resultCode, {red:view.spectatorRedName,black:view.spectatorBlackName}) : myResult === 'win' ? 'You won!' : myResult === 'loss' ? 'You lost' : gameResultLabel(resultCode));
   const reason = $derived(gameEndReason(game.resultData?.endReason || game.endReason, resultCode));
 
   const result = $derived(game.resultData || null);
@@ -39,15 +40,15 @@
     moveHistory: game.moveHistory, eloChanges: result?.eloChanges,
     redProfileUrl: myColor === 'red' && $user?.profilePublic === false ? null : undefined,
     blackProfileUrl: myColor === 'black' && $user?.profilePublic === false ? null : undefined,
-    redPlayer: myColor === 'red' ? $user?.username : opponentName,
-    blackPlayer: myColor === 'black' ? $user?.username : opponentName });
+    redPlayer: spectator ? view.spectatorRedName : myColor === 'red' ? $user?.username : opponentName,
+    blackPlayer: spectator ? view.spectatorBlackName : myColor === 'black' ? $user?.username : opponentName });
   const promptView = new SharePromptView({
     storage: { getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) },
     onShown: candidate => track('share_prompt_shown', { reason: candidate.reason, content_type: candidate.surface })
   });
   let sharePrompt = $state(null);
   $effect(() => {
-    sharePrompt = promptView.update({ game, color: myColor, user: $user });
+    sharePrompt = spectator ? null : promptView.update({ game, color: myColor, user: $user });
   });
   const myElo = $derived(result?.eloChanges?.[myColor] || 0);
   const oppElo = $derived(result?.eloDetail?.[myColor]?.opponentElo || null);
@@ -57,6 +58,7 @@
     if (persistStatus === 'failed') return 'Result could not be saved';
     if (persistStatus === 'pending' && !result) return 'Saving result…';
     const parts = [];
+    if (spectator) return ranked ? 'Ranked' : 'Friendly';
     if (ranked) {
       parts.push(`${myElo > 0 ? '+' : ''}${myElo} ELO`);
       if (oppElo) parts.push(`vs ${oppElo} rated`);
@@ -78,7 +80,7 @@
 
   const showNearby = $derived(origin === 'bot' || (origin === 'quickplay' && !guest));
   const showFind = $derived(origin !== 'room' && searchingCount > 0);
-  const showSave = $derived(guest);
+  const showSave = $derived(guest && !spectator);
 
   async function playAgain() {
     if (!canSend) return;
@@ -101,12 +103,12 @@
   }
   async function lobby() {
     if (!canSend) return;
-    const r = await sendCommand('game:leave', { gameId });
+    const r = spectator ? await sendCommand('room:leave', { roomId: view.roomId }) : await sendCommand('game:leave', { gameId });
     if (r.ok) browseTo('lobby');
   }
 </script>
 
-<section class="sheet" aria-label="Game result">
+{#snippet summary()}
   <p class="eyebrow">Game over</p>
   <header class="verdict-row">
     <h2 class="verdict" class:win={myResult === 'win'} class:loss={myResult === 'loss'}>{verdict}</h2>
@@ -114,11 +116,9 @@
   </header>
   <p class="stakes" class:failed={persistStatus === 'failed'}>{stakes}</p>
 
-  {#key gameId}
-    <ReplayBoard gameData={shareData} {skin} perspective={myColor} initialPosition="end" review />
-  {/key}
-
-  <div class="buttons">
+{/snippet}
+{#snippet actions()}
+  {#if !spectator}<div class="buttons">
     {#if origin === 'bot'}
       <button type="button" class="btn btn-primary row-btn" onclick={playAgain} disabled={!canSend}>
         {pending === 'bot:play' ? 'Starting…' : `Play again · ${botDifficultyLabel(repeatDifficulty)}`}
@@ -146,6 +146,7 @@
     {/if}
   </div>
 
+  {/if}
   {#if persistStatus !== 'failed' && resultCode !== 'ABORTED'}
     <div class="sharing">
       {#if sharePrompt}<p class="stakes">{sharePrompt.label}</p>{/if}
@@ -167,7 +168,16 @@
       <button type="button" class="link accent" onclick={() => openUpgradeSheet()}>Save account</button>
     {/if}
   </div>
-</section>
+{/snippet}
+{#if children}
+  {@render children(summary, actions, shareData)}
+{:else}
+  <section class="sheet" aria-label="Game result">
+    {@render summary()}
+    {#key gameId}<ReplayBoard gameData={shareData} {skin} perspective={myColor} initialPosition="end" review />{/key}
+    {@render actions()}
+  </section>
+{/if}
 
 <style>
   .sheet {
@@ -200,4 +210,6 @@
   .sep { color: var(--text-dim); opacity: 0.4; }
   .unread { min-width: 16px; height: 16px; border-radius: 8px; background: var(--accent2); color: #fff; font-size: 0.55rem; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; }
 
+  :global(.table) .eyebrow{display:none;}:global(.table) .verdict{font-size:24px;}:global(.table) .verdict-row{justify-content:flex-start;gap:6px;}:global(.table) .stakes{margin:2px 0;font-size:10px;min-height:0;}:global(.table) .buttons{margin:0;width:100%;gap:5px;}:global(.table) .row-btn{min-height:36px;font-size:11px;flex:1 1 120px;padding:4px 8px;}:global(.table) .sharing{border:0;padding:0;margin:0;}:global(.table) .links{gap:4px;}:global(.table) .link{min-height:32px;font-size:10px;}
+  :global(.table[data-layout=focus]) .verdict{font-size:18px;}:global(.table[data-layout=focus]) .verdict-row{min-height:22px;}
 </style>

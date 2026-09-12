@@ -68,7 +68,10 @@ export class BoardPresentation {
     this.publish({ snapshot: this.latest, animation: null, busy: false, resultVisible: !!this.latest?.gameOver, resultAnimated: !!this.resultAnimated });
   }
   snap() {
-    this.generation++; this.cancelFrame(this.frameId); this.unschedule(this.deadline);
+    this.generation++;
+    if (this.frameId != null) this.cancelFrame(this.frameId);
+    if (this.deadline != null) this.unschedule(this.deadline);
+    this.frameId = null; this.deadline = null;
     this.active = null; this.queue = [];
     this.resultAnimated = false;
     if (!this.disposed) this.settled();

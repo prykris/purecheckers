@@ -24,7 +24,7 @@ beforeAll(async () => {
   // as the app. The server-side test runner has no Svelte compiler plugin.
   const output = resolve(root, 'node_modules/.cache/game-results-test');
   mkdirSync(output, { recursive: true });
-  for (const name of ['PlayerPage', 'ReplayPage', 'ReplayBoard', 'JsonLd', 'ShareActions', 'PlayerLink', 'GameHistory', 'GameEntryLink']) {
+  for (const name of ['PlayerPage', 'ReplayPage', 'ReplayBoard', 'JsonLd', 'ShareActions', 'PlayerLink', 'GameHistory', 'GameEntryLink', 'GameBoard', 'BoardView', 'table/TableIcon']) {
     const source = resolve(root, `src/lib/components/${name}.svelte`);
     const { js } = compile(readFileSync(source, 'utf8'), { generate: 'server', filename: source });
     const code = js.code.replace(/from (['"])([^'"]+)\1/g, (match, quote, specifier) => {
@@ -34,7 +34,7 @@ beforeAll(async () => {
         : specifier.startsWith('$lib/') ? resolve(root, 'src/lib', specifier.slice(5)) : resolve(dirname(source), specifier);
       return `from ${quote}${pathToFileURL(target).href}${quote}`;
     });
-    writeFileSync(resolve(output, `${name}.js`), code);
+    writeFileSync(resolve(output, `${basename(name)}.js`), code);
   }
   PlayerPage = (await import(pathToFileURL(resolve(output, 'PlayerPage.js')).href)).default;
   ReplayPage = (await import(pathToFileURL(resolve(output, 'ReplayPage.js')).href)).default;
@@ -89,9 +89,11 @@ it('opens post-game review on the final position from the player perspective wit
   const archive = render(ReplayBoard, { props: { gameData } }).body;
   expect(reviewed).toContain('1 / 1');
   expect(archive).toContain('0 / 1');
-  expect(reviewed.match(/data-row="(\d)" data-col="(\d)"/)?.slice(1)).toEqual(['7', '7']);
-  expect(archive.match(/data-row="(\d)" data-col="(\d)"/)?.slice(1)).toEqual(['0', '0']);
-  expect(reviewed.replace(/<!--[\s\S]*?-->/g, '')).toMatch(/data-row="4" data-col="1"[^>]*>\s*<div class="piece[^"]* red/);
+  const squares = body => [...body.matchAll(/data-square="(\d+)"[^>]*aria-label="([^"]+)"/g)].map(([,square,label])=>({square:+square,label}));
+  expect(squares(reviewed)[0].square).toBe(1);
+  expect(squares(archive)[0].square).toBe(32);
+  expect(squares(reviewed).find(s=>s.square===16).label).toBe('Square 16: red man');
+  expect(squares(archive).find(s=>s.square===16).label).toBe('Square 16: empty');
   expect(reviewed).not.toContain('class="sliding-piece');
   expect(reviewed).not.toContain('outcome-result');
 });

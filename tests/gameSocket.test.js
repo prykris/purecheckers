@@ -191,7 +191,7 @@ describe('single authoritative command protocol', () => {
       expect(await send({ emote: { emoji: 'FORGED', label: 'forged' } })).toMatchObject({ ok: false, code: 'INVALID_EMOTE' });
       const received = waitFor(clients[1], 'emote:show');
       expect(await send({ itemId: items[0].id, emote: { emoji: 'FORGED' } })).toEqual({ ok: true });
-      expect(await received).toEqual({ gameId: room.id, userId: users[0].id, username: users[0].username,
+      expect(await received).toEqual({ gameId: room.id, userId: users[0].id, username: users[0].username, spectator: false,
         emote: { id: items[0].id, name: 'Socket emote', emoji: '🤝', label: 'GG' } });
       expect(await send({ itemId: items[0].id })).toMatchObject({ ok: false, code: 'RATE_LIMITED' });
       const spectator = await connect(users[2]);
@@ -285,14 +285,14 @@ describe('single authoritative command protocol', () => {
     const watcher = await connect(users[2]);
     const watched = await command(watcher, 'room:spectate', { roomId: waiting.id });
     expect(watched.ok).toBe(true);
-    expect((await sync(clients[0])).game.spectatorCount).toBe(1);
+    expect((await sync(clients[0])).game).toMatchObject({spectatorCount:1,spectators:[{userId:users[2].id,username:users[2].username}]});
     const game = activeGames.get(waiting.gameId);
     gameRooms.delete(waiting.id);
     const recovered = await sync(watcher);
     expect(recovered.spectate.redName).toBe(game.playerNames[game.redUserId]);
     expect(recovered.spectate.blackName).toBe(game.playerNames[game.blackUserId]);
     const countChanged = waitFor(clients[0], 'sync:state', s => s.game?.spectatorCount === 0);
-    watcher.disconnect(); await countChanged;
+    watcher.disconnect(); expect((await countChanged).game.spectators).toEqual([]);
     const away = waitFor(clients[0], 'sync:state', s => s.game?.opponentOnline === false);
     clients[1].disconnect(); const disconnected = await away;
     expect(disconnected.game.opponentReconnectDeadline).toBeGreaterThan(disconnected.serverTime + 29000);

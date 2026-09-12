@@ -2,6 +2,13 @@
 
 All notable changes to Pure Checkers.
 
+## Unreleased
+
+- Transferred the approved board prototype into the app using existing theme variables and equipped piece skins. Players and board share one play area; landscape moves players into a left rail and gives the board the available height. Supplementary controls collapse on smaller screens.
+- Live games and replays share the canvas renderer and accepted-position animation controller, including capture chains. Focus stays inside the app viewport, keeps the turn and timer visible, and supports a button, Escape, and a two-finger tap that cannot accidentally submit a move.
+- Added persistent board settings, a visible turn handoff, horizontal move history and optional engine rating popups (off by default). Chat retains its input and draft across layout changes. Finished games stay in their session as contextual replays with existing result, sharing and rematch actions.
+- Spectators share the table and replay layout with viewer-specific actions. The server supplies their roster and validates their owned reactions against current membership, connection and game state.
+
 ## 2026-09-11
 
 - Deployed the integrated gameplay and site release. Daily puzzles are available with a 31-day buffer and a daily publisher. Production checks verified reconnection, invitations, account preservation, saved replays and room/game recovery after a server restart. Hosting now places the web app beside PostgreSQL to prevent cross-region transaction timeouts.

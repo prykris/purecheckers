@@ -8,3 +8,6 @@ export function sendCommand() { throw Error('SSR must not send a gameplay comman
 export function browseTo() { throw Error('SSR must not navigate'); }
 export function openUpgradeSheet() { throw Error('SSR must not open account forms'); }
 export function track() { throw Error('SSR must not emit analytics'); }
+
+export const appearance = writable({data:null});
+export const boardPreferences = writable({hints:true,highlights:true,animations:true});

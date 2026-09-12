@@ -4,6 +4,7 @@
   import { mentionSegments } from '../../../../shared/chat.js';
   import { emptyChat } from '$lib/chat/client.js';
 
+  export let variant = null;
   export let client = null;
   export let state = emptyChat();
   export let currentUserId = null;
@@ -48,7 +49,7 @@
   }
 </script>
 
-<div class="chat-panel">
+<div class="chat-panel" class:table-chat={variant === "table"}>
   {#if closeable}
     <div class="chat-header">
       <span class="chat-title">Chat</span>
@@ -142,4 +143,5 @@
   .send-btn { padding: var(--sp-xs) var(--sp-sm); flex-shrink: 0; }
   .chat-feedback { font-size: var(--fs-caption); color: var(--text-dim); padding: var(--sp-xs) var(--sp-sm); margin: 0; }
   .history-action { align-self: center; background: none; color: var(--text-dim); border: 0; text-decoration: underline; cursor: pointer; font-size: var(--fs-caption); padding: var(--sp-xs); }
+  .table-chat .msgs{gap:12px;padding:8px 0;}.table-chat .msg:not(.system){width:fit-content;max-width:88%;background:var(--surface);border-radius:12px 12px 12px 3px;padding:9px 12px;}.table-chat .msg.own{align-self:flex-end;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border-radius:12px 12px 3px 12px;}.table-chat .msg strong{display:block;font-size:9px;font-weight:400;margin-bottom:4px;color:var(--text-dim);}.table-chat .msg.system{text-align:center;font-size:10px;}.table-chat .input-row{border:1px solid var(--surface2);border-radius:24px;padding:3px 5px;margin-top:8px;}.table-chat .input{background:none;border:0;box-shadow:none;min-height:34px;}.table-chat .send-btn{background:none;color:var(--accent);border:0;}.table-chat .empty{font-size:11px;}
 </style>

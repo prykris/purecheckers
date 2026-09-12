@@ -5,8 +5,8 @@
   import { BoardPresentation } from '$lib/boardPresentation.js';
   import { PRESENTATION_TIMING } from '$lib/gamePresentation.js';
   import { play } from '$lib/sounds.js';
+  import { boardPreferences } from '$lib/stores/boardPreferences.js';
   import BoardView from './BoardView.svelte';
-  import { appearance } from '$lib/stores/appearance.js';
   import { DEFAULT_PIECE_SKIN } from '../../../shared/pieceSkins.js';
 
   export let snapshot;
@@ -19,6 +19,10 @@
   export let maxSize = null;
   // Read-only for the parent: true once the bounded result reveal has settled.
   export let resultVisible = false;
+  export let busy = false;
+  export let settledSnapshot = null;
+  export let skin = DEFAULT_PIECE_SKIN;
+  export let readOnlyLabel = null;
   const dispatch = createEventDispatcher();
   let mounted = false, reducedMotion = false, visible = true;
   let presentation = { snapshot: null, animation: null, busy: false, resultVisible: false };
@@ -30,8 +34,10 @@
   let lastMove = null, lastMoveCaptured = [];
   let renderedSnapshot = null;
 
-  $: if (snapshot) controller.accept(snapshot, { recovery, orientation: flip, enabled: mounted && connected && visible && !reducedMotion });
+  $: if (snapshot) controller.accept(snapshot, { recovery, orientation: flip, enabled: mounted && connected && visible && !reducedMotion && $boardPreferences.animations });
   $: resultVisible = presentation.resultVisible;
+  $: busy = presentation.busy;
+  $: settledSnapshot = presentation.busy ? null : presentation.snapshot;
   $: if (presentation.snapshot && presentation.snapshot !== renderedSnapshot) {
     renderedSnapshot = presentation.snapshot;
     game = restoreGame(new CheckersGame(presentation.snapshot.turnTime), presentation.snapshot);
@@ -58,8 +64,9 @@
   onDestroy(() => controller.dispose());
 </script>
 
-<BoardView {game} {flip} {myColor} {maxSize} skin={$appearance.data?.skin?.palette ?? DEFAULT_PIECE_SKIN} interactive={canInteract} animation={presentation.animation}
-  {selectedPiece} {validMoves} {lastMove} {lastMoveCaptured}
+<BoardView {game} {flip} {myColor} {maxSize} skin={skin ?? DEFAULT_PIECE_SKIN} showHints={$boardPreferences.hints} {readOnlyLabel} interactive={canInteract} animation={presentation.animation}
+  {selectedPiece} {validMoves} lastMove={$boardPreferences.highlights ? lastMove : null} {lastMoveCaptured}
+  on:togglefocus
   on:select={select} on:deselect={deselect} on:move={event => dispatch('move', event.detail)}>
   <slot resultVisible={presentation.resultVisible} resultDuration={presentation.resultAnimated && !reducedMotion ? PRESENTATION_TIMING.result : 0} />
 </BoardView>

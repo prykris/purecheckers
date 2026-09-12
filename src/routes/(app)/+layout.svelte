@@ -176,12 +176,12 @@
   <div class="splash"><p role="status">Opening account options…</p></div>
 {:else if !initializing && !!$user}
   <!-- Game layer: full-screen overlay when active -->
-  {#if $gameScreen === 'game'}
+  {#if $gameScreen === 'game' && $gameState?.state}
     {#key $gameState?.gameId}
     {#if $gameState?.mode === 'spectator'}
-      <SpectateScreen />
+      <SpectateScreen view={$gameState} noticeInset={barsHeight ? barsHeight + 52 : 0} />
     {:else}
-      <GameScreen noticeInset={barsHeight ? barsHeight + 52 : 0} />
+      <GameScreen view={$gameState} noticeInset={barsHeight ? barsHeight + 52 : 0} />
     {/if}
     {/key}
   {:else if $gameScreen === 'room-waiting'}

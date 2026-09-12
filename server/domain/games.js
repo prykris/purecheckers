@@ -595,7 +595,7 @@ export function createGameActions(actor) {
         if (!currentAnalysis()) return;
         const analysis = await analyzeMoveQuality(preMoveClone, { fromRow, fromCol, toRow, toCol }, color, { signal: analysisWork.signal });
         if (!analysis || !currentAnalysis()) return;
-        notifyUser(actor.userId, 'game:move-analysis', { gameId, rating: analysis.rating, scoreDiff: analysis.scoreDiff });
+        notifyUser(actor.userId, 'game:move-analysis', { gameId, ply: analysisPly, rating: analysis.rating, scoreDiff: analysis.scoreDiff });
 
         // Check if opponent is a bot — trigger emote reaction to player's move
         const opponentId = room.getOpponentId(actor.userId);

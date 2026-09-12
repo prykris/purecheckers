@@ -1,10 +1,14 @@
 <script>
-  import { onMount, onDestroy, createEventDispatcher } from 'svelte';
-  import { DEFAULT_PIECE_SKIN } from '../../../shared/pieceSkins.js';
+  import { TwoFingerTap } from '$lib/twoFingerTap.js';
+  const touchGesture = new TwoFingerTap();
+  import { onMount, createEventDispatcher } from 'svelte';
+  import { DEFAULT_PIECE_SKIN, pieceSkinCss } from '../../../shared/pieceSkins.js';
+  import { DEFAULT_THEME_VARS } from '../../../shared/themes.js';
   import { drawCanvasPiece } from '$lib/canvasPiece.js';
   import { nextBoardSquare } from '$lib/boardKeyboard.js';
   import { squareNumber } from '../../../shared/notation.js';
 
+  export let showHints = true;
   export let skin = DEFAULT_PIECE_SKIN;
   export let game;           // CheckersGame instance
   export let flip = false;   // view from black's perspective
@@ -14,8 +18,9 @@
   export let lastMove = null;
   export let lastMoveCaptured = [];
   export let interactive = true;
+  export let readOnlyLabel = null;
   export let animation = null;
-  export let maxSize = null; // optional cap on the board edge, in CSS pixels
+  export let maxSize = 320; // square edge allocated by the layout, in CSS pixels
   $: animating = !!animation;
 
   const dispatch = createEventDispatcher();
@@ -38,32 +43,26 @@
     window.visualViewport?.addEventListener('resize', resizeBoard);
     const observer = new MutationObserver(() => { generateBoardTexture(); drawBoard(); });
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
-    return () => observer.disconnect();
-  });
-
-  onDestroy(() => {
-    window.removeEventListener('resize', resizeBoard);
-    window.visualViewport?.removeEventListener('resize', resizeBoard);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', resizeBoard);
+      window.visualViewport?.removeEventListener('resize', resizeBoard);
+    };
   });
 
   // Redraw when props change
-  $: if (ctx && game) { skin; flip; animation; selectedPiece; validMoves; lastMove; lastMoveCaptured; interactive; drawBoard(); }
-  // Resize when the cap changes (game over shrinks the board to make room for the result sheet)
+  $: if (ctx && game) { skin; showHints; flip; animation; selectedPiece; validMoves; lastMove; lastMoveCaptured; interactive; drawBoard(); }
+  // The owner reallocates space on resize or when the surrounding controls change.
   $: if (ctx) { maxSize; resizeBoard(); }
 
   function resizeBoard() {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const chromeH = vh <= 520 ? 100 : 200;
-    let maxW, maxH, cap;
-    if (vw >= 1100) { maxW = Math.min(vw - 560, 640); maxH = vh - 100; cap = 640; }
-    else if (vw >= 600) { maxW = Math.min(vw - 24, 560); maxH = vh - chromeH; cap = 560; }
-    else { maxW = vw - 16; maxH = vh - chromeH; cap = 480; }
-    BOARD_PX = Math.min(maxW, maxH, cap);
-    if (Number.isFinite(maxSize) && maxSize > 0) BOARD_PX = Math.min(BOARD_PX, maxSize);
-    BOARD_PX = Math.max(BOARD_PX, 200);
+    // The table layout owns available space; the canvas only preserves a square.
+    BOARD_PX = Math.max(1, Number.isFinite(maxSize) && maxSize > 0 ? maxSize : 320);
     CELL = BOARD_PX / 8;
-    if (canvasEl) { canvasEl.width = BOARD_PX; canvasEl.height = BOARD_PX; generateBoardTexture(); drawBoard(); }
+    if (canvasEl) { const ratio = Math.min(window.devicePixelRatio || 1, 3);
+      canvasEl.width = Math.round(BOARD_PX * ratio); canvasEl.height = Math.round(BOARD_PX * ratio);
+      canvasEl.style.width = BOARD_PX + 'px'; canvasEl.style.height = BOARD_PX + 'px';
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0); generateBoardTexture(); drawBoard(); }
   }
 
   function generateBoardTexture() {
@@ -71,21 +70,17 @@
     boardTextureCanvas.width = BOARD_PX; boardTextureCanvas.height = BOARD_PX;
     const t = boardTextureCanvas.getContext('2d');
     const style = getComputedStyle(document.documentElement);
-    const light = style.getPropertyValue('--board-light').trim() || '#c8b078';
-    const dark = style.getPropertyValue('--board-dark').trim() || '#6b8e4e';
+    const light = style.getPropertyValue('--board-light').trim() || DEFAULT_THEME_VARS['--board-light'];
+    const dark = style.getPropertyValue('--board-dark').trim() || DEFAULT_THEME_VARS['--board-dark'];
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
       t.fillStyle = (r + c) % 2 === 0 ? light : dark;
       t.fillRect(c * CELL, r * CELL, CELL, CELL);
+      const finish = t.createLinearGradient(0, r * CELL, 0, (r+1) * CELL);
+      finish.addColorStop(0, 'rgba(255,240,210,0.075)'); finish.addColorStop(0.45, 'rgba(255,240,210,0)'); finish.addColorStop(1, 'rgba(20,12,4,0.06)');
+      t.fillStyle=finish; t.fillRect(c*CELL,r*CELL,CELL,CELL);
+      t.strokeStyle='rgba(40,25,12,0.08)';t.lineWidth=0.5;t.strokeRect(c*CELL+0.25,r*CELL+0.25,CELL-0.5,CELL-0.5);
     }
-    const img = t.getImageData(0, 0, BOARD_PX, BOARD_PX);
-    const d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const n = (Math.random() - 0.5) * 10;
-      d[i] = Math.min(255, Math.max(0, d[i] + n));
-      d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + n));
-      d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + n));
-    }
-    t.putImageData(img, 0, 0);
+
   }
 
   // ---- Drawing ----
@@ -120,7 +115,7 @@
         ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(hc * CELL, hr * CELL, CELL, CELL);
       }
     }
-    for (const m of validMoves) {
+    for (const m of (showHints ? validMoves : [])) {
       const mr = flip ? 7 - m.toRow : m.toRow, mc = flip ? 7 - m.toCol : m.toCol, cx = mc * CELL + CELL / 2, cy = mr * CELL + CELL / 2;
       if (m.captured.length > 0) {
         ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.35, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(233,69,96,0.45)'; ctx.lineWidth = 2.5; ctx.stroke();
@@ -136,7 +131,7 @@
       const dr = flip ? 7 - r : r, dc = flip ? 7 - c : c;
       drawPiece(dc * CELL + CELL / 2, dr * CELL + CELL / 2, p.color, p.queen);
     }
-    if (drag?.moved) drawPiece(drag.x, drag.y, drag.piece.color, drag.piece.queen);
+    if (drag?.moved) drawPiece(drag.x, drag.y - CELL * 0.08, drag.piece.color, drag.piece.queen, 1, 1.1);
     for (const cap of animation?.captured || []) {
       const cr = flip ? 7 - cap.row : cap.row, cc = flip ? 7 - cap.col : cap.col;
       drawPiece(cc * CELL + CELL / 2, cr * CELL + CELL / 2, cap.color, cap.queen,
@@ -159,7 +154,13 @@
   // Dragging is presentation only; release sends the same intent as click-to-move.
   $: if (drag && (!interactive || drag.ply !== game.moveHistory.length)) { drag = null; drawBoard(); }
   function pointerDown(event) {
-    if (!interactive || animating || game.gameOver || game.currentPlayer !== myColor) return;
+    if (event.pointerType === 'touch') {
+      canvasEl.setPointerCapture(event.pointerId);
+      if (touchGesture.down(event.pointerId,event.clientX,event.clientY,event.timeStamp)) {
+        drag = null; hoveredCell = null; dispatch('deselect'); drawBoard(); return;
+      }
+    }
+    if (!event.isPrimary || event.button !== 0 || !interactive || animating || game.gameOver || game.currentPlayer !== myColor) return;
     const rect = canvasEl.getBoundingClientRect();
     let col = Math.floor((event.clientX - rect.left) * 8 / rect.width), row = Math.floor((event.clientY - rect.top) * 8 / rect.height);
     if (flip) { row = 7-row; col = 7-col; }
@@ -167,18 +168,29 @@
     if (piece?.color !== myColor) return;
     const moves = game.getValidMovesFor(row, col);
     if (!moves.length) return;
-    drag = { row, col, piece, moves, ply: game.moveHistory.length, startX: event.clientX, startY: event.clientY, moved: false };
+    drag = { pointerId: event.pointerId, row, col, piece, moves, ply: game.moveHistory.length, startX: event.clientX, startY: event.clientY, moved: false };
     canvasEl.setPointerCapture(event.pointerId);
     dispatch('select', { row, col, moves });
   }
   function pointerMove(event) {
+    if (event.pointerType === 'touch' && touchGesture.move(event.pointerId,event.clientX,event.clientY)) return;
     if (!drag) { onMouseMove(event); return; }
+    if (event.pointerId !== drag.pointerId) return;
     const rect = canvasEl.getBoundingClientRect();
     drag = { ...drag, moved: drag.moved || Math.hypot(event.clientX-drag.startX, event.clientY-drag.startY)>6,
       x: (event.clientX-rect.left)*BOARD_PX/rect.width, y: (event.clientY-rect.top)*BOARD_PX/rect.height };
     drawBoard();
   }
   function pointerUp(event) {
+    if (event.pointerType === 'touch') {
+      const gesture = touchGesture.up(event.pointerId,event.clientX,event.clientY,event.timeStamp);
+      if (gesture.consume) {
+        if (canvasEl.hasPointerCapture(event.pointerId)) canvasEl.releasePointerCapture(event.pointerId);
+        if (gesture.toggle) dispatch('togglefocus');
+        return;
+      }
+    }
+    if (drag && event.pointerId !== drag.pointerId) return;
     const held = drag; drag = null;
     if (canvasEl.hasPointerCapture(event.pointerId)) canvasEl.releasePointerCapture(event.pointerId);
     if (!held?.moved) { onClick(event); return; }
@@ -189,6 +201,10 @@
       dispatch('move', { fromRow: held.row, fromCol: held.col, toRow: row, toCol: col });
     }
     drawBoard();
+  }
+  function cancelPointer(event) {
+    touchGesture.up(event.pointerId,event.clientX,event.clientY,event.timeStamp,true);
+    if (!drag || drag.pointerId === event.pointerId) { drag = null; dispatch('deselect'); drawBoard(); }
   }
   // ---- Input (only when interactive) ----
   function onClick(e) {
@@ -238,10 +254,10 @@
   }
 </script>
 
-<div class="board-wrap" class:finished={game.gameOver} data-stage={animation?.stage || 'settled'} data-progress={animation?.movement ?? 1}>
+<div class="board-wrap" style={pieceSkinCss(skin)} class:finished={game.gameOver} data-stage={animation?.stage || 'settled'} data-progress={animation?.movement ?? 1}>
   <canvas bind:this={canvasEl} width="480" height="480" aria-hidden="true"
     on:pointerdown={pointerDown} on:pointermove={pointerMove} on:pointerup={pointerUp}
-    on:pointercancel={() => { drag = null; drawBoard(); }}
+    on:pointercancel={cancelPointer} on:lostpointercapture={event=>{if(touchGesture.points.has(event.pointerId)||drag?.pointerId===event.pointerId)cancelPointer(event);}}
     on:mouseleave={() => { hoveredCell = null; if (canvasEl) canvasEl.style.cursor = 'default'; if (!animating) drawBoard(); }}></canvas>
   <div class="keyboard-grid" bind:this={keyboardGrid} role="group" aria-label="Checkers board. Arrow keys move focus; Enter or Space selects a piece or destination. Escape clears selection.">
     {#each { length: 8 } as _, vr}
@@ -260,13 +276,13 @@
       {/each}
     {/each}
   </div>
-  <p class="sr-only" role="status">{game.gameOver ? 'Game ended.' : !interactive ? 'Waiting for your turn or server confirmation.' : game.chainPiece ? 'Continue capturing with the same piece.' : selectedPiece ? 'Choose a legal destination.' : `${game.currentPlayer} to move. Select a piece.`}</p>
+  <p class="sr-only" role="status">{readOnlyLabel || (game.gameOver ? 'Game ended.' : !interactive ? 'Waiting for your turn or server confirmation.' : game.chainPiece ? 'Continue capturing with the same piece.' : selectedPiece ? 'Choose a legal destination.' : `${game.currentPlayer} to move. Select a piece.`)}</p>
   <slot />
 </div>
 
 <style>
   .board-wrap { position: relative; touch-action: none; }
-  .board-wrap.finished, .finished canvas { touch-action: pan-y; }
+
   .keyboard-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); pointer-events: none; }
   .keyboard-square { padding: 0; background: transparent; border: 0; min-width: 0; min-height: 0; pointer-events: none; }
   .keyboard-square:focus-visible { outline: 3px solid var(--gold, #ffd166); outline-offset: -4px; }

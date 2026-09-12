@@ -9,11 +9,14 @@ export function createGameEmoteAction(actor, { getGame, getSession, publish, res
       return denied('INVALID_EMOTE', 'Select an available emote.');
     }
     const room = getGame(gameId);
+    const ended = room?.game.gameOver;
+    const watching = session => session?.phase === 'spectating' && session.spectatingGameId === gameId;
     const current = () => {
       const session = getSession(actor.userId);
       return (!work || work.isCurrent()) && room && getGame(gameId) === room && !room.runtimeStopped && room.started &&
-        !room.game.gameOver && !room.recovery && room.getPlayerColor(actor.userId) && session?.phase === 'in-game' &&
-        session.gameId === gameId && session.connectionId === actor.connectionId;
+        room.game.gameOver === ended && !room.recovery &&
+        (watching(session) || (room.getPlayerColor(actor.userId) && session?.phase === 'in-game' && session.gameId === gameId)) &&
+        session.connectionId === actor.connectionId;
     };
     if (!current()) return denied('GAME_UNAVAILABLE', 'Emotes are unavailable in this game state.');
     if (!senders.has(room)) senders.set(room, new Map());
@@ -28,7 +31,7 @@ export function createGameEmoteAction(actor, { getGame, getSession, publish, res
       // or owner loss during that wait must invalidate this transient send.
       if (!current()) return denied('GAME_UNAVAILABLE', 'The game changed before the emote could be sent.');
       if (!emote) return denied('EMOTE_UNAVAILABLE', 'This emote is no longer available. Refresh your emotes.');
-      publish(gameId, { gameId, userId: actor.userId, username: actor.username, emote });
+      publish(gameId, { gameId, userId: actor.userId, username: actor.username, spectator: watching(getSession(actor.userId)), emote });
       return { ok: true };
     } finally { state.pending = false; }
   };
