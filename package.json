@@ -20,7 +20,8 @@
     "puzzles:generate": "node scripts/generate-puzzles.js",
     "puzzles:import": "node scripts/import-puzzles.js",
     "puzzles:status": "node scripts/puzzle-buffer.js",
-    "puzzles:maintain": "node scripts/maintain-puzzles.js"
+    "puzzles:maintain": "node scripts/maintain-puzzles.js",
+    "dev:board-lab": "node prototypes/board-lab/serve.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
