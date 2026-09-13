@@ -3,9 +3,10 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { abortGameStart } from '../services/gameRuns.js';
 import { inGameplayTransaction } from '../services/gameplayOwnership.js';
 import { gameplayActions, runGameplayWork, stopGameplayWork, retryGameplayRecovery } from '../services/gameplayWork.js';
+import { canInviteToRoom } from '../../shared/roomInvitations.js';
 import { JOIN_CODE_PATTERN, validRoomSettings, sameRoomSettings } from '../../shared/rooms.js';
 import prisma from '../db.js';
-import QRCode from 'qrcode';
+import { roomQrCode } from '../services/roomQr.js';
 import { reject } from './sessionCommands.js';
 import { resetReadiness, removeMember, canStartRoom, isRoomPlayerReady, canAddRoomBot, canEditRoomSettings } from './roomRules.js';
 import { publishUser, broadcast } from './events.js';
@@ -17,7 +18,7 @@ import { TURN_TIME } from '../../shared/constants.js';
 import { SITE_URL } from '../config.js';
 import { getSession, setPhase, forceIdle } from './sessions.js';
 import { enqueueSessionWork } from './sessionWork.js';
-import { CHALLENGE_TTL_MS, pendingChallenge } from '../../shared/challenges.js';
+import { CHALLENGE_TTL_MS, MAX_INCOMING_CHALLENGES, pendingChallenge, pendingRoomInvites } from '../../shared/challenges.js';
 import { suggestRoomFriendship } from '../../shared/roomFriendship.js';
 
 // Join codes: six upper-case letters or digits 2-9 (the generator also avoids I and O). Shared with the invite API.
@@ -29,6 +30,7 @@ function publishListChange(room) { broadcast('room:list-update', { room, revisio
 export function removeRoomListing(room) {
   gameRooms.delete(room.id);
   if (room.challenge) publishUser(room.challenge.userId);
+  for (const invite of room.invites ?? []) publishUser(invite.userId);
   if (!room.challenge) publishListChange({ id: room.id, closed: true });
 }
 
@@ -48,7 +50,7 @@ function playerRecord(user, ready = false) {
 async function newRoom(players, settings, origin, work, key = randomUUID(), guard = () => {}, challenge) {
   const joinCode = genCode();
   let qrDataUrl = null;
-  try { qrDataUrl = await QRCode.toDataURL(SITE_URL + '/invite/' + joinCode, { width: 200, margin: 1 }); } catch {}
+  try { qrDataUrl = await roomQrCode(joinCode); } catch {}
   work.assertCurrent(); guard();
   const room = await persistNewRoom({ creatorId: players[0].userId, key, joinCode,
     settings: { autoReady: false, ...settings }, origin, ...(challenge ? { challenge } : {}),
@@ -93,6 +95,7 @@ export function sanitizeRoom(room) {
     id: room.id,
     revision: room.revision,
     ...(room.challenge ? { challenge: room.challenge } : {}),
+    invites: pendingRoomInvites(room),
     hostId: room.hostId,
     hostName: room.hostName,
     joinCode: room.joinCode,
@@ -134,6 +137,7 @@ export function broadcastRoomUpdate(room) {
   if (!room.challenge) publishListChange(roomListing(room));
   for (const member of [...room.players, ...room.spectators]) publishUser(member.userId);
   if (room.challenge) publishUser(room.challenge.userId);
+  for (const invite of room.invites ?? []) publishUser(invite.userId);
 }
 
 export function createRoomActions(actor) {
@@ -153,6 +157,26 @@ export function createRoomActions(actor) {
       () => currentActor(actor, 'idle', work), { userId, expiresAt: (request?.createdAt ?? Date.now()) + CHALLENGE_TTL_MS });
       installRoom(room, work);
       await reconcileRoomPresence(room);
+    },
+    async 'room:invite'({ roomId, userId }, request) {
+      if (!Number.isSafeInteger(userId) || userId <= 0 || userId === actor.userId) reject('Choose a friend to invite');
+      const room = waitingRoom(actor, roomId);
+      await mutate(room, request, draft => {
+        if (!canInviteToRoom(draft, actor.userId)) reject('Only the host of an open room can invite players');
+        const now = Date.now();
+        draft.invites = (draft.invites ?? []).filter(i => i.expiresAt > now);
+        if (draft.invites.some(i => i.userId === userId)) return;
+        if (draft.invites.length >= MAX_INCOMING_CHALLENGES) reject('Wait for an invitation to expire before inviting more friends');
+        draft.invites.push({ userId, expiresAt: now + CHALLENGE_TTL_MS });
+      }, () => getSession(actor.userId)?.connectionId === actor.connectionId && getSession(actor.userId)?.roomId === room.id);
+    },
+    async 'room:invite-decline'({ roomId }, request) {
+      const room = gameRooms.get(roomId);
+      if (!room) reject('Invitation is no longer available');
+      await mutate(room, request, draft => {
+        if (!draft.invites?.some(i => i.userId === actor.userId)) reject('Invitation is no longer available');
+        draft.invites = draft.invites.filter(i => i.userId !== actor.userId);
+      }, () => getSession(actor.userId)?.connectionId === actor.connectionId);
     },
     async 'challenge:decline'({ roomId }, request) {
       const room = gameRooms.get(roomId);
@@ -199,6 +223,7 @@ export function createRoomActions(actor) {
         if (draft.status !== 'WAITING' || draft.players.length >= 2) reject('Room is no longer available');
         if (draft.settings.isPrivate && code !== room.joinCode) reject('An invite link or code is required');
         if (draft.challenge && (draft.challenge.userId !== user.id || !pendingChallenge(draft))) reject('Invitation is no longer available');
+        if (draft.invites) draft.invites = [];
         draft.players.push({ userId: user.id, ready: false, online: true,
           joinedViaInvite: code === room.joinCode }); resetReadiness(draft);
       }, () => !!currentActor(actor, 'idle', work));
@@ -279,6 +304,7 @@ export function createRoomActions(actor) {
       if (room.hostId !== actor.userId || !canAddRoomBot(room)) reject('Room membership changed');
       await mutate(room, request, draft => {
         if (draft.status !== 'WAITING' || draft.players.length !== 1 || draft.hostId !== actor.userId) reject('Room membership changed');
+        if (draft.invites) draft.invites = [];
         draft.players.push({ userId: bot.id, ready: true, online: true });
       }, () => !!waitingRoom(actor, room.id, work));
       return startRoomGame(room);
@@ -512,18 +538,27 @@ function armRoomExpiry(room, retryDelay = 50) {
   const offline = [...(room.status === 'playing' && activeGames.has(room.gameId) ? [] : room.players), ...room.spectators]
     .filter(p => !p.isBot && p.online === false && Number.isFinite(p.disconnectDeadline));
   const challengeDeadline = room.challenge && room.status === 'waiting' && room.players.length === 1 ? room.challenge.expiresAt : null;
-  if (!offline.length && challengeDeadline === null) return;
+  const inviteDeadline = Math.min(...(room.invites ?? []).map(i => i.expiresAt));
+  if (!offline.length && challengeDeadline === null && !Number.isFinite(inviteDeadline)) return;
   room.expiryTimer = setTimeout(async () => {
     room.expiryPending = true;
     try {
+      if (inviteDeadline <= Date.now()) await expireRoomInvites(room);
       if (challengeDeadline !== null && challengeDeadline <= Date.now()) await expireChallenge(room);
       for (const p of offline.filter(p => p.disconnectDeadline <= Date.now())) {
         await expireRoomMember(room, p.userId);
       }
     } catch (error) { console.error('Room expiry failed:', error.message); }
     finally { room.expiryPending = false; armRoomExpiry(room, 1000); }
-  }, Math.max(retryDelay, Math.min(...offline.map(p => p.disconnectDeadline), challengeDeadline ?? Infinity) - Date.now()));
+  }, Math.max(retryDelay, Math.min(...offline.map(p => p.disconnectDeadline), challengeDeadline ?? Infinity, inviteDeadline) - Date.now()));
   room.expiryTimer.unref?.();
+}
+
+export function expireRoomInvites(room) {
+  return queueRoomWork(room, broadcastRoomUpdate, async work => {
+    if (room.status === 'closed') return;
+    await writeRoomRecord(room, work, draft => { draft.invites = (draft.invites ?? []).filter(i => i.expiresAt > Date.now()); });
+  });
 }
 
 export function expireChallenge(room) {

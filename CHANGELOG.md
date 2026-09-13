@@ -4,6 +4,27 @@ All notable changes to Pure Checkers.
 
 ## Unreleased
 
+## 2026-09-13
+
+- Release checks regenerate the opening-search and two-kings certificates from Linux source; calculated results and proof branches are unchanged.
+
+- Player slots share avatars and compact status rows, with readiness in your own slot and host actions in the player menu. Friendship actions now live in the shared profile dialog.
+- Ready player slots use a subtle green fill. The shared room status shows opponent readiness and offers Play for free rooms, or Review room for wagers.
+- Eligible player profiles can invite into the current room through the same invitation action used by the friends picker.
+
+- Reworked waiting-room invitations into a compact QR/link panel with an enlarged QR dialog, inline copy/share actions, contextual help, and explicit bot difficulty selection.
+- Friends can be invited into the current room through the existing invitation inbox. Invitations survive reconnect/restart, expire independently of the room, and clear when its seat is filled.
+
+- Room settings use one compact text/icon row instead of large editable pills, preserving 44px touch targets and direct access to each setting.
+
+- Waiting rooms now live in the shared app shell with the same player header as the lobby. Removed the legacy floating Chat, Ranks and sound controls; global panels open from the header and room chat stays in the room.
+
+- Modal now owns its opaque theme surface, fixing transparent board settings, spectator, reaction and move-history dialogs. Marketing account and site navigation share one menu; the mobile header keeps the username, game-entry link and menu button in one row.
+
+- Centered the live sidebar toolbar, history, composer and actions on one column. Result sidebars now include theme-aware crown/laurel artwork for victories and defeats, paired rings for draws, and neutral winner artwork for spectators. Decoration stays behind the controls and does not change board geometry.
+
+- Board groups now fit the canvas width with symmetric player rows. Wide screens retain the vertical player rail; nearly square desktop windows keep a centered vertical table until a sidebar fits without shrinking the board. Finishing a live game animates the board into the replay layout after the final move settles, respecting animation and reduced-motion preferences. Replay controls now sit beneath the board at its full width; results omit the chat composer and keep actions in their own region.
+
 - Transferred the approved board prototype into the app using existing theme variables and equipped piece skins. Players and board share one play area; landscape moves players into a left rail and gives the board the available height. Supplementary controls collapse on smaller screens.
 - Live games and replays share the canvas renderer and accepted-position animation controller, including capture chains. Focus stays inside the app viewport, keeps the turn and timer visible, and supports a button, Escape, and a two-finger tap that cannot accidentally submit a move.
 - Added persistent board settings, a visible turn handoff, horizontal move history and optional engine rating popups (off by default). Chat retains its input and draft across layout changes. Finished games stay in their session as contextual replays with existing result, sharing and rematch actions.

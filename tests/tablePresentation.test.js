@@ -62,3 +62,44 @@ it('reconstructs verified replay positions without altering history, stopping at
   broken.frames[1].board[4][1].queen=true;
   expect(timeline.frames[1].board[4][1].queen).toBe(false);
 });
+
+it.each([[1024,980],[1024,900]])('keeps desktop seats and secondary content usable at %sx%s', (w,h) => {
+  for (const finished of [false,true]) {
+    const size = tableLayout(w,h,{finished});
+    expect(size.mode).toBe('desktop');
+    const sidebar = Math.max(260,Math.min(360,w*.28));
+    expect(size.board + 6 + 24 + sidebar).toBeLessThanOrEqual(w);
+    expect(size.board + 6 + (finished ? 68 : 112)).toBeLessThanOrEqual(h);
+  }
+});
+it('uses spacious stacked seats for a tall tablet and preserves the vertical rail at wide desktop sizes', () => {
+  expect(tableLayout(768,900).mode).toBe('stacked');
+  expect(tableLayout(844,390).mode).toBe('landscape');
+  expect(tableLayout(390,844).mode).toBe('roomy');
+});
+
+it.each([[844,390],[1440,900],[1920,1080]])('preserves the landscape rail and reserves replay transport height at %sx%s', (w,h) => {
+  const live=tableLayout(w,h), replay=tableLayout(w,h,{finished:true});
+  expect(live.mode).toBe('landscape');
+  expect(live.rail).toBe(84);
+  expect(replay.mode).toBe('landscape');
+  expect(replay.rail).toBe(0);
+  expect(replay.board+6+68).toBeLessThanOrEqual(h);
+});
+
+it.each([[900,980],[908,982],[980,1100]])('keeps a tall desktop layout when a sidebar would shrink the board at %sx%s', (w,h) => {
+  const live=tableLayout(w,h);
+  expect(live.mode).toBe('stacked');
+  expect(live.board).toBe(Math.floor(Math.min(w-38,h-320)));
+  expect(tableLayout(w,h,{finished:true}).mode).toBe('stacked');
+});
+it('never sacrifices board size when the sidebar first appears', () => {
+  for (const h of [800,900,980,1100]) {
+    let previous=tableLayout(899,h);
+    for(let w=900;w<=1250;w++) {
+      const next=tableLayout(w,h);
+      if(previous.mode==='stacked' && next.mode==='desktop') expect(next.board).toBeGreaterThanOrEqual(previous.board);
+      previous=next;
+    }
+  }
+});

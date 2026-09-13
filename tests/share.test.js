@@ -106,3 +106,10 @@ it('replaces attribution while preserving other query parameters and fragments',
   expect(buildShareUrl('/game/17?utm_source=old&utm_medium=old&ref=friend#moves', 'result'))
     .toBe('https://purecheckers.com/game/17?utm_source=share&utm_medium=result&ref=friend#moves');
 });
+
+it('copies only the exact visible URL for an invitation link field', async () => {
+  const writeText = vi.fn().mockResolvedValue();
+  const url = 'http://localhost:5180/join/ABC123';
+  await shareLink({ url, text: 'Join me', surface: 'invite', copyOnly: true, attribute: false }, { clipboard: { writeText } });
+  expect(writeText).toHaveBeenCalledWith(url);
+});

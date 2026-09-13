@@ -62,7 +62,7 @@ describe('autoReady rooms', () => {
     expect(view.joinUrl).toBe(`${SITE_URL}/join/${room.joinCode}`);
     expect(view.qrDataUrl).toMatch(/^data:image\/png;base64,/);
     const { default: QRCode } = await import('qrcode');
-    expect(view.qrDataUrl).toBe(await QRCode.toDataURL(`${SITE_URL}/invite/${room.joinCode}`, { width: 200, margin: 1 }));
+    expect(view.qrDataUrl).toBe(await QRCode.toDataURL(`${SITE_URL}/invite/${room.joinCode}`, { width: 768, margin: 2 }));
     expect(JOIN_CODE_PATTERN.test(room.joinCode)).toBe(true);
     expect(getSession(host.id)).toMatchObject({ phase: 'in-room', roomId: room.id });
   });

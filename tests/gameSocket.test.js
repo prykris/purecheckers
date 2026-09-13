@@ -550,7 +550,7 @@ describe('first session on an empty server', () => {
       const created = await command(clients[0], 'room:create', { autoReady: true, isPrivate: true });
       const { default: QRCode } = await import('qrcode');
       const { SITE_URL } = await import('../server/config.js');
-      const expected = await QRCode.toDataURL(SITE_URL + '/invite/' + created.snapshot.room.joinCode, { width: 200, margin: 1 });
+      const expected = await QRCode.toDataURL(SITE_URL + '/invite/' + created.snapshot.room.joinCode, { width: 768, margin: 2 });
       expect(created.snapshot.room.qrDataUrl).toBe(expected);
     });
     it('keeps the ready dance for a room created without autoReady', async () => {

@@ -21,7 +21,7 @@
     if (serverNotice) sendCommand('notice:dismiss', { noticeId: serverNotice.id });
     else dismissNotice();
   }
-  import { muted, toggleMute, preloadAll, play } from '$lib/sounds.js';
+  import { preloadAll, play } from '$lib/sounds.js';
 
   // Game layer components
   import GameScreen from '$lib/components/GameScreen.svelte';
@@ -41,7 +41,6 @@
   // Chrome
   import DevPanel from '$lib/components/DevPanel.svelte';
   import BottomNav from '$lib/components/BottomNav.svelte';
-  import CommunityActions from '$lib/components/CommunityActions.svelte';
   import RoomBanner from '$lib/components/RoomBanner.svelte';
   import SearchBanner from '$lib/components/SearchBanner.svelte';
   import SlidePanel from '$lib/components/panels/SlidePanel.svelte';
@@ -101,7 +100,7 @@
 
   const showGameLayer = $derived($gameScreen !== 'none');
   const showTabs = $derived(!showGameLayer && !!$user);
-  const showPanelToggles = $derived((!showGameLayer || $gameScreen === 'room-waiting') && !!$user && !initializing);
+  const showRoom = $derived($gameScreen === 'room-waiting');
 </script>
 
 <svelte:head><title>Pure Checkers</title></svelte:head>
@@ -184,8 +183,6 @@
       <GameScreen view={$gameState} noticeInset={barsHeight ? barsHeight + 52 : 0} />
     {/if}
     {/key}
-  {:else if $gameScreen === 'room-waiting'}
-    <RoomWaiting />
   {:else if $gameScreen === 'search'}
     <SearchScreen />
   {:else if $gameScreen === 'replay'}
@@ -208,11 +205,13 @@
     <SearchBanner />
   {/if}
 
-  <!-- Browse layer: always rendered, hidden when game layer active -->
-  <div class="browse-shell" class:behind={showGameLayer}>
+  <!-- Shared app shell: waiting rooms use the same header as browsing screens. -->
+  <div class="browse-shell" class:behind={showGameLayer && !showRoom}>
   <PlayerHeader onchat={() => chatOpen = true} onranks={() => lbOpen = true} {chatOpen} ranksOpen={lbOpen} />
   <div class="browse-layer">
-    {#if $browseTab === 'lobby'}
+    {#if showRoom}
+      <RoomWaiting />
+    {:else if $browseTab === 'lobby'}
       <Lobby />
     {:else if $browseTab === 'shop'}
       <ShopScreen />
@@ -229,18 +228,6 @@
     <BottomNav />
   {/if}
   </div>
-
-  {#if showPanelToggles && showGameLayer}
-    <CommunityActions docked onchat={() => chatOpen = true} onranks={() => lbOpen = true} {chatOpen} ranksOpen={lbOpen} />
-    <button class="sound-toggle" class:muted={$muted} onclick={() => { preloadAll(); toggleMute(); }} aria-label={$muted ? 'Unmute sounds' : 'Mute sounds'} title="{$muted ? 'Unmute' : 'Mute'}">
-      {#if $muted}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-      {:else}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
-      {/if}
-      <span class="edge-label">{$muted ? 'Muted' : 'Sound'}</span>
-    </button>
-  {/if}
 
   <SlidePanel bind:open={chatOpen} side="left" title="Global Chat">
     <GlobalChat visible={chatOpen} />
@@ -292,7 +279,6 @@
   .browse-layer { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
   :global(html:has(.browse-shell)), :global(body:has(.browse-shell)) { height: 100%; overflow: hidden; }
 
-  .edge-label { font-size: 0.6rem; font-weight: 600; }
 
   .connection-bar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 900;
@@ -335,16 +321,4 @@
   }
   .replay-close:hover { color: var(--text); }
 
-  .sound-toggle {
-    position: fixed; bottom: calc(var(--tab-height) + var(--sp-sm) + env(safe-area-inset-bottom, 0px));
-    right: var(--sp-sm); z-index: 55;
-    background: var(--surface); border: 1px solid var(--surface2);
-    color: var(--text-dim); cursor: pointer;
-    padding: var(--sp-xs) var(--sp-sm); border-radius: var(--radius-pill); font-family: var(--font);
-    min-height: 32px; gap: var(--sp-xs);
-    display: flex; align-items: center; justify-content: center;
-    transition: color 0.15s, background 0.15s;
-  }
-  .sound-toggle:hover { color: var(--text); background: var(--surface2); }
-  .sound-toggle.muted { opacity: 0.5; }
 </style>

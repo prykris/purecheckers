@@ -7,7 +7,6 @@
 
   let { children } = $props();
   const siteUrl = "https://purecheckers.com";
-  let menuOpen = $state(false);
 
   // Pages override the share image and type from their load functions
   // (data.ogImage / data.ogType); the layout emits exactly one of each.
@@ -65,68 +64,20 @@
 <JsonLd data={websiteSchema} />
 <JsonLd data={organizationSchema} />
 
-<!-- Mobile hamburger (floating top-right) -->
-<header class="mobile-header">
-  <button
-    class="hamburger"
-    onclick={() => (menuOpen = !menuOpen)}
-    aria-label="Toggle menu"
-  >
-    {#if menuOpen}
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        width="22"
-        height="22"
-        ><line x1="18" y1="6" x2="6" y2="18" /><line
-          x1="6"
-          y1="6"
-          x2="18"
-          y2="18"
-        /></svg
-      >
-    {:else}
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        width="22"
-        height="22"
-        ><line x1="3" y1="6" x2="21" y2="6" /><line
-          x1="3"
-          y1="12"
-          x2="21"
-          y2="12"
-        /><line x1="3" y1="18" x2="21" y2="18" /></svg
-      >
-    {/if}
-  </button>
-</header>
-
-<!-- Mobile menu overlay -->
-{#if menuOpen}
-  <button type="button" class="menu-overlay" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>
-  <nav class="mobile-menu" aria-label="Mobile navigation">
-    <a href="/" onclick={() => (menuOpen = false)}>Home</a>
-    <a href="/#features" onclick={() => (menuOpen = false)}>Features</a>
-    <a href="/#how-to-play" onclick={() => (menuOpen = false)}>How to Play</a>
-    <a href="/puzzle" onclick={() => (menuOpen = false)}>Daily Puzzle</a>
-    <a href="/strategy" onclick={() => (menuOpen = false)}>Strategy</a>
-    <a href="/leaderboard" onclick={() => (menuOpen = false)}>Leaderboard</a>
-    <a href="/games" onclick={() => (menuOpen = false)}>Recent games</a>
-    <a href="/faq" onclick={() => (menuOpen = false)}>FAQ</a>
-    <a href="/changelog" onclick={() => (menuOpen = false)}>Changelog</a>
-    <hr />
-    <div class="mobile-lang">
-      <a href="/" onclick={() => (menuOpen = false)}>EN</a>
-      <a href="/es" onclick={() => (menuOpen = false)}>ES</a>
-    </div>
-    <GameEntryLink class="mobile-play" onclick={() => menuOpen = false} />
-  </nav>
-{/if}
+{#snippet siteNavigation()}
+  <a href="/">Home</a>
+  <a href="/#features">Features</a>
+  <a href="/#how-to-play">How to Play</a>
+  <a href="/puzzle">Daily Puzzle</a>
+  <a href="/strategy">Strategy</a>
+  <a href="/leaderboard">Leaderboard</a>
+  <a href="/games">Recent games</a>
+  <a href="/faq">FAQ</a>
+  <a href="/changelog">Changelog</a>
+  <a href={FEEDBACK_URL}>Report a problem</a>
+  <a href="/">English</a>
+  <a href="/es">Español</a>
+{/snippet}
 
 <div class="marketing-layout">
   <!-- Desktop sidebar -->
@@ -258,7 +209,7 @@
   </nav>
 
   <main class="marketing-main">
-    <SiteAccount language={page.url.pathname === '/es' ? 'es' : null} />
+    <SiteAccount navigation={siteNavigation} language={page.url.pathname === '/es' ? 'es' : null} />
     {@render children()}
 
     <footer class="mkt-footer">
@@ -293,110 +244,6 @@
 </div>
 
 <style>
-  /* Mobile header */
-  .mobile-header {
-    position: fixed;
-    top: max(var(--sp-sm), env(safe-area-inset-top));
-    right: var(--sp-sm);
-    z-index: 60;
-  }
-  .hamburger {
-    background: none;
-    border: none;
-    color: var(--text-dim);
-    cursor: pointer;
-    padding: var(--sp-sm);
-    display: flex;
-    align-items: center;
-    background: var(--surface);
-    border: 1px solid var(--surface2);
-    border-radius: var(--radius-md);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  }
-  .hamburger:hover {
-    color: var(--text);
-    background: var(--surface2);
-  }
-
-  @media (min-width: 900px) {
-    .mobile-header {
-      display: none;
-    }
-  }
-
-  /* Mobile menu overlay */
-  .menu-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 70;
-  }
-  .mobile-menu {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 260px;
-    z-index: 80;
-    background: var(--surface);
-    border-left: 1px solid var(--surface2);
-    padding: var(--sp-xl) var(--sp-lg);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-sm);
-    overflow-y: auto;
-    animation: slide-in 0.2s ease-out;
-  }
-  @keyframes slide-in {
-    from {
-      transform: translateX(100%);
-    }
-    to {
-      transform: translateX(0);
-    }
-  }
-  .mobile-menu a {
-    color: var(--text-dim);
-    text-decoration: none;
-    font-size: var(--fs-body);
-    font-weight: 500;
-    padding: var(--sp-xs) 0;
-    transition: color 0.15s;
-  }
-  .mobile-menu a:hover {
-    color: var(--text);
-  }
-  .mobile-menu hr {
-    border: none;
-    border-top: 1px solid var(--surface2);
-    margin: var(--sp-xs) 0;
-  }
-  .mobile-lang {
-    display: flex;
-    gap: var(--sp-md);
-  }
-  .mobile-lang a {
-    font-size: var(--fs-caption);
-    font-weight: 600;
-  }
-  :global(.mobile-play) {
-    display: block;
-    text-align: center;
-    padding: var(--sp-sm);
-    background: linear-gradient(135deg, var(--accent), #dc2626);
-    color: #fff !important;
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-    margin-top: var(--sp-sm);
-  }
-
-  @media (min-width: 900px) {
-    .menu-overlay,
-    .mobile-menu {
-      display: none;
-    }
-  }
-
   /* Layout */
   .marketing-layout {
     display: flex;

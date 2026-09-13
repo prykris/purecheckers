@@ -12,7 +12,7 @@ beforeAll(async () => {
   mkdirSync(output, { recursive: true });
   writeFileSync(resolve(output, 'state.js'), readFileSync(resolve(root, 'tests/fixtures/resultSheetState.js'), 'utf8'));
   state = await import(fixture);
-  for (const name of ['GameResult', 'ShareActions', 'ReplayBoard', 'PlayerLink', 'GameBoard', 'BoardView', 'table/TableIcon']) {
+  for (const name of ['GameResult', 'ShareActions', 'ReplayBoard', 'PlayerLink', 'GameBoard', 'BoardView', 'table/TableIcon', 'table/ResultArtwork']) {
     const source = resolve(root, `src/lib/components/${name}.svelte`);
     const { js } = compile(readFileSync(source, 'utf8'), { generate: 'server', filename: source });
     const code = js.code.replace(/from (['"])([^'"]+)\1/g, (match, quote, specifier) => {

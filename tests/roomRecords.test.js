@@ -306,3 +306,21 @@ it('enforces host and unready settings policy at the durable boundary', async ()
   await expect(change(room, draft => { draft.settings.isPrivate = true; }, { ...command, userId: users[0].id })).rejects.toThrow('Only the host');
   expect((await prisma.roomRecord.findUnique({ where: { id: room.id } })).state.settings.isPrivate).toBe(false);
 });
+
+it('rolls back a room command if its actor changes while waiting for account locks', async () => {
+  const room = await create(); let current = true;
+  const request = { roomId: room.id, expectedRevision: room.revision,
+    command: { userId: users[0].id, key: randomUUID(), payload: { type: 'room:ready' } } };
+  await expect(inGameplayTransaction(gameplayOwner(), null, tx => {
+    const guarded = new Proxy(tx, { get(target, key) {
+      if (key !== 'user') return Reflect.get(target, key);
+      return new Proxy(target.user, { get(delegate, name) {
+        if (name !== 'findMany') return Reflect.get(delegate, name);
+        return async (...args) => { const result = await delegate.findMany(...args); current = false; return result; };
+      } });
+    } });
+    return commitRoomRecord(request, draft => { draft.players[0].ready = true; }, guarded, gameplayOwner(), () => { if (!current) throw Error('Session replaced'); });
+  })).rejects.toThrow('Session replaced');
+  expect((await prisma.roomRecord.findUnique({ where: { id: room.id } })).state.players[0].ready).toBe(false);
+  expect(await prisma.roomCommandReceipt.count({ where: { roomId: room.id } })).toBe(0);
+});

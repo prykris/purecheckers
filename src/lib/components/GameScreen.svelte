@@ -9,7 +9,7 @@
   import { boardPreferences } from '$lib/stores/boardPreferences.js';
   import { play } from '$lib/sounds.js';
   import PlayerLink from './PlayerLink.svelte';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { roomUnreadChat, roomUnreadMentions } from '$lib/stores/app.js';
   import { session, sendCommand, serverNow } from '$lib/stores/session.js';
   import { user, captureSession, isCurrentSession } from '$lib/stores/user.js';
@@ -87,8 +87,29 @@
   $: if ((game.gameOver || drawOfferReceived || $session.status !== 'ready') && showResignConfirm) showResignConfirm = false;
 
   // Finish the last live animation before handing off to the shared replay view.
-  let resultVisible = false;
-  $: resultState = !!game.gameOver && resultVisible;
+  let resultVisible = false, resultState = false, resultStarted = false;
+  let mounted = false, disposed = false, resultTransition;
+  const openedFinished = !!view.state.gameOver;
+  $: if (game.gameOver && resultVisible && !resultStarted) showResult();
+  function showResult() {
+    resultStarted = true;
+    const update = async () => {
+      if (disposed) return;
+      resultState = true;
+      // Let the replay canvas and its measured layout settle before the new capture.
+      await tick();
+    };
+    const animate = mounted && !openedFinished && $boardPreferences.animations
+      && document.visibilityState === 'visible'
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (animate && document.startViewTransition) {
+      resultTransition = document.startViewTransition(update);
+      // A skipped visual transition still runs update; it must never block results.
+      resultTransition.finished.catch(() => {});
+    } else {
+      void update();
+    }
+  }
   async function move({ detail }) {
     await sendCommand('game:move', { gameId, expectedPly: game.moveHistory.length, ...detail });
   }
@@ -111,6 +132,7 @@
   }
   function sendEmote(emote) { void emotes.sendItem(emote.id); }
   onMount(() => {
+    mounted = true;
     const viewport = window.visualViewport;
     const resizeViewport = () => {
       viewportHeight = !viewport || viewport.scale !== 1 ? window.innerHeight : viewport.height;
@@ -137,7 +159,7 @@
       socket?.off('connect', reconnect); socket?.off('disconnect', disconnect);
     };
   });
-  onDestroy(() => { socket?.off('emote:show', onEmote); clearTimeout(emoteTimer); clearTimeout(arrivalTimer); clearTimeout(ratingTimer); socket?.off('game:move-analysis',onAnalysis); });
+  onDestroy(() => { disposed = true; resultTransition?.skipTransition(); socket?.off('emote:show', onEmote); clearTimeout(emoteTimer); clearTimeout(arrivalTimer); clearTimeout(ratingTimer); socket?.off('game:move-analysis',onAnalysis); });
 </script>
 
 {#snippet tools()}
@@ -159,16 +181,16 @@
 <div class="game-screen" style={`--notice-inset:${noticeInset}px`} style:height={viewportHeight ? `${viewportHeight}px` : undefined} style:top={`${viewportTop}px`}>
   {#if resultState}
     <GameResult {view} skin={$appearance.data?.skin?.palette}>
-      {#snippet children(summary, actions, data)}
+      {#snippet children(summary, actions, data, artwork)}
         {#key gameId}<ReplayBoard gameData={data} skin={$appearance.data?.skin?.palette} perspective={myColor} initialPosition="end" review>
           {#snippet children(board, controls, names, hud)}
-            <TableLayout finished bind:focused bind:chatOpen unread={$roomUnreadChat}>
+            <TableLayout finished hasChat={false} bind:focused>
+              <svelte:fragment slot="decoration">{@render artwork()}</svelte:fragment>
               <svelte:fragment slot="toolbar">Game over · Replay</svelte:fragment>
               <svelte:fragment slot="tools">{@render tools()}</svelte:fragment>
               <svelte:fragment slot="board" let:boardSize let:toggleFocus>{@render board(boardSize,toggleFocus)}</svelte:fragment>
               <svelte:fragment slot="summary">{@render summary()}{@render names()}</svelte:fragment>
               <svelte:fragment slot="history">{@render controls()}</svelte:fragment>
-              <svelte:fragment slot="chat" let:visible>{@render chat(visible)}</svelte:fragment>
               <svelte:fragment slot="actions">{@render actions()}</svelte:fragment>
               <svelte:fragment slot="hud">{@render hud()}</svelte:fragment>
             </TableLayout>

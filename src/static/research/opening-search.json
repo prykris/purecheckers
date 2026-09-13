@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-09-11T04:30:35.435Z",
+  "generatedAt": "2026-09-13T14:06:02.316Z",
   "method": "Complete iterative search passes; wall clock disabled for repeatability; all tied best replies recorded without random selection.",
   "settings": {
     "depth": 6,
     "nodeBudget": 150000
   },
   "sourceHashes": {
-    "shared/game.js": "a1cc65c301ea57fa9c59cc94b4da8f901e47faebbc61e5269247a0a2c7128893",
+    "shared/game.js": "5a86af73f0572f64da9046612c76185bf55bab90fd337746e1d4544d50855eeb",
     "shared/botSearch.js": "c8d480498629b89c49fb48aa50aa2b773221cacf4184e20cfb732b8e6da8b4f6",
-    "shared/constants.js": "d28bc3ed065656822907aeb94e1ac3cb8859fbce27508876f3800d073320f83b"
+    "shared/constants.js": "3aebac3515ad47cf24e18922f2e3626176fdef3259a13d722b6089c1de5814e4"
   },
   "rows": [
     {

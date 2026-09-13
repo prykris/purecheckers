@@ -1,4 +1,5 @@
 <script>
+  import PlayerAvatar from './PlayerAvatar.svelte';
   import PlayerLink from './PlayerLink.svelte';
   import CommunityActions from './CommunityActions.svelte';
   import AccountMenu from './AccountMenu.svelte';
@@ -10,15 +11,13 @@
   import { openUpgradeSheet } from '$lib/stores/ui.js';
 
   let { onchat, onranks, chatOpen, ranksOpen } = $props();
-  const initials = $derived(($user?.username || '?').slice(0, 2).toUpperCase());
-  const hue = $derived(($user?.username || '').split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360);
   function profile() { browseTo('profile'); }
   function save() { openUpgradeSheet(); }
 </script>
 
 <header class="player-header">
   <div class="header-row">
-    <button class="avatar" style:--avatar-hue={hue} type="button" onclick={profile} aria-label="Your profile and statistics">{initials}</button>
+    <button class="avatar" type="button" onclick={profile} aria-label="Your profile and statistics"><PlayerAvatar username={$user?.username} size={44}/></button>
     <div class="identity">
       <h2><PlayerLink username={$user?.username} profilePublic={$user?.profilePublic} /></h2>
       <div class="stats">
@@ -40,7 +39,7 @@
 <style>
   .player-header { width: 100%; max-width: 520px; justify-self: center; padding: max(8px, env(safe-area-inset-top)) 16px 0; flex-shrink: 0; }
   .header-row { display: flex; align-items: center; gap: 8px; min-height: 56px; }
-  .avatar { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: 0; background: hsl(var(--avatar-hue) 45% 35%); color: white; font: inherit; font-weight: 700; cursor: pointer; }
+  .avatar { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: 0; background:none; padding:0; color: white; font: inherit; font-weight: 700; cursor: pointer; }
   .identity { min-width: 0; flex: 1; }
   h2 { font-size: .95rem; line-height: 1.3; overflow-wrap: anywhere; }
   h2 :global(a) { text-decoration: none; }

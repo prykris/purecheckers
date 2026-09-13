@@ -3,6 +3,8 @@
   import { api } from '$lib/api.js';
   import { ReadResource } from '$lib/readResource.js';
   import Modal from './Modal.svelte';
+  import PlayerFriendship from './PlayerFriendship.svelte';
+  import RoomInviteButton from './RoomInviteButton.svelte';
   import PlayerPage from './PlayerPage.svelte';
 
   let { username, allowChallenge = false, viewerId = null, onclose } = $props();
@@ -41,7 +43,12 @@
       <div class="feedback" role="status"><p>{view.error}</p><button class="btn btn-dark" onclick={() => resource.refresh()}>Retry</button></div>
     {:else if view.data}
       {#key view.data}
-        <PlayerPage data={view.data} embedded allowChallenge={allowChallenge && view.data.player.id !== viewerId} />
+        <PlayerPage data={view.data} embedded allowChallenge={allowChallenge && view.data.player.id !== viewerId}>
+          {#snippet playerActions(player)}
+            {#if viewerId && player.id !== viewerId && !player.isBot}<PlayerFriendship {player}/>{/if}
+            <RoomInviteButton {player}/>
+          {/snippet}
+        </PlayerPage>
       {/key}
     {/if}
   </div>

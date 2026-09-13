@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import { MAX_INCOMING_CHALLENGES } from '../../shared/challenges.js';
 import { validRoomSettings } from '../../shared/rooms.js';
 import { canStartRoom, resetReadiness, canEditRoomSettings } from './roomRules.js';
 
@@ -55,8 +56,12 @@ export function normalizeRoomState(input, users) {
       !isPrivate || buyIn !== 0 || autoReady || allowSpectators || input.origin !== 'room' ||
       (input.status !== 'CLOSED' && players.some(p => p.userId !== input.hostId && p.userId !== challenge.userId)) ||
       (input.status !== 'CLOSED' && input.hostId === challenge.userId))) throw Error('Invalid challenge room');
+  if (input.invites !== undefined && (!Array.isArray(input.invites) || challenge ||
+      input.invites.length > MAX_INCOMING_CHALLENGES || new Set(input.invites.map(i => i?.userId)).size !== input.invites.length ||
+      input.invites.some(i => !userId(i?.userId) || i.userId === input.hostId || !Number.isSafeInteger(i.expiresAt) || i.expiresAt <= 0))) throw Error('Invalid room invitations');
   return { status: input.status, hostId: input.hostId ?? null,
     ...(challenge ? { challenge: { userId: challenge.userId, expiresAt: challenge.expiresAt } } : {}),
+    ...(input.invites !== undefined ? { invites: input.invites.map(({ userId, expiresAt }) => ({ userId, expiresAt })) } : {}),
     settings: { buyIn, turnTimer, isPrivate, allowSpectators, autoReady }, origin: input.origin,
     players, spectators, startAttempt: attempt ? { key: attempt.key, players: [...attempt.players] } : null, gameId };
 }
@@ -73,6 +78,15 @@ export function assertRoomTransition(before, after, { users, run = null, roomId,
     if (after.settings.buyIn > 0 && after.players.some(p => {
       const user = users.get(p.userId); return user.isGuest || user.isBot || user.coins < after.settings.buyIn;
     })) throw Error('All players must be registered and able to afford the buy-in');
+  }
+  const previousInvites = before.invites ?? [], nextInvites = after.invites ?? [];
+  const added = nextInvites.filter(invite => !previousInvites.some(prior => same(prior, invite)));
+  if (added.length && (command?.payload.type !== 'room:invite' || command.userId !== before.hostId ||
+      before.status !== 'WAITING' || before.players.length !== 1 || before.challenge ||
+      after.status !== 'WAITING' || added.length !== 1 || added[0].userId !== command.payload.data?.userId)) throw Error('Only the waiting host can invite a friend');
+  if (command?.payload.type === 'room:invite-decline') {
+    const expected = { ...before, invites: previousInvites.filter(i => i.userId !== command.userId) };
+    if (!previousInvites.some(i => i.userId === command.userId) || !same(after, expected)) throw Error('Only the recipient can decline their invitation');
   }
   if (!same(before.challenge, after.challenge)) throw Error('Challenge identity is immutable');
   for (const player of after.players) {

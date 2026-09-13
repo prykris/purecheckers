@@ -8,6 +8,7 @@
   import { track } from '$lib/analytics.js';
   import ShareActions from './ShareActions.svelte';
   import ReplayBoard from './ReplayBoard.svelte';
+  import ResultArtwork from './table/ResultArtwork.svelte';
   import { SharePromptView } from '$lib/sharePrompts.js';
   import { gameResultCode, gameEndReason, playerGameResult, gameResultLabel } from '../../../shared/gameResult.js';
 
@@ -108,6 +109,9 @@
   }
 </script>
 
+{#snippet artwork()}
+  <ResultArtwork outcome={spectator ? resultCode === 'DRAW' ? 'draw' : ['RED_WIN','BLACK_WIN'].includes(resultCode) ? 'complete' : 'unknown' : myResult}/>
+{/snippet}
 {#snippet summary()}
   <p class="eyebrow">Game over</p>
   <header class="verdict-row">
@@ -170,7 +174,7 @@
   </div>
 {/snippet}
 {#if children}
-  {@render children(summary, actions, shareData)}
+  {@render children(summary, actions, shareData, artwork)}
 {:else}
   <section class="sheet" aria-label="Game result">
     {@render summary()}

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T04:30:35.571Z",
+  "generatedAt": "2026-09-13T14:06:14.248Z",
   "rules": "Pure Checkers; flying kings; actual engine repetition and no-capture rules",
   "position": ".B....../......../......../..R.R.../......../......../......../........",
   "toMove": "red",
@@ -9,8 +9,8 @@
   "maxHopsAfterFirst": 6,
   "nodes": 1861,
   "sourceHashes": {
-    "shared/game.js": "a1cc65c301ea57fa9c59cc94b4da8f901e47faebbc61e5269247a0a2c7128893",
-    "shared/constants.js": "d28bc3ed065656822907aeb94e1ac3cb8859fbce27508876f3800d073320f83b",
+    "shared/game.js": "5a86af73f0572f64da9046612c76185bf55bab90fd337746e1d4544d50855eeb",
+    "shared/constants.js": "3aebac3515ad47cf24e18922f2e3626176fdef3259a13d722b6089c1de5814e4",
     "shared/notation.js": "2396a3d6ba5e38135d306a28442b0706e81f92823e1c9d44f84d95cb4cd9174d"
   },
   "tree": {

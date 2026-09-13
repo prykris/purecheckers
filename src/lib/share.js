@@ -33,8 +33,8 @@ export function buildShareUrl(url, surface) {
   return link.href;
 }
 
-export async function shareLink({ url, text, title = 'Pure Checkers', surface, copyOnly = false }, navigatorApi = globalThis.navigator) {
-  const link = new URL(buildShareUrl(url, surface));
+export async function shareLink({ url, text, title = 'Pure Checkers', surface, copyOnly = false, attribute = true }, navigatorApi = globalThis.navigator) {
+  const link = new URL(attribute ? buildShareUrl(url, surface) : url);
   const metadata = { content_type: surface, item_id: link.pathname };
   let native = !copyOnly && !!navigatorApi?.share;
   try { if (native && navigatorApi.canShare) native = navigatorApi.canShare({ url: link.href }); } catch { native = false; }
@@ -46,7 +46,7 @@ export async function shareLink({ url, text, title = 'Pure Checkers', surface, c
   try {
     if (!navigatorApi?.clipboard?.writeText) return 'unavailable';
     track('share', { ...metadata, method: 'clipboard' });
-    await navigatorApi.clipboard.writeText(text + '\n' + link.href);
+    await navigatorApi.clipboard.writeText(copyOnly ? link.href : text + '\n' + link.href);
     return 'copied';
   } catch { return 'unavailable'; }
 }

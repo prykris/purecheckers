@@ -5,6 +5,8 @@ export const COMMAND_PHASES = {
   'room:create': ['idle'],
   'challenge:send': ['idle'],
   'challenge:decline': ['idle', 'matchmaking', 'in-room', 'in-game', 'spectating'],
+  'room:invite': ['in-room'],
+  'room:invite-decline': ['idle', 'matchmaking', 'in-room', 'in-game', 'spectating'],
   'room:join': ['idle'],
   'room:leave': ['in-room', 'spectating'],
   'room:ready': ['in-room'],

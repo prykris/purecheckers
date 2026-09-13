@@ -1,4 +1,5 @@
 <script>
+  import FriendList from './FriendList.svelte';
   import PlayerLink from './PlayerLink.svelte';
   import { onMount } from 'svelte';
   import { user, captureSession, isCurrentSession } from '$lib/stores/user.js';
@@ -103,19 +104,15 @@
         {#if view.data && friends.length === 0}
           <p class="empty">No friends yet. Share your code: <strong>{$user?.friendCode}</strong></p>
         {:else}
-          {#each friends as f (f.friendshipId)}
-            <div class="card friend-row">
-              <span class="status-dot" class:online={f.status === 'online'} class:in-game={f.status === 'in-game'}></span>
-              <span class="fname"><PlayerLink username={f.username} profilePublic={f.profilePublic} /></span>
-              <span class="felo">ELO {f.elo}</span>
-              <span class="fstatus">{f.status}</span>
+          <FriendList {friends}>
+            {#snippet children(f)}
               <div class="tip-row">
                 <input aria-label={`Coins to tip ${f.username}`} class="input tip-input" type="number" min="1" step="1" disabled={unavailable} placeholder="Tip" bind:value={tipAmounts[f.id]} />
                 <button class="btn btn-dark btn-small" disabled={unavailable} on:click={() => tip(f.id)}>Tip</button>
               </div>
               <button class="remove-btn" aria-label={`Remove ${f.username} from friends`} disabled={unavailable} on:click={() => client.act('remove', { friendshipId: f.friendshipId, displayName: f.username })}>Remove</button>
-            </div>
-          {/each}
+            {/snippet}
+          </FriendList>
         {/if}
       </section>
     </div>
@@ -137,9 +134,6 @@
   .pending, .friend-list { display: flex; flex-direction: column; gap: var(--sp-sm); }
 
   .friend-row { display: flex; align-items: center; gap: var(--sp-sm); padding: var(--sp-sm) var(--sp-md); flex-wrap: wrap; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; flex-shrink: 0; }
-  .status-dot.online { background: var(--success); }
-  .status-dot.in-game { background: var(--warning); }
   .fname { font-weight: 600; font-size: var(--fs-body); }
   .felo { font-size: var(--fs-caption); color: var(--text-dim); }
   .fstatus { font-size: var(--fs-caption); color: var(--text-dim); margin-left: auto; }

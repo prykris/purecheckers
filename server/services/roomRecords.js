@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import { canReceiveRoomInvite } from '../../shared/roomInvitations.js';
 import { JOIN_CODE_PATTERN } from '../../shared/rooms.js';
 import { ROOM_STATE_VERSION, normalizeRoomState, assertRoomTransition, roomClaims, splitRoomState, roomAfterAbortedStart } from '../domain/roomState.js';
 import { gameplayOwner, inGameplayTransaction } from './gameplayOwnership.js';
@@ -7,6 +8,16 @@ import { assertActiveAccount } from './accounts.js';
 import { appendSessionNotice } from './sessionNotices.js';
 import { roomDepartureNotices } from '../domain/roomRules.js';
 import { MAX_INCOMING_CHALLENGES } from '../../shared/challenges.js';
+
+async function incomingInvitationCount(tx, userId, now = Date.now()) {
+  const rooms = await tx.roomRecord.findMany({ where: { status: 'WAITING', OR: [
+    { state: { path: ['challenge', 'userId'], equals: userId } },
+    { state: { path: ['invites'], array_contains: [{ userId }] } }
+  ] }, select: { state: true } });
+  return rooms.filter(({ state }) => state.players.length === 1 && (
+    (state.challenge?.userId === userId && state.challenge.expiresAt > now) ||
+    state.invites?.some(i => i.userId === userId && i.expiresAt > now))).length;
+}
 
 export class RoomRevisionConflict extends Error {}
 export class RoomMembershipConflict extends Error {}
@@ -86,8 +97,7 @@ export function createRoomRecord({ creatorId, key, joinCode, settings, origin = 
       if (target.isBot || target.isGuest || !target.profilePublic || target.id === creatorId) throw Error('Player cannot receive a challenge');
       // Ordered account locks serialize senders to this recipient. The target is
       // not given a membership claim until their normal room:join commits.
-      const incoming = await tx.roomRecord.findMany({ where: { status: 'WAITING', state: { path: ['challenge', 'userId'], equals: target.id } }, select: { state: true } });
-      if (incoming.filter(row => row.state.players.length === 1 && row.state.challenge.expiresAt > Date.now()).length >= MAX_INCOMING_CHALLENGES) throw Error('Player has too many pending challenges');
+      if (await incomingInvitationCount(tx, target.id) >= MAX_INCOMING_CHALLENGES) throw Error('Player has too many pending challenges');
     }
     const state = normalizeRoomState({ status: 'WAITING', hostId: creatorId, settings, origin, players, spectators: [], ...(challenge ? { challenge } : {}) }, users);
     const room = await tx.roomRecord.create({ data: { creatorId, creationKey: key, creation, joinCode, ...splitRoomState(state) } });
@@ -98,7 +108,7 @@ export function createRoomRecord({ creatorId, key, joinCode, settings, origin = 
   });
 }
 
-export function commitRoomRecord({ roomId, expectedRevision, command = null, departure = null }, reduce, transaction = null, owner = gameplayOwner()) {
+export function commitRoomRecord({ roomId, expectedRevision, command = null, departure = null }, reduce, transaction = null, owner = gameplayOwner(), guard = () => {}) {
   roomId = roomRecordId(roomId);
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 ||
       (command && (!Number.isSafeInteger(command.userId) || command.userId <= 0 || !validKey(command.key) || !command.payload))) throw Error('Invalid room command');
@@ -111,6 +121,7 @@ export function commitRoomRecord({ roomId, expectedRevision, command = null, dep
         return { room, duplicate: true, commandRevision: receipt.revision };
       }
     }
+    guard();
     if (room.revision !== expectedRevision) throw new RoomRevisionConflict('Room changed; reload its accepted state');
     const before = { status: room.status, ...structuredClone(room.state) };
     const draft = structuredClone(before);
@@ -119,20 +130,35 @@ export function commitRoomRecord({ roomId, expectedRevision, command = null, dep
     // Room -> game identity -> ordered accounts is shared with game creation.
     const keys = [...new Set([before.startAttempt?.key, draft.startAttempt?.key].filter(Boolean))].sort();
     for (const key of keys) await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'game-settlement:' + key}, 0))`;
-    const users = await readUsers(tx, [...idsIn(before), ...idsIn(draft)]);
+    const inviting = command?.payload.type === 'room:invite';
+    const targetId = inviting ? command.payload.data?.userId : null;
+    const users = await readUsers(tx, [...idsIn(before), ...idsIn(draft), ...(inviting ? [targetId] : [])]);
     if (!isDeepStrictEqual(normalizeRoomState(before, users), before)) throw Error('Noncanonical room state requires review');
+    guard();
     const next = normalizeRoomState(draft, users);
     const key = before.startAttempt?.key ?? next.startAttempt?.key;
     const run = key ? await tx.gameRun.findUnique({ where: { key } }) : null;
     assertRoomTransition(before, next, { users, run, roomId, command });
     if (command && ![...idsIn(before), ...idsIn(next)].includes(command.userId) &&
+        !(command.payload.type === 'room:invite-decline' && before.invites?.some(i => i.userId === command.userId)) &&
         !(command.payload.type === 'challenge:decline' && command.userId === before.challenge?.userId && before.status === 'WAITING' && before.players.length === 1 && next.status === 'CLOSED')) throw Error('Room command actor is not a member');
+    if (inviting) {
+      const target = users.get(targetId); assertActiveAccount(target);
+      if (target.isBot || targetId === before.hostId) throw Error('Choose a friend to invite');
+      const friendship = await tx.friendship.findFirst({ where: { status: 'ACCEPTED', OR: [
+        { requesterId: before.hostId, receiverId: targetId }, { requesterId: targetId, receiverId: before.hostId }
+      ] } });
+      if (!canReceiveRoomInvite(target, before.hostId, !!friendship)) throw Error('This player cannot receive a room invitation');
+      if (!before.invites?.some(i => i.userId === targetId && i.expiresAt > Date.now()) &&
+          await incomingInvitationCount(tx, targetId) >= MAX_INCOMING_CHALLENGES) throw Error('Friend has too many pending invitations');
+    }
     await saveClaims(tx, room, next, users, before);
     const saved = await tx.roomRecord.update({ where: { id: roomId }, data: { ...splitRoomState(next), revision: { increment: 1 } } });
     for (const notice of roomDepartureNotices(before, next, users, departure)) {
       await appendSessionNotice(tx, { ...notice, effectKey: `room:${roomId}:${saved.revision}`, context: { roomId: Number(roomId) } });
     }
     if (command) await tx.roomCommandReceipt.create({ data: { roomId, userId: command.userId, key: command.key, payload: command.payload, revision: saved.revision } });
+    guard();
     return { room: saved, duplicate: false, commandRevision: saved.revision };
   });
 }

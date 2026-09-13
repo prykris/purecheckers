@@ -4,7 +4,7 @@
   import ShareActions from './ShareActions.svelte';
   import GameHistory from './GameHistory.svelte';
 
-  let { data, embedded = false, allowChallenge = true } = $props();
+  let { data, embedded = false, allowChallenge = true, playerActions } = $props();
   // svelte-ignore state_referenced_locally
   const { player, games, activity, indexable } = data;
 
@@ -112,6 +112,7 @@
     </div>
   </div>
 
+  {#if playerActions}<div class="player-actions">{@render playerActions(player)}</div>{/if}
   <div class="profile-sharing"><ShareActions surface="profile" url={profileUrl} data={player} label="Share profile" /></div>
   <div class="stats-grid">
     <div class="stat-card">
@@ -176,6 +177,8 @@
 </section>
 
 <style>
+  .player-actions:empty { display:none; margin:0; }
+  .player-actions { display:flex; flex-wrap:wrap; align-items:center; gap:var(--sp-sm); justify-content:center; margin-bottom:var(--sp-md); }
   .breadcrumb { display: flex; align-items: center; gap: var(--sp-xs); font-size: var(--fs-caption); margin-bottom: var(--sp-md); }
   .breadcrumb a { color: var(--text-dim); text-decoration: none; }
   .breadcrumb a:hover { color: var(--accent); }

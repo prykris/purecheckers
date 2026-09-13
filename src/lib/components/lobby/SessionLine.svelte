@@ -1,4 +1,5 @@
 <script>
+  import RoomActivity from '../RoomActivity.svelte';
   import { phase } from '$lib/stores/app.js';
   import { openSession } from '$lib/stores/navigation.js';
 
@@ -9,10 +10,14 @@
   const label = $derived(searching ? 'Open search' : 'Open room');
 </script>
 
+{#if !searching}
+  <RoomActivity/>
+{:else}
 <div class="session-line" role="status">
   <span class="session-text">{text}</span>
   <button type="button" class="btn btn-dark btn-small" onclick={() => openSession()}>{label}</button>
 </div>
+{/if}
 
 <style>
   .session-line {

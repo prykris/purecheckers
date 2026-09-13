@@ -1,10 +1,10 @@
 <script>
   import { locale } from '$lib/stores/locale.js';
   import { siteText } from '$lib/siteCopy.js';
-  let { docked = false, onchat, onranks, chatOpen = false, ranksOpen = false } = $props();
+  let { onchat, onranks, chatOpen = false, ranksOpen = false } = $props();
 </script>
 
-<div class="community-actions" class:docked>
+<div class="community-actions">
   <button type="button" onclick={onchat} aria-label="Open global chat" aria-haspopup="dialog" aria-expanded={chatOpen} title="Global chat">
     <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
     <span>{siteText('Chat', $locale)}</span>
@@ -22,7 +22,4 @@
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
   span { font-size: .6rem; }
-  .docked button { position: fixed; top: 50%; transform: translateY(-50%); z-index: 55; background: var(--surface); border: 1px solid var(--surface2); }
-  .docked button:first-child { left: 0; border-radius: 0 8px 8px 0; }
-  .docked button:last-child { right: 0; border-radius: 8px 0 0 8px; }
 </style>

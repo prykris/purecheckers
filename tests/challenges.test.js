@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import prisma from '../server/db.js';
 import { startGameplayOwnership } from '../server/services/gameplayOwnership.js';
-import { createRoomActions, gameRooms, stopRoomRuntime, expireChallenge, sanitizeRoom } from '../server/domain/rooms.js';
+import { createRoomActions, gameRooms, stopRoomRuntime, expireChallenge, expireRoomInvites, sanitizeRoom } from '../server/domain/rooms.js';
 import { getOrCreateSession, getSession, removeSession } from '../server/domain/sessions.js';
 import { restoreRooms } from '../server/domain/roomRestoration.js';
 import { challengeInvitations } from '../shared/challenges.js';
@@ -26,6 +26,7 @@ afterEach(async () => {
   vi.restoreAllMocks();
   await stopRoomRuntime(); gameRooms.clear(); users.forEach(user => removeSession(user.id));
   await prisma.roomRecord.deleteMany();
+  await prisma.friendship.deleteMany({ where: { requesterId: { in: users.map(user => user.id) } } });
   await prisma.user.deleteMany({ where: { id: { in: users.map(user => user.id) } } });
 });
 
@@ -101,4 +102,92 @@ it('rejects self, private, guest and bot targets without creating a room', async
     await expect(send()).rejects.toThrow('cannot receive');
   }
   expect(gameRooms.size).toBe(0);
+});
+
+async function openFriendRoom() {
+  const data = { isPrivate: true, turnTimer: 30, buyIn: 0, allowSpectators: true };
+  await createRoomActions(actor(users[0]))['room:create'](data, command('room:create', data));
+  await prisma.friendship.create({ data: { requesterId: users[0].id, receiverId: users[1].id, status: 'ACCEPTED' } });
+  return [...gameRooms.values()].find(room => room.hostId === users[0].id);
+}
+async function inviteFriend(room, user = users[1], request) {
+  const data = { roomId: room.id, userId: user.id };
+  await createRoomActions(actor(users[0]))['room:invite'](data, request ?? command('room:invite', data));
+}
+it('invites into the existing room without changing its settings, reserving a seat or extending a repeated invitation', async () => {
+  const room = await openFriendRoom(), settings = structuredClone(room.settings);
+  const data = { roomId: room.id, userId: users[1].id }, request = command('room:invite', data);
+  await inviteFriend(room, users[1], request);
+  const deadline = invitations(users[1].id)[0].expiresAt;
+  await inviteFriend(room, users[1], request);
+  await inviteFriend(room);
+  expect(gameRooms.size).toBe(1);
+  expect(room.settings).toEqual(settings);
+  expect(invitations(users[1].id)).toMatchObject([{ roomId: room.id, kind: 'room', expiresAt: deadline, turnTimer: 30 }]);
+  expect(invitations(users[2].id)).toEqual([]);
+  expect(await prisma.activeRoomMember.findUnique({ where: { userId: users[1].id } })).toBeNull();
+  await createRoomActions(actor(users[1]))['room:join']({ code: room.joinCode });
+  expect(getSession(users[1].id).roomId).toBe(room.id);
+  expect(room.invites).toEqual([]);
+  expect(room.players.every(p => !p.ready)).toBe(true);
+});
+it('declines only the recipient invitation and keeps the host room available', async () => {
+  const room = await openFriendRoom(); await inviteFriend(room);
+  const data = { roomId: room.id };
+  await expect(createRoomActions(actor(users[2]))['room:invite-decline'](data, command('room:invite-decline', data))).rejects.toThrow('Invitation');
+  const request = command('room:invite-decline', data);
+  await createRoomActions(actor(users[1]))['room:invite-decline'](data, request);
+  await createRoomActions(actor(users[1]))['room:invite-decline'](data, request);
+  expect(room.status).toBe('waiting');
+  expect(getSession(users[0].id).roomId).toBe(room.id);
+  expect(invitations(users[1].id)).toEqual([]);
+});
+it('restores existing-room invitations after restart and expires them without closing the room', async () => {
+  let room = await openFriendRoom(); await inviteFriend(room);
+  const id = room.id, deadline = invitations(users[1].id)[0].expiresAt;
+  await stopRoomRuntime(); gameRooms.clear(); users.forEach(user => removeSession(user.id));
+  await startGameplayOwnership(); await restoreRooms(); room = gameRooms.get(id);
+  expect(invitations(users[1].id)).toMatchObject([{ roomId: id, expiresAt: deadline }]);
+  vi.spyOn(Date, 'now').mockReturnValue(deadline);
+  await expireRoomInvites(room);
+  expect(invitations(users[1].id)).toEqual([]);
+  expect(room.status).toBe('waiting');
+});
+it('rejects private non-friends; closing the room clears its inbox entry', async () => {
+  const room = await openFriendRoom();
+  await prisma.user.update({ where: { id: users[2].id }, data: { profilePublic: false } });
+  await expect(inviteFriend(room, users[2])).rejects.toThrow('cannot receive');
+  expect(room.invites ?? []).toEqual([]);
+  await inviteFriend(room);
+  await createRoomActions(actor(users[0]))['room:leave']({ roomId: room.id });
+  expect(invitations(users[1].id)).toEqual([]);
+});
+
+it('caps the shared inbox across room invitations and profile challenges', async () => {
+  const room = await openFriendRoom(); await inviteFriend(room);
+  for (const host of users.slice(2, 6)) await send(host, users[1]);
+  await expect(send(users[6], users[1])).rejects.toThrow('too many pending');
+  expect(invitations(users[1].id)).toHaveLength(5);
+});
+it('cannot invite after another player takes the seat', async () => {
+  const room = await openFriendRoom();
+  await createRoomActions(actor(users[2]))['room:join']({ code: room.joinCode });
+  await expect(inviteFriend(room)).rejects.toThrow('open room');
+  expect(invitations(users[1].id)).toEqual([]);
+});
+
+it('accepts an eligible public profile invitation into the same room without requiring friendship', async () => {
+  const room = await openFriendRoom();
+  await inviteFriend(room, users[2]);
+  expect(invitations(users[2].id)).toMatchObject([{ roomId: room.id, kind: 'room' }]);
+  await createRoomActions(actor(users[2]))['room:join']({ code: room.joinCode });
+  expect(getSession(users[2].id).roomId).toBe(room.id);
+  expect(room.players).toHaveLength(2);
+});
+it('does not allow guest or bot strangers to receive profile invitations', async () => {
+  const room = await openFriendRoom();
+  await prisma.user.update({ where: { id: users[2].id }, data: { isGuest: true } });
+  await expect(inviteFriend(room, users[2])).rejects.toThrow('cannot receive');
+  await prisma.user.update({ where: { id: users[2].id }, data: { isGuest: false, isBot: true } });
+  await expect(inviteFriend(room, users[2])).rejects.toThrow('Choose a friend');
 });

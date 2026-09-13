@@ -1,5 +1,4 @@
-import QRCode from 'qrcode';
-import { SITE_URL } from '../config.js';
+import { roomQrCode } from '../services/roomQr.js';
 import { inGameplayTransaction, gameplayOwner } from '../services/gameplayOwnership.js';
 import { runGameplayWork, retryGameplayRecovery } from '../services/gameplayWork.js';
 import { commitRoomRecord, createRoomRecord, readRoomCreation, assertRoomCreationIdentity } from '../services/roomRecords.js';
@@ -19,7 +18,7 @@ export async function projectRoomRecord(record, prior = null, owner = gameplayOw
   const byId = new Map(users.map(user => [user.id, user]));
   let qrDataUrl = prior?.joinCode === record.joinCode ? prior.qrDataUrl : null;
   if (!prior || prior.joinCode !== record.joinCode) {
-    try { qrDataUrl = await QRCode.toDataURL(`${SITE_URL}/invite/${record.joinCode}`, { width: 200, margin: 1 }); } catch {}
+    try { qrDataUrl = await roomQrCode(record.joinCode); } catch {}
   }
   const member = p => {
     const user = byId.get(p.userId);
@@ -79,7 +78,9 @@ export async function acceptRoomRecord(room, record, work, options = {}) {
   if (room.runtimeStopped) throw Error('Room runtime stopped');
   if (record.revision < room.revision) return room;
   const previous = [...room.players, ...room.spectators];
+  const priorInvites = room.invites ?? [];
   Object.assign(room, projected);
+  for (const invite of priorInvites) if (!room.invites?.some(i => i.userId === invite.userId)) publishUser(invite.userId);
   applyRoomSessions(room, previous, options);
   return room;
 }
@@ -88,9 +89,10 @@ export async function writeRoomRecord(room, work, reduce, { command = null, guar
   work.assertCurrent();
   const input = { roomId: room.id, expectedRevision: room.revision, command,
     departure: removedUserId === null ? null : { userId: removedUserId, reason: removedReason } };
-  const apply = draft => { work.assertCurrent(); if (!guard()) throw Error('Room context changed'); reduce(draft); };
+  const assertContext = () => { work.assertCurrent(); if (!guard()) throw Error('Room context changed'); };
+  const apply = draft => { assertContext(); reduce(draft); };
   let saved;
-  try { saved = await commitRoomRecord(input, apply, null, work.owner); }
+  try { saved = await commitRoomRecord(input, apply, null, work.owner, assertContext); }
   catch (error) {
     // Retrying the same receipt identity confirms a lost commit response. System
     // transitions without a receipt refresh state but never rerun their reducer.

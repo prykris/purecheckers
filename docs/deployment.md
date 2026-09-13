@@ -1,6 +1,8 @@
 # Deployment
 
-Current release, production evidence and ordered rollout: [11 September production release](releases/2026-09-11.md). The completed release record supersedes historical implementation-pass statements below that production migration or replacement remained pending.
+Board and room release preparation: [13 September release](releases/2026-09-13.md).
+
+Previous production evidence and ordered rollout: [11 September production release](releases/2026-09-11.md). The completed release record supersedes historical implementation-pass statements below that production migration or replacement remained pending.
 
 The [11 September owner decisions](growth/owner-decisions.md) set a $10/month total hosting budget, owner monitoring and a separate 02:00 UTC puzzle publisher. Publisher settings are applied directly to the separate service as recorded in [puzzle operations](puzzle-operations.md); Railway rejected the legacy JSON configuration path. Keep web and database in the same region (`us-west2` in this release) to avoid interactive-transaction timeouts from repeated cross-region queries. Profile challenges use the existing room JSON records and theme reset uses the existing equipment receipts; these changes require no new migration. Deploy server/client together and reload old tabs. Do not roll back to code that discards challenge fields while challenge rooms exist; drain/close those rooms first.
 

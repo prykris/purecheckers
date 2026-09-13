@@ -10,7 +10,8 @@
 <dialog class="dialog" style:--modal-width={maxWidth} aria-label={label} use:modal={{ busy, onclose: () => dispatch('close') }}><slot /></dialog>
 
 <style>
-  .dialog { margin: auto; padding: 0; border: 0; background: transparent; color: var(--text); width: min(var(--modal-width), calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; border-radius: var(--radius-md); }
+  .dialog { margin: auto; padding: 0; border: 0; background: var(--surface); color: var(--text); width: min(var(--modal-width), calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; border-radius: var(--radius-md); }
+  /* The shell owns its surface; callers only supply their content layout. */
   .dialog::backdrop { background: rgba(0,0,0,0.6); }
   .dialog[open] { animation: appear 150ms ease-out; }
   @keyframes appear { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
