@@ -5,14 +5,14 @@ import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-let GameResult, state;
+let GameResult, state, PlayerLink;
 beforeAll(async () => {
   const output = resolve(root, 'node_modules/.cache/result-sheet-test');
   const fixture = pathToFileURL(resolve(output, 'state.js')).href;
   mkdirSync(output, { recursive: true });
   writeFileSync(resolve(output, 'state.js'), readFileSync(resolve(root, 'tests/fixtures/resultSheetState.js'), 'utf8'));
   state = await import(fixture);
-  for (const name of ['GameResult', 'ShareActions', 'ReplayBoard', 'PlayerLink', 'GameBoard', 'BoardView', 'table/TableIcon', 'table/ResultArtwork']) {
+  for (const name of ['GameResult', 'ShareActions', 'ReplayBoard', 'PlayerLink', 'AdminBadge', 'GameBoard', 'BoardView', 'table/TableIcon', 'table/ResultArtwork']) {
     const source = resolve(root, `src/lib/components/${name}.svelte`);
     const { js } = compile(readFileSync(source, 'utf8'), { generate: 'server', filename: source });
     const code = js.code.replace(/from (['"])([^'"]+)\1/g, (match, quote, specifier) => {
@@ -24,6 +24,7 @@ beforeAll(async () => {
     });
     writeFileSync(resolve(output, `${basename(name)}.js`), code);
   }
+  PlayerLink = (await import(pathToFileURL(resolve(output, 'PlayerLink.js')).href)).default;
   GameResult = (await import(pathToFileURL(resolve(output, 'GameResult.js')).href)).default;
 });
 
@@ -96,4 +97,12 @@ it('gives spectators a neutral result and sharing/leave actions without player r
   expect(buttons(body).some(b=>/Rematch|Save account|Play again/.test(b.text))).toBe(false);
   expect(buttons(body).some(b=>b.text==='Lobby')).toBe(true);
   expect(body).toContain('Share result');
+});
+
+it('renders the shared administrator identity marker without changing the profile destination', () => {
+  const admin = render(PlayerLink, {props:{username:'Administrator',isAdmin:true}}).body;
+  const player = render(PlayerLink, {props:{username:'Player',isAdmin:false}}).body;
+  expect(admin).toContain('aria-label="Administrator"');
+  expect(admin).toContain('href="/player/Administrator"');
+  expect(player).not.toContain('aria-label="Administrator"');
 });

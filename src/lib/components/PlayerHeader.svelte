@@ -19,7 +19,7 @@
   <div class="header-row">
     <button class="avatar" type="button" onclick={profile} aria-label="Your profile and statistics"><PlayerAvatar username={$user?.username} size={44}/></button>
     <div class="identity">
-      <h2><PlayerLink username={$user?.username} profilePublic={$user?.profilePublic} /></h2>
+      <h2><PlayerLink username={$user?.username} isAdmin={$user?.isAdmin} profilePublic={$user?.profilePublic} /></h2>
       <div class="stats">
         <span title="Your rating">{$user?.elo ?? 1000} <small>ELO</small></span>
         <span class="coins" aria-label={`${$user?.coins ?? 0} coins`}>

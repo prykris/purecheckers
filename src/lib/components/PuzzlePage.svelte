@@ -1,4 +1,5 @@
 <script>
+  import AdminContextButton from './admin/AdminContextButton.svelte';
   import GameEntryLink from '$lib/components/GameEntryLink.svelte';
   import PlayerLink from './PlayerLink.svelte';
   import { onMount } from 'svelte';
@@ -32,6 +33,7 @@
 <JsonLd data={webPage} />
 <PublicIndex {title} {path} {description} parents={data.hub ? [] : [{ name: 'Daily Puzzle', path: '/puzzle' }]} breadcrumbLabel={data.hub ? 'Daily Puzzle' : formatDate(data.puzzle.date)}>
   {#if data.puzzle}
+    <AdminContextButton section="puzzles" id={data.puzzle.date} label="Puzzle tools"/>
     <p class="rules"><time datetime={data.puzzle.date}>{formatDate(data.puzzle.date)}</time> (UTC) · <a href="/strategy/checkers-rules">House rules: backward captures and flying kings</a></p>
     {#key data.puzzle.date}<PuzzleBoard puzzle={data.puzzle} archived={data.archived} />{/key}
     <nav class="dates" aria-label="Puzzle dates">

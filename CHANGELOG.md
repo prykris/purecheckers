@@ -2,7 +2,11 @@
 
 All notable changes to Pure Checkers.
 
-## Unreleased
+## 2026-09-15
+
+- Added a responsive administration workspace with player search/filter/sort, live room/game inspection, shared saved replays, puzzle availability and verification details, coin ledger and audit history. Administrator-only reads enforce current server permissions and exclude credentials.
+- Administrators continue playing normally with a shared shield marker beside their name and a role label on profiles. Contextual tools in profiles, rooms, games and puzzles reuse the same inspectors without leaving play.
+- Existing coin, rating, statistics and role changes now share review-and-confirm forms with reasons and recoverable pending actions; the F2 developer panel links to administration instead of maintaining duplicate forms.
 
 ## 2026-09-13
 

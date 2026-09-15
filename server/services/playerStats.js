@@ -1,7 +1,7 @@
 import { isPublicProfile } from './publicName.js';
 
 export const publicPlayerSelect = { id: true, username: true, elo: true, peakElo: true, wins: true, losses: true,
-  gamesPlayed: true, isGuest: true, isBot: true, profilePublic: true, guestExpiresAt: true, guestRetiredAt: true, createdAt: true, updatedAt: true };
+  gamesPlayed: true, isAdmin: true, isGuest: true, isBot: true, profilePublic: true, guestExpiresAt: true, guestRetiredAt: true, createdAt: true, updatedAt: true };
 
 export async function findPublicPlayer(db, username, now = new Date()) {
   const player = await db.user.findUnique({ where: { username }, select: publicPlayerSelect });

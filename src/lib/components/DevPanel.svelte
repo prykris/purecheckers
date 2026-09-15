@@ -3,7 +3,7 @@
   import { gameScreen } from '$lib/stores/navigation.js';
   import { user } from '$lib/stores/user.js';
   import { getSocket } from '$lib/socket.js';
-  import { adminState, initializeAdminActions, performAdminAction, retryAdminAction } from '$lib/admin/actions.js';
+  import { adminState, initializeAdminActions } from '$lib/admin/actions.js';
   import { onMount, onDestroy } from 'svelte';
 
   let open = false;
@@ -11,17 +11,6 @@
   let socket;
   let copied = false;
 
-  // Admin tools
-  let targetUserId = '';
-  let coinAmount = 100;
-  let eloAmount = 1000;
-  let adminMsg = '';
-  let adminReason = '';
-  let adminIdentity = null;
-  $: if (adminIdentity !== $user?.id) { adminIdentity = $user?.id; adminMsg = ''; targetUserId = ''; adminReason = ''; }
-  $: adminDisabled = $adminState.busy || !!$adminState.pending || $adminState.blocked;
-
-  $: targetId = targetUserId ? Number(targetUserId) : undefined;
   const MAX_EVENTS = 40;
 
   function onKeyDown(e) {
@@ -123,15 +112,6 @@
     });
   }
 
-  async function adminAction(endpoint, body) {
-    adminMsg = '';
-    try {
-      const res = endpoint ? await performAdminAction(endpoint, { ...body, userId: targetId ?? $user.id, reason: adminReason }) : await retryAdminAction();
-      if (res) adminMsg = `Confirmed ${res.kind} for ${res.user.username}.`;
-    } catch (err) {
-      adminMsg = err.message || 'Failed';
-    }
-  }
 </script>
 
 {#if open}
@@ -193,30 +173,7 @@
       <div class="dev-row"><span class="dev-key">id</span><span class="dev-val">{socket?.id?.slice(0,8)}</span></div>
     </div>
 
-    {#if $user?.isAdmin || $adminState.pending}
-      <div class="dev-section">
-        <div class="dev-label">Admin Tools</div>
-        <div class="dev-tool">
-          <input type="text" bind:value={targetUserId} class="dev-input" placeholder="User ID (blank=self)" aria-label="Target user ID (blank for yourself)" disabled={adminDisabled} />
-        </div>
-        <div class="dev-tool"><input type="text" bind:value={adminReason} maxlength="300" class="dev-input" placeholder="Reason (optional)" aria-label="Reason for admin action" disabled={adminDisabled} /></div>
-        <div class="dev-tool">
-          <input type="number" bind:value={coinAmount} class="dev-input" aria-label="Coin adjustment" disabled={adminDisabled} />
-          <button class="dev-btn" disabled={adminDisabled} on:click={() => adminAction('give-coins', { amount: coinAmount })}>Adjust Coins</button>
-        </div>
-        <div class="dev-tool">
-          <input type="number" bind:value={eloAmount} class="dev-input" min="0" max="100000" aria-label="New ELO" disabled={adminDisabled} />
-          <button class="dev-btn" disabled={adminDisabled} on:click={() => adminAction('set-elo', { elo: eloAmount })}>Set ELO</button>
-        </div>
-        <div class="dev-tool">
-          <button class="dev-btn warn" disabled={adminDisabled} on:click={() => adminAction('reset-stats', {})}>Reset Stats</button>
-        </div>
-        <p>Ratings and stats require leaving rooms/results and settling games. Reward history is preserved.</p>
-        {#if $adminState.pending}<p>Pending: {$adminState.pending.kind} for account {$adminState.pending.payload.userId}.</p><button class="dev-btn" disabled={$adminState.busy || $adminState.blocked} on:click={() => adminAction(null)}>{$adminState.busy ? 'Confirming…' : 'Confirm pending action'}</button>{/if}
-        {#if $adminState.error}<div class="dev-msg" role="status">{$adminState.error}</div>{/if}
-        {#if adminMsg}<div class="dev-msg">{adminMsg}</div>{/if}
-      </div>
-    {/if}
+    {#if $user?.isAdmin || $adminState.pending}<div class="dev-section"><a href="/admin">Open administration</a></div>{/if}
 
     <div class="dev-section dev-events">
       <div class="dev-label">Events ({eventLog.length})</div>
@@ -267,22 +224,6 @@
   .dev-key { color: #888; }
   .dev-val { color: #eee; text-align: right; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
   .dev-val.warn { color: #f90; }
-
-  .dev-tool { display: flex; gap: 4px; margin-bottom: 4px; }
-  .dev-input {
-    flex: 1; background: #111; border: 1px solid #333; color: #eee;
-    font-family: monospace; font-size: 11px; padding: 3px 6px;
-    border-radius: 3px; width: 60px;
-  }
-  .dev-btn {
-    background: #222; border: 1px solid #444; color: #0f0;
-    font-family: monospace; font-size: 10px; padding: 3px 8px;
-    cursor: pointer; border-radius: 3px; white-space: nowrap;
-  }
-  .dev-btn:hover { background: #333; }
-  .dev-btn.warn { color: #f44; border-color: #633; }
-  .dev-btn.warn:hover { background: #311; }
-  .dev-msg { font-size: 9px; color: #0f0; padding: 2px 0; word-break: break-all; }
 
   .dev-events { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .dev-event-list {

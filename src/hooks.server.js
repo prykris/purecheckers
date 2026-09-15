@@ -14,7 +14,7 @@ export async function handle({ event, resolve }) {
   // The SPA under src/routes/(app) renders an empty shell to crawlers; keep it
   // out of the index. route.id is null for static assets and unmatched URLs.
   const routeId = event.route?.id;
-  if (typeof routeId === 'string' && (routeId.startsWith('/(app)') || routeId.startsWith('/(account)'))) {
+  if (typeof routeId === 'string' && (routeId.startsWith('/(app)') || routeId.startsWith('/(account)') || routeId.startsWith('/(admin)'))) {
     response.headers.set('X-Robots-Tag', 'noindex');
   }
   return response;

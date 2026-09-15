@@ -1,4 +1,5 @@
 <script>
+  import AdminBadge from './AdminBadge.svelte';
   import { onMount } from 'svelte';
   let mounted = $state(false);
   onMount(() => mounted = true);
@@ -18,7 +19,7 @@
 
 <div class="site-account" aria-label={siteText('Your account', lang)}>
   {#if $user}
-    <a class="identity" href="/profile" onclick={event => { if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); goto('/profile', { state: { returnTo: destination } }); } }}>{$user.username}</a>
+    <a class="identity" href="/profile" onclick={event => { if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); goto('/profile', { state: { returnTo: destination } }); } }}>{$user.username} <AdminBadge isAdmin={$user.isAdmin}/></a>
     <span class="rating">{$user.elo} ELO · {$user.coins ?? 0} {lang === 'es' ? 'monedas' : 'coins'}</span>
     <GameEntryLink language={lang} class="resume-link" />
     <div class="account-links guest-save">

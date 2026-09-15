@@ -55,7 +55,7 @@
       <div class="avatar" style="background: hsl({avatarHue}, 45%, 35%)">
         <span>{initials}</span>
       </div>
-      <h2 class="username"><PlayerLink username={$user?.username} profilePublic={$user?.profilePublic} /></h2>
+      <h2 class="username"><PlayerLink username={$user?.username} isAdmin={$user?.isAdmin} profilePublic={$user?.profilePublic} /></h2>
       {#if $user?.isGuest}
         <span class="guest-tag">Guest</span>
       {:else if memberSince}

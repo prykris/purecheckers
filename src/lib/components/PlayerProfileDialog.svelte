@@ -2,6 +2,7 @@
   import { onDestroy, tick } from 'svelte';
   import { api } from '$lib/api.js';
   import { ReadResource } from '$lib/readResource.js';
+  import AdminContextButton from './admin/AdminContextButton.svelte';
   import Modal from './Modal.svelte';
   import PlayerFriendship from './PlayerFriendship.svelte';
   import RoomInviteButton from './RoomInviteButton.svelte';
@@ -46,7 +47,7 @@
         <PlayerPage data={view.data} embedded allowChallenge={allowChallenge && view.data.player.id !== viewerId}>
           {#snippet playerActions(player)}
             {#if viewerId && player.id !== viewerId && !player.isBot}<PlayerFriendship {player}/>{/if}
-            <RoomInviteButton {player}/>
+            <RoomInviteButton {player}/><AdminContextButton section="players" id={player.id} label="Admin actions"/>
           {/snippet}
         </PlayerPage>
       {/key}

@@ -1,6 +1,6 @@
 # Administrative actions
 
-Implemented locally on 11 September 2026. Production migration and browser acceptance remain pending.
+The action service and its migration shipped with the 11 September release. The dedicated admin workspace and contextual inspectors are included in the 15 September release, with no additional migration.
 
 ## Ownership and transaction contract
 
@@ -23,7 +23,7 @@ Confirmation refreshes the current signed-in account rather than assigning the o
 
 The later [profile-state contract](profile-state.md) also orders those refresh responses by the User row's transactional revision. A late read cannot undo a newer balance or permission update. Focus and socket recovery request current profiles; immediate remote invalidation remains separate work.
 
-Session storage is per tab, not an account-wide or cross-device outbox. Unreadable saved state blocks new actions; a storage failure before sending prevents execution. Lost responses and server failures retain the intent. Explicit client rejection clears it. Closing a tab can lose its local pending record; server receipts remain. There is no audit-history UI yet.
+Session storage is per tab, not an account-wide or cross-device outbox. Unreadable saved state blocks new actions; a storage failure before sending prevents execution. Lost responses and server failures retain the intent. Explicit client rejection clears it. Closing a tab can lose its local pending record; server receipts remain available in the Administration activity view.
 
 ## Rollout and verification
 
@@ -33,6 +33,24 @@ Automated coverage includes concurrent duplicates, changed payloads, rollback, u
 
 Manual checks in a test environment:
 
-1. In the F2 admin panel, adjust a test account by a small positive and negative amount. Confirm each once and verify its balance and ledger.
+1. In Administration or a player's contextual admin tools, adjust a test account by a small positive and negative amount. Confirm each once and verify its balance and ledger.
 2. Interrupt an adjustment response, reload the same tab and select **Confirm pending action**. The original amount/target must remain and the adjustment must occur once.
 3. Try changing a rating while the target is in a room or viewing a result. It must be rejected; leave/dismiss and retry. Reset statistics and confirm historical peak and earned rewards remain unchanged.
+
+## Administration workspace (15 September)
+
+`/admin` provides overview, players, live games/rooms, saved replays, puzzles, economy and activity sections. The account menu exposes it to administrators. Mobile shows one record at a time with a Back to list control; desktop adds persistent navigation and a list/detail split from 1100 CSS pixels. Queries, player filters, sort, pagination and record selection are URL state. The document remains viewport height with the content area scrolling. Admin routes send noindex; API reads send no-store.
+
+`AdminResource` owns scoped reads through the existing ReadResource class. Account replacement or loss of administrator status clears the view and prevents a late response being displayed. Every read endpoint also checks current account authority in the database. New reads never return password hashes, friend codes or session credentials. Player search is bounded to 25 records; player email and private account details are administrator-only.
+
+`AdminPlayerActions` is shared between the workspace and contextual inspectors. It delegates to the original action journal and transactional write service. A reason and a review showing the exact target and intended change precede a write. Pending actions retain their original identity and the shared confirmation control works after self-revocation. F2 now links to the workspace instead of duplicating the forms.
+
+Admins remain normal players. No gameplay admission, matchmaking, readiness, rating or turn rules change based on the new UI. PlayerLink uses a shared shield marker; public profile responses include the role. Older name-only projections use one batched role lookup (maximum 50 visible names per request, 60-second cache). That cache communicates a role and never authorizes an action. Profiles name the Administrator role explicitly.
+
+The same AdminInspector opens from player profiles, live/result game toolbars, waiting rooms and daily puzzles using the existing Modal. Opening an inspector does not navigate away or pause the current game. Game inspection uses durable run IDs; saved replay inspection uses saved game IDs. Puzzle tools show the shared canvas renderer, calendar availability, stored verification depth/provenance and publishing/rejection status; they do not claim to have run a fresh engine search. Background generation remains the existing external publisher, not a long-running web request.
+
+The operational surface is deliberately built on existing capabilities: it does not add bans, forced game results, remote shell commands or direct puzzle edits. Any such future controls need explicit semantics and the same authority/audit contracts.
+
+Local acceptance: 122 tests across ten targeted regression files passed, including authorization, permission revocation, admin writes/recovery, profile versions, room records, navigation and SEO. The six admin-read tests also passed after adding invalid calendar-date detail coverage. `npm run build` passed with the development server stopped to release Windows' Prisma engine lock.
+
+Browser checks covered 320px mobile and desktop list/detail layouts, normal bot play by an administrator, profile/room/game/puzzle inspectors without route changes, persistence across account refresh, saved replay stepping, and a single confirmed +5 coin adjustment with matching balance, ledger and immutable audit receipt. These checks used local test accounts. Production deployment must additionally verify the admin route, unauthenticated API denial, startup recovery and continued daily puzzle availability.

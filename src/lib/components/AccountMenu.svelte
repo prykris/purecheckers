@@ -1,4 +1,6 @@
 <script>
+  import { adminState } from '$lib/admin/actions.js';
+  import AdminBadge from './AdminBadge.svelte';
   import Modal from './Modal.svelte';
   import { user, clearSession } from '$lib/stores/user.js';
   import { locale, setLocale } from '$lib/stores/locale.js';
@@ -26,8 +28,9 @@
     <div class="account-menu">
       <div class="menu-heading"><h2>{label}</h2><button type="button" onclick={() => accountOpen = false} aria-label="Close account menu">{text('Close')}</button></div>
       {#if $user}
-      <p class="identity">{$user.username} · {$user.elo} ELO · {$user.coins ?? 0} {text('coins')}</p>
+      <p class="identity">{$user.username} <AdminBadge isAdmin={$user.isAdmin}/> · {$user.elo} ELO · {$user.coins ?? 0} {text('coins')}</p>
       <p>{$user?.gamesPlayed ?? 0} {text('games')} · {$user?.wins ?? 0} {text('wins')} · {$user?.losses ?? 0} {text('losses')}</p>
+      {#if $user.isAdmin || $adminState.pending}<a href="/admin">Administration</a>{/if}
       <button type="button" onclick={profile}>{text('Profile & statistics')}</button>
       <button type="button" onclick={() => { accountOpen = false; goto('/treasury', { state: { returnTo: page.url.pathname + page.url.search } }); }}>{text('Treasury')} · {$user?.coins ?? 0} {text('coins')}</button>
       {#if $user?.isGuest}<button type="button" onclick={save}>{text('Save account')}</button><p>{text('Save before logging out to keep access to this guest profile.')}</p>{/if}

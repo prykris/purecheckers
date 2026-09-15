@@ -1,4 +1,5 @@
 <script>
+  import AdminBadge from './AdminBadge.svelte';
   import GameEntryLink from './GameEntryLink.svelte';
   import JsonLd from '$lib/components/JsonLd.svelte';
   import ShareActions from './ShareActions.svelte';
@@ -101,7 +102,7 @@
     <div class="avatar" style="background: hsl({avatarHue}, 45%, 35%)">{initials}</div>
     <div class="header-info">
       <div class="name-row">
-        <h1 class:bot={player.isBot}>{player.username}</h1>
+        <h1 class:bot={player.isBot}>{player.username}</h1><AdminBadge username={player.username} isAdmin={player.isAdmin} label/>
         {#if player.isBot}
           <span class="badge bot" title="AI opponent">Bot</span>
         {:else if player.isGuest}

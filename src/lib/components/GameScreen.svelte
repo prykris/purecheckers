@@ -1,4 +1,5 @@
 <script>
+  import AdminContextButton from './admin/AdminContextButton.svelte';
   import TableLayout from './table/TableLayout.svelte';
   import PlayerSeat from './table/PlayerSeat.svelte';
   import TableSettings from './table/TableSettings.svelte';
@@ -173,7 +174,7 @@
   <RoomChat channelId={gameId ? `game:${gameId}` : null} variant="table" {visible}/>
 {/snippet}
 {#snippet toolbar()}
-  <span>{spectator ? 'Spectating · ' : ''}{game.mode === 'RANKED' ? 'Ranked' : 'Friendly'} · {game.turnTime ? `${game.turnTime}s / turn` : 'No clock'}</span>
+  <span>{spectator ? 'Spectating · ' : ''}{game.mode === 'RANKED' ? 'Ranked' : 'Friendly'} · {game.turnTime ? `${game.turnTime}s / turn` : 'No clock'}</span><AdminContextButton section="live" id={gameId} label="Game tools"/>
 {/snippet}
 {#if reveal.active}
   {#key gameId}<div class="page-center"><ColorReveal color={myColor} {opponentName} acked={reveal.acked} waiting={reveal.waiting} failed={revealFailed} on:done={revealDone}/></div>{/key}
@@ -186,7 +187,7 @@
           {#snippet children(board, controls, names, hud)}
             <TableLayout finished hasChat={false} bind:focused>
               <svelte:fragment slot="decoration">{@render artwork()}</svelte:fragment>
-              <svelte:fragment slot="toolbar">Game over · Replay</svelte:fragment>
+              <svelte:fragment slot="toolbar">Game over · Replay <AdminContextButton section="live" id={gameId} label="Game tools"/></svelte:fragment>
               <svelte:fragment slot="tools">{@render tools()}</svelte:fragment>
               <svelte:fragment slot="board" let:boardSize let:toggleFocus>{@render board(boardSize,toggleFocus)}</svelte:fragment>
               <svelte:fragment slot="summary">{@render summary()}{@render names()}</svelte:fragment>

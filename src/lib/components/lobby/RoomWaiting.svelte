@@ -1,4 +1,5 @@
 <script>
+  import AdminContextButton from '../admin/AdminContextButton.svelte';
   import PlayerAvatar from '../PlayerAvatar.svelte';
   import PlayerLink from '../PlayerLink.svelte';
   import Icon from '../table/TableIcon.svelte';
@@ -74,7 +75,7 @@
   <div class="column">
     <div class="room-heading">
       <button type="button" class="back-btn" onclick={() => minimizeSession()}>Back</button>
-      <h2>Game room</h2>
+      <h2>Game room</h2>{#if room}<AdminContextButton section="rooms" id={room.id} label="Room tools"/>{/if}
       {#if room}<button type="button" class="back-btn leave-btn" onclick={leaveRoom} disabled={!canSend} aria-busy={leaving}>{isHost ? 'Close room' : 'Leave room'}</button>{/if}
     </div>
     {#if updating}<p class="status-line" role="status">Confirming room change…</p>{/if}

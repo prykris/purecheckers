@@ -1,7 +1,8 @@
 <script>
+  import AdminBadge from './AdminBadge.svelte';
   import { getContext } from 'svelte';
   import { PROFILE_VIEWER, profileHref } from '$lib/profileLinks.js';
-  let { username, profileUrl = undefined, profilePublic = true } = $props();
+  let { username, profileUrl = undefined, profilePublic = true, isAdmin = undefined } = $props();
   const openProfile = getContext(PROFILE_VIEWER);
   const href = $derived(profileHref(username, profileUrl, profilePublic));
   function activate(event) {
@@ -12,9 +13,9 @@
 </script>
 
 {#if href}
-  <a {href} onclick={activate} aria-haspopup={openProfile ? 'dialog' : undefined}>{username}</a>
+  <a {href} onclick={activate} aria-haspopup={openProfile ? 'dialog' : undefined}>{username} <AdminBadge {username} {isAdmin}/></a>
 {:else}
-  <span>{username || 'Unknown'}</span>
+  <span>{username || 'Unknown'} <AdminBadge {username} {isAdmin}/></span>
 {/if}
 
 <style>

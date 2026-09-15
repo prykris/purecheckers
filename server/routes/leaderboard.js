@@ -8,6 +8,18 @@ import { gameLogEntry } from '../services/gameLog.js';
 
 const router = Router();
 
+// Role markers are public identity metadata; never expose credentials or account details.
+router.get('/roles', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const names = typeof req.query.names === 'string' ? req.query.names.split('|') : [];
+  if (!names.length || names.length > 50 || names.some(n => !n || n.length > 100)) return res.status(400).json({ error: 'Invalid names' });
+  try {
+    const players = await prisma.user.findMany({ where: { username: { in: names }, isAdmin: true, guestRetiredAt: null,
+      OR: [{ isGuest: false }, { guestExpiresAt: { gt: new Date() } }] }, select: { username: true } });
+    res.json({ administrators: players.map(p => p.username) });
+  } catch { res.status(503).json({ error: 'Roles temporarily unavailable' }); }
+});
+
 // GET /api/leaderboard
 router.get('/', async (req, res) => {
   try {
